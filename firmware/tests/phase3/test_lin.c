@@ -342,13 +342,13 @@ static void test_t3_13_channel_stop_restart(void)
         return;
     }
 
-    /* Stop channel 0 */
+    /* Stop channel 0 (uses INIT mode — immune to LIN bus wake-up noise) */
     sja1124_channel_stop(&s_test_sja, 0);
-    vTaskDelay(pdMS_TO_TICKS(5));
+    vTaskDelay(pdMS_TO_TICKS(10));
 
     uint8_t lstate_stop;
     sja1124_read_lstate(&s_test_sja, 0, &lstate_stop);
-    bool is_sleep = ((lstate_stop & SJA_LSTATE_LINS_MASK) == SJA_LINS_SLEEP);
+    bool is_stopped = ((lstate_stop & SJA_LSTATE_LINS_MASK) == SJA_LINS_INIT);
 
     /* Restart */
     lin_channel_config_t cfg = {0};
@@ -363,8 +363,8 @@ static void test_t3_13_channel_stop_restart(void)
     sja1124_read_lstate(&s_test_sja, 0, &lstate_restart);
     bool is_idle = ((lstate_restart & SJA_LSTATE_LINS_MASK) == SJA_LINS_IDLE);
 
-    uint8_t extra[3] = { lstate_stop, lstate_restart, (is_sleep && is_idle) ? 1 : 0 };
-    report_test(13, (is_sleep && is_idle) ? RESULT_PASS : RESULT_FAIL, extra, 3);
+    uint8_t extra[3] = { lstate_stop, lstate_restart, (is_stopped && is_idle) ? 1 : 0 };
+    report_test(13, (is_stopped && is_idle) ? RESULT_PASS : RESULT_FAIL, extra, 3);
 }
 
 static void test_t3_14_mode_switch(void)

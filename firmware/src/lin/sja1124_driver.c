@@ -205,8 +205,16 @@ sja1124_err_t sja1124_channel_init(sja1124_ctx_t *ctx, uint8_t ch,
 sja1124_err_t sja1124_channel_stop(sja1124_ctx_t *ctx, uint8_t ch)
 {
     if (ch >= LIN_CHANNEL_COUNT) return SJA_ERR_INVALID_PARAM;
-    /* Set SLEEP=1 */
-    return reg_write(ctx, ch_reg(ch, SJA_OFF_LCFG1), SJA_LCFG1_SLEEP);
+
+    /* Read-modify-write to preserve MBL bits while setting INIT.
+     * Use INIT mode (not SLEEP) because SLEEP can be exited by
+     * a wake-up pulse on the LIN bus (floating pins = immediate wake). */
+    uint8_t lcfg1;
+    sja1124_err_t err = reg_read(ctx, ch_reg(ch, SJA_OFF_LCFG1), &lcfg1);
+    if (err != SJA_OK) return err;
+
+    lcfg1 = (lcfg1 & ~SJA_LCFG1_SLEEP) | SJA_LCFG1_INIT;
+    return reg_write(ctx, ch_reg(ch, SJA_OFF_LCFG1), lcfg1);
 }
 
 sja1124_err_t sja1124_frame_tx(sja1124_ctx_t *ctx, uint8_t ch,
