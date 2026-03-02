@@ -49,4 +49,8 @@ endif ()
 
 set(FREERTOS_KERNEL_PATH ${FREERTOS_KERNEL_PATH} CACHE PATH "Path to the FreeRTOS Kernel" FORCE)
 
-include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/library.cmake)
+if (PICO_PLATFORM STREQUAL "rp2350-arm-s")
+    include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2350_ARM_NTZ/library.cmake)
+else()
+    include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/library.cmake)
+endif()

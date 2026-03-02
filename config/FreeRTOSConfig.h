@@ -5,6 +5,11 @@
 /* Use the RP2040/RP2350 port provided by pico-sdk */
 #include "rp2040_config.h"
 
+/* ---- RP2350 ARM Non-TrustZone Port ---- */
+#define configENABLE_FPU                        1
+#define configENABLE_MPU                        0
+#define configENABLE_TRUSTZONE                  0
+
 /* ---- Core Configuration ---- */
 #define configUSE_PREEMPTION                    1
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION 0
@@ -56,6 +61,10 @@
 #define configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY    1
 #define configKERNEL_INTERRUPT_PRIORITY          (configLIBRARY_LOWEST_INTERRUPT_PRIORITY << (8 - configPRIO_BITS))
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY     (configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << (8 - configPRIO_BITS))
+
+/* ---- Assert ---- */
+#define configASSERT( x ) \
+    do { if( !( x ) ) { __asm volatile ("bkpt 0"); for(;;); } } while(0)
 
 /* ---- INCLUDE functions ---- */
 #define INCLUDE_vTaskPrioritySet                1

@@ -58,6 +58,21 @@ SECTIONS
         . = ALIGN(4);
     } > FLASH
 
+    /* Pico SDK mutex array */
+    .mutex_array : {
+        __mutex_array_start = .;
+        KEEP(*(SORT(.mutex_array.*)))
+        KEEP(*(.mutex_array))
+        __mutex_array_end = .;
+    } > FLASH
+
+    /* Pico SDK binary info */
+    .binary_info : {
+        __binary_info_start = .;
+        KEEP(*(.binary_info.keep.*))
+        __binary_info_end = .;
+    } > FLASH
+
     /* Initializers */
     .preinit_array : {
         __preinit_array_start = .;
@@ -72,46 +87,64 @@ SECTIONS
         __init_array_end = .;
     } > FLASH
 
+    /* End of flash content */
+    __etext = .;
+
     /* Data section (initialized, copied from FLASH to RAM) */
-    __data_load = LOADADDR(.data);
     .data : {
-        __data_start = .;
+        __data_start__ = .;
+        *(.time_critical*)
         *(.data)
         *(.data.*)
         *(.gnu.linkonce.d.*)
+        *(.after_data.*)
         . = ALIGN(4);
-        __data_end = .;
+        __data_end__ = .;
     } > RAM AT> FLASH
 
     /* BSS section (zero-initialized) */
     .bss (NOLOAD) : {
-        __bss_start = .;
+        __bss_start__ = .;
         *(.bss)
         *(.bss.*)
         *(.gnu.linkonce.b.*)
         *(COMMON)
         . = ALIGN(4);
-        __bss_end = .;
+        __bss_end__ = .;
     } > RAM
 
     /* Heap and stack in remaining RAM */
     .heap (NOLOAD) : {
+        __end__ = .;
+        end = .;
         __heap_start = .;
         . = . + 0;  /* Heap grows up, managed by FreeRTOS */
         __heap_end = .;
+        __HeapLimit = .;
     } > RAM
 
-    /* Scratch memory for multicore (unused for now) */
-    .scratch_x (NOLOAD) : {
-        *(.scratch_x.*)
-    } > SCRATCH_X
+    /* Stack at end of main RAM */
+    __StackTop = ORIGIN(RAM) + LENGTH(RAM);
+    __StackLimit = __StackTop - 4096;
+    __stack = __StackTop;
 
-    .scratch_y (NOLOAD) : {
+    /* Scratch memory */
+    .scratch_x : {
+        __scratch_x_start__ = .;
+        *(.scratch_x.*)
+        __scratch_x_end__ = .;
+    } > SCRATCH_X AT> FLASH
+    __scratch_x_source__ = LOADADDR(.scratch_x);
+
+    .scratch_y : {
+        __scratch_y_start__ = .;
         *(.scratch_y.*)
-    } > SCRATCH_Y
+        __scratch_y_end__ = .;
+    } > SCRATCH_Y AT> FLASH
+    __scratch_y_source__ = LOADADDR(.scratch_y);
 
     /* End of binary — used by patch_header.py to compute size */
-    __binary_end = LOADADDR(.data) + SIZEOF(.data);
+    __binary_end = LOADADDR(.scratch_y) + SIZEOF(.scratch_y);
     __app_binary_start = ORIGIN(FLASH);
 
     /* Discard debug sections to save space */

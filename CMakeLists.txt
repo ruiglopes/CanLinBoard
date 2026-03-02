@@ -4,6 +4,35 @@ cmake_minimum_required(VERSION 3.13)
 set(PICO_BOARD "none" CACHE STRING "No predefined board")
 set(PICO_PLATFORM "rp2350-arm-s" CACHE STRING "RP2350 ARM Secure")
 
+# Auto-detect PICO_SDK_PATH from VS Code Pico extension if not set
+if (NOT PICO_SDK_PATH AND NOT DEFINED ENV{PICO_SDK_PATH})
+    file(GLOB _pico_sdk_versions "$ENV{USERPROFILE}/.pico-sdk/sdk/*")
+    if (_pico_sdk_versions)
+        list(SORT _pico_sdk_versions)
+        list(GET _pico_sdk_versions -1 PICO_SDK_PATH)
+        message("Auto-detected PICO_SDK_PATH: ${PICO_SDK_PATH}")
+    endif()
+endif()
+
+# Auto-detect picotool from VS Code Pico extension if not set
+if (NOT PICOTOOL_FETCH_FROM_GIT_PATH AND NOT DEFINED ENV{PICOTOOL_FETCH_FROM_GIT_PATH})
+    file(GLOB _picotool_versions "$ENV{USERPROFILE}/.pico-sdk/picotool/*")
+    if (_picotool_versions)
+        list(SORT _picotool_versions)
+        list(GET _picotool_versions -1 PICOTOOL_FETCH_FROM_GIT_PATH)
+        message("Auto-detected PICOTOOL_FETCH_FROM_GIT_PATH: ${PICOTOOL_FETCH_FROM_GIT_PATH}")
+    endif()
+endif()
+
+# Auto-detect FREERTOS_KERNEL_PATH from local lib/ if not set
+if (NOT FREERTOS_KERNEL_PATH AND NOT DEFINED ENV{FREERTOS_KERNEL_PATH})
+    set(_freertos_local "${CMAKE_CURRENT_SOURCE_DIR}/lib/FreeRTOS-Kernel")
+    if (EXISTS "${_freertos_local}/include/FreeRTOS.h")
+        set(FREERTOS_KERNEL_PATH "${_freertos_local}")
+        message("Auto-detected FREERTOS_KERNEL_PATH: ${FREERTOS_KERNEL_PATH}")
+    endif()
+endif()
+
 include(pico_sdk_import.cmake)
 include(FreeRTOS_Kernel_import.cmake)
 
@@ -15,6 +44,9 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror")
 
 # Initialize the Pico SDK
 pico_sdk_init()
+
+# Find Python for post-build scripts
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 # ---- can2040 library ----
 add_library(can2040 STATIC
@@ -29,6 +61,8 @@ target_link_libraries(can2040 PUBLIC
     hardware_resets
     cmsis_core
 )
+# Third-party code: suppress warnings to avoid polluting build output
+target_compile_options(can2040 PRIVATE -Wno-error -Wno-unused-parameter)
 
 # ---- Main firmware executable ----
 add_executable(${PROJECT_NAME}
@@ -82,7 +116,7 @@ pico_add_extra_outputs(${PROJECT_NAME})
 # ---- Post-build: patch app header in binary ----
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E echo "Patching application header..."
-    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.bin
     COMMENT "Patching CRC32 and size in app header"
     VERBATIM
@@ -138,7 +172,7 @@ pico_enable_stdio_usb(test_phase1 0)
 pico_enable_stdio_uart(test_phase1 0)
 pico_add_extra_outputs(test_phase1)
 add_custom_command(TARGET test_phase1 POST_BUILD
-    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase1.bin
     VERBATIM
 )
@@ -157,7 +191,7 @@ pico_enable_stdio_usb(test_phase2 0)
 pico_enable_stdio_uart(test_phase2 0)
 pico_add_extra_outputs(test_phase2)
 add_custom_command(TARGET test_phase2 POST_BUILD
-    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase2.bin
     VERBATIM
 )
@@ -176,7 +210,7 @@ pico_enable_stdio_usb(test_phase3 0)
 pico_enable_stdio_uart(test_phase3 0)
 pico_add_extra_outputs(test_phase3)
 add_custom_command(TARGET test_phase3 POST_BUILD
-    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase3.bin
     VERBATIM
 )
