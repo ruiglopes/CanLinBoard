@@ -77,7 +77,7 @@ def run_tests(channel1: str, channel2: str, bitrate: int):
         # ---- T2.1: CAN1 RX single frame ----
         print("\n--- T2.1: CAN1 RX Single Frame ---")
         bus1.send_frame(0x100, [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88])
-        echo = bus1.recv_until_id(0x100 | ECHO_OFFSET, timeout=1.0)
+        echo = bus1.recv_until_id(0x100 + ECHO_OFFSET, timeout=1.0)
         results.check("T2.1", "CAN1 receives frame and echoes",
                        echo is not None,
                        f"echo_id=0x{echo.arbitration_id:03X}" if echo else "no echo")
@@ -125,7 +125,7 @@ def run_tests(channel1: str, channel2: str, bitrate: int):
 
                 # Send frame on CAN2 from host
                 bus2.send_frame(0x200, [0xAA, 0xBB, 0xCC, 0xDD])
-                echo2 = bus2.recv_until_id(0x200 | ECHO_OFFSET, timeout=1.0)
+                echo2 = bus2.recv_until_id(0x200 + ECHO_OFFSET, timeout=1.0)
                 results.check("T2.3", "CAN2 receives and echoes frame",
                                echo2 is not None,
                                f"echo_id=0x{echo2.arbitration_id:03X}" if echo2 else "no echo")
@@ -144,13 +144,15 @@ def run_tests(channel1: str, channel2: str, bitrate: int):
                 time.sleep(0.5)
 
                 # Count echoes on both buses
+                # CAN1: sent 0x100..0x109 → echoes at 0x200..0x209
+                # CAN2: sent 0x200..0x209 → echoes at 0x300..0x309
                 deadline = time.time() + 2.0
                 while time.time() < deadline:
                     msg = bus1.recv_frame(timeout=0.1)
-                    if msg and (msg.arbitration_id & ECHO_OFFSET):
+                    if msg and 0x200 <= msg.arbitration_id <= 0x209:
                         rx_count_1 += 1
                     msg2 = bus2.recv_frame(timeout=0.1)
-                    if msg2 and (msg2.arbitration_id & ECHO_OFFSET):
+                    if msg2 and 0x300 <= msg2.arbitration_id <= 0x309:
                         rx_count_2 += 1
                     if rx_count_1 >= 10 and rx_count_2 >= 10:
                         break
@@ -193,7 +195,7 @@ def run_tests(channel1: str, channel2: str, bitrate: int):
         bus1.flush_rx(0.1)
         # Send a config frame — it should NOT be echoed (goes to config queue)
         bus1.send_frame(CONFIG_CMD_ID, [0x01, 0, 0, 0, 0, 0, 0, 0])
-        echo_cfg = bus1.recv_until_id(CONFIG_CMD_ID | ECHO_OFFSET, timeout=0.5)
+        echo_cfg = bus1.recv_until_id(CONFIG_CMD_ID + ECHO_OFFSET, timeout=0.5)
         results.check("T2.8", "Config ID 0x600 not echoed (routed to config queue)",
                        echo_cfg is None,
                        "correctly filtered" if echo_cfg is None else "ERROR: was echoed!")
@@ -202,7 +204,7 @@ def run_tests(channel1: str, channel2: str, bitrate: int):
         print("\n--- T2.9: Non-Config ID Routing ---")
         bus1.flush_rx(0.1)
         bus1.send_frame(0x100, [0xDE, 0xAD])
-        echo_gw = bus1.recv_until_id(0x100 | ECHO_OFFSET, timeout=1.0)
+        echo_gw = bus1.recv_until_id(0x100 + ECHO_OFFSET, timeout=1.0)
         results.check("T2.9", "Non-config ID 0x100 echoed (gateway queue)",
                        echo_gw is not None,
                        "echoed correctly" if echo_gw else "not echoed")
@@ -215,12 +217,12 @@ def run_tests(channel1: str, channel2: str, bitrate: int):
             bus1.send_frame(0x100 + (i % 16), [i & 0xFF, 0, 0, 0, 0, 0, 0, 0])
 
         time.sleep(1.0)
-        # Count echoes
+        # Count echoes (sent 0x100..0x10F → echoes at 0x200..0x20F)
         echo_count = 0
         deadline = time.time() + 3.0
         while time.time() < deadline:
             msg = bus1.recv_frame(timeout=0.1)
-            if msg and (msg.arbitration_id & ECHO_OFFSET):
+            if msg and 0x200 <= msg.arbitration_id <= 0x20F:
                 echo_count += 1
             if echo_count >= sent:
                 break
@@ -242,7 +244,7 @@ def run_tests(channel1: str, channel2: str, bitrate: int):
         bus1.flush_rx(0.2)
         t_start = time.time()
         bus1.send_frame(0x100, [0xAA])
-        echo_lat = bus1.recv_until_id(0x100 | ECHO_OFFSET, timeout=1.0)
+        echo_lat = bus1.recv_until_id(0x100 + ECHO_OFFSET, timeout=1.0)
         t_end = time.time()
         if echo_lat:
             latency_ms = (t_end - t_start) * 1000
@@ -265,7 +267,7 @@ def run_tests(channel1: str, channel2: str, bitrate: int):
             time.sleep(0.3)
             bus_250.flush_rx(0.1)
             bus_250.send_frame(0x100, [0x55])
-            echo_250 = bus_250.recv_until_id(0x100 | ECHO_OFFSET, timeout=1.0)
+            echo_250 = bus_250.recv_until_id(0x100 + ECHO_OFFSET, timeout=1.0)
             results.check("T2.12", "Board responds at 250 kbps",
                            echo_250 is not None,
                            "echo received at 250k" if echo_250 else "no response")

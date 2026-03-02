@@ -5,10 +5,20 @@
 #include "can2040.h"
 #include "hardware/irq.h"
 #include "hardware/clocks.h"
+#include "pico/time.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
+
+/* PIO IRQ priority: must be ABOVE configMAX_SYSCALL_INTERRUPT_PRIORITY
+ * (i.e. numerically lower) so FreeRTOS critical sections never mask it.
+ * can2040 is timing-sensitive — deferring the PIO IRQ even briefly during
+ * a FreeRTOS critical section causes lost RX frames.
+ *
+ * Consequence: NO FreeRTOS API calls allowed in can2040 callbacks.
+ * Data passes through lock-free ring buffers; can_task polls every 1ms. */
+#define CAN_PIO_IRQ_PRIORITY  0  /* Level 0 (highest), above BASEPRI */
 
 #include <string.h>
 
@@ -66,21 +76,18 @@ static void can1_callback(struct can2040 *cd, uint32_t notify, struct can2040_ms
     (void)cd;
 
     if (notify == CAN2040_NOTIFY_RX) {
+        can_stats[0].isr_rx_count++;
+
         gateway_frame_t gf;
         gf.source_bus = BUS_CAN1;
-        gf.timestamp = xTaskGetTickCountFromISR();
+        gf.timestamp = time_us_32() / 1000;  /* ms, ISR-safe hw timer */
         can2040_to_can_frame(msg, &gf.frame);
 
         if (!ring_push(&can_rx_ring[0], &gf)) {
             can_stats[0].ring_overflow_count++;
         }
-
-        /* Wake can_task */
-        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-        if (s_can_task_handle) {
-            vTaskNotifyGiveFromISR(s_can_task_handle, &xHigherPriorityTaskWoken);
-        }
-        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+        /* No FreeRTOS API here — IRQ is above BASEPRI.
+         * can_task polls the ring buffer every 1ms. */
 
     } else if (notify == CAN2040_NOTIFY_TX) {
         can_stats[0].tx_count++;
@@ -94,20 +101,16 @@ static void can2_callback(struct can2040 *cd, uint32_t notify, struct can2040_ms
     (void)cd;
 
     if (notify == CAN2040_NOTIFY_RX) {
+        can_stats[1].isr_rx_count++;
+
         gateway_frame_t gf;
         gf.source_bus = BUS_CAN2;
-        gf.timestamp = xTaskGetTickCountFromISR();
+        gf.timestamp = time_us_32() / 1000;
         can2040_to_can_frame(msg, &gf.frame);
 
         if (!ring_push(&can_rx_ring[1], &gf)) {
             can_stats[1].ring_overflow_count++;
         }
-
-        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-        if (s_can_task_handle) {
-            vTaskNotifyGiveFromISR(s_can_task_handle, &xHigherPriorityTaskWoken);
-        }
-        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 
     } else if (notify == CAN2040_NOTIFY_TX) {
         can_stats[1].tx_count++;
@@ -153,11 +156,9 @@ bool can_manager_start_can1(uint32_t bitrate)
     can2040_setup(&can2040_inst[0], CAN1_PIO_NUM);
     can2040_callback_config(&can2040_inst[0], can1_callback);
 
-    /* Configure PIO0 IRQ — must be at or below configMAX_SYSCALL_INTERRUPT_PRIORITY
-     * so FreeRTOS ISR-safe API calls in the callback are legal.
-     * Hardware priority = library priority << (8 - priority bits). */
+    /* PIO0 IRQ must be above FreeRTOS BASEPRI so it's never masked */
     irq_set_exclusive_handler(PIO0_IRQ_0, pio0_irq_handler);
-    irq_set_priority(PIO0_IRQ_0, configMAX_SYSCALL_INTERRUPT_PRIORITY);
+    irq_set_priority(PIO0_IRQ_0, CAN_PIO_IRQ_PRIORITY);
     irq_set_enabled(PIO0_IRQ_0, true);
 
     /* Start CAN — use actual system clock for accurate bit timing */
@@ -177,9 +178,9 @@ bool can_manager_start_can2(uint32_t bitrate)
     can2040_setup(&can2040_inst[1], CAN2_PIO_NUM);
     can2040_callback_config(&can2040_inst[1], can2_callback);
 
-    /* Configure PIO1 IRQ — same priority constraint as PIO0 */
+    /* PIO1 IRQ must be above FreeRTOS BASEPRI so it's never masked */
     irq_set_exclusive_handler(PIO1_IRQ_0, pio1_irq_handler);
-    irq_set_priority(PIO1_IRQ_0, configMAX_SYSCALL_INTERRUPT_PRIORITY);
+    irq_set_priority(PIO1_IRQ_0, CAN_PIO_IRQ_PRIORITY);
     irq_set_enabled(PIO1_IRQ_0, true);
 
     /* Start CAN — use actual system clock for accurate bit timing */
@@ -201,17 +202,26 @@ void can_manager_stop_can2(void)
 bool can_manager_transmit(can_bus_id_t bus, const can_frame_t *frame)
 {
     struct can2040 *inst = &can2040_inst[bus];
+    uint pio_irq = (bus == CAN_BUS_1) ? PIO0_IRQ_0 : PIO1_IRQ_0;
 
-    if (!can2040_check_transmit(inst)) return false;
+    /* can2040_transmit must not be preempted by can2040_pio_irq_handler.
+     * Since the PIO IRQ runs above BASEPRI (priority 0), FreeRTOS critical
+     * sections don't mask it. Explicitly disable the IRQ around the call. */
+    irq_set_enabled(pio_irq, false);
 
-    struct can2040_msg msg;
-    msg.id = frame->id;
-    if (frame->flags & CAN_FLAG_RTR) msg.id |= CAN2040_ID_RTR;
-    if (frame->flags & CAN_FLAG_EFF) msg.id |= CAN2040_ID_EFF;
-    msg.dlc = frame->dlc;
-    memcpy(msg.data, frame->data, 8);
+    bool ok = false;
+    if (can2040_check_transmit(inst)) {
+        struct can2040_msg msg;
+        msg.id = frame->id;
+        if (frame->flags & CAN_FLAG_RTR) msg.id |= CAN2040_ID_RTR;
+        if (frame->flags & CAN_FLAG_EFF) msg.id |= CAN2040_ID_EFF;
+        msg.dlc = frame->dlc;
+        memcpy(msg.data, frame->data, 8);
+        ok = (can2040_transmit(inst, &msg) == 0);
+    }
 
-    return (can2040_transmit(inst, &msg) == 0);
+    irq_set_enabled(pio_irq, true);
+    return ok;
 }
 
 void can_manager_get_stats(can_bus_id_t bus, can_bus_stats_t *stats)

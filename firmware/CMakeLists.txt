@@ -210,6 +210,18 @@ add_custom_command(TARGET test_phase1 POST_BUILD
     VERBATIM
 )
 
+# ---- Phase 2 Bare-Metal Test (flash via UF2/BOOTSEL, no bootloader) ----
+add_executable(test_phase2_bare EXCLUDE_FROM_ALL
+    tests/phase2/test_can.c
+    ${BARE_SOURCES}
+)
+target_include_directories(test_phase2_bare PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(test_phase2_bare ${COMMON_LIBS})
+target_compile_definitions(test_phase2_bare PRIVATE TEST_PHASE2)
+pico_enable_stdio_usb(test_phase2_bare 0)
+pico_enable_stdio_uart(test_phase2_bare 0)
+pico_add_extra_outputs(test_phase2_bare)
+
 # ---- Phase 2 Test: CAN ----
 add_executable(test_phase2 EXCLUDE_FROM_ALL
     tests/phase2/test_can.c

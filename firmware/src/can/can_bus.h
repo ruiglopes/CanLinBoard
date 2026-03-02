@@ -29,10 +29,11 @@ typedef enum {
 
 /* ---- Bus Statistics ---- */
 typedef struct {
-    uint32_t rx_count;
-    uint32_t tx_count;
-    uint32_t error_count;
+    uint32_t rx_count;              /* Incremented in can_task (ring pop) */
+    uint32_t tx_count;              /* Incremented in ISR callback */
+    uint32_t error_count;           /* Incremented in ISR callback */
     uint32_t ring_overflow_count;
+    volatile uint32_t isr_rx_count; /* Incremented in ISR callback (RX) */
     can_bus_state_t state;
 } can_bus_stats_t;
 

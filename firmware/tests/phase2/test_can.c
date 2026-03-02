@@ -142,32 +142,75 @@ static void handle_test_cmd(const can_frame_t *frame)
     }
 }
 
+static uint32_t s_heartbeat_counter;
+static uint32_t s_echo_count;
+
 static void test_echo_task(void *params)
 {
     (void)params;
 
+    /* Startup diagnostic — confirms firmware is alive and CAN TX works */
+    vTaskDelay(pdMS_TO_TICKS(500));
+    {
+        can_frame_t diag = {0};
+        diag.id = 0x7FD;
+        diag.dlc = 4;
+        diag.data[0] = 'P';
+        diag.data[1] = '2';
+        diag.data[2] = 0x01;  /* Version */
+        diag.data[3] = 0x00;
+        can_manager_transmit(CAN_BUS_1, &diag);
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+
     for (;;) {
         gateway_frame_t gf;
 
-        /* Process gateway queue — echo frames back */
+        /* Process gateway queue — test commands or echo */
         if (xQueueReceive(s_gw_queue, &gf, pdMS_TO_TICKS(5)) == pdTRUE) {
-            can_frame_t echo = gf.frame;
-            echo.id = gf.frame.id | ECHO_ID_OFFSET;
+            if (gf.source_bus == BUS_CAN1 && gf.frame.id == TEST_CMD_ID) {
+                /* Test command on 0x7F0 — handle instead of echo */
+                handle_test_cmd(&gf.frame);
+            } else {
+                /* Echo with ID + 0x100 */
+                can_frame_t echo = gf.frame;
+                echo.id = gf.frame.id + ECHO_ID_OFFSET;
 
-            if (gf.source_bus == BUS_CAN1) {
-                can_manager_transmit(CAN_BUS_1, &echo);
-            } else if (gf.source_bus == BUS_CAN2) {
-                can_manager_transmit(CAN_BUS_2, &echo);
+                if (gf.source_bus == BUS_CAN1) {
+                    can_manager_transmit(CAN_BUS_1, &echo);
+                    s_echo_count++;
+                } else if (gf.source_bus == BUS_CAN2) {
+                    can_manager_transmit(CAN_BUS_2, &echo);
+                    s_echo_count++;
+                }
             }
         }
 
-        /* Process config queue — test commands */
+        /* Process config queue — frames on 0x600/0x602 end up here.
+         * For Phase 2, we don't handle them (T2.8 verifies they are
+         * NOT echoed, confirming correct routing to config queue). */
         gateway_frame_t cfg_gf;
-        if (xQueueReceive(s_cfg_queue, &cfg_gf, 0) == pdTRUE) {
-            if (cfg_gf.frame.id == CONFIG_CAN_CMD_ID) {
-                /* Treat config frames as test commands for Phase 2 */
-                handle_test_cmd(&cfg_gf.frame);
-            }
+        while (xQueueReceive(s_cfg_queue, &cfg_gf, 0) == pdTRUE) {
+            /* Drain but discard — config protocol not implemented yet */
+        }
+
+        /* Heartbeat every ~2 seconds (5ms poll × 400) with RX diagnostics */
+        if (++s_heartbeat_counter >= 400) {
+            s_heartbeat_counter = 0;
+            can_bus_stats_t st;
+            can_manager_get_stats(CAN_BUS_1, &st);
+            can_frame_t hb = {0};
+            hb.id = 0x7FC;
+            hb.dlc = 8;
+            hb.data[0] = (uint8_t)(xTaskGetTickCount() / 1000); /* uptime s */
+            hb.data[1] = (uint8_t)st.isr_rx_count;  /* ISR RX callback */
+            hb.data[2] = (uint8_t)st.rx_count;       /* can_task ring pop */
+            hb.data[3] = (uint8_t)st.tx_count;       /* ISR TX callback */
+            hb.data[4] = (uint8_t)st.error_count;    /* ISR error */
+            hb.data[5] = (uint8_t)st.ring_overflow_count;
+            hb.data[6] = (uint8_t)s_echo_count;      /* echoes sent */
+            hb.data[7] = (uint8_t)st.state;
+            can_manager_transmit(CAN_BUS_1, &hb);
         }
     }
 }
@@ -181,6 +224,9 @@ int main(void)
 {
     stdio_init_all();
     hal_gpio_init();
+
+    /* Enable CAN1 termination for proper bus signalling */
+    hal_can_set_termination(CAN_BUS_1, true);
 
     s_gw_queue  = xQueueCreate(QUEUE_DEPTH_GATEWAY_IN, sizeof(gateway_frame_t));
     s_cfg_queue = xQueueCreate(QUEUE_DEPTH_CONFIG_RX,   sizeof(gateway_frame_t));

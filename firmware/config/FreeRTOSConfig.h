@@ -54,8 +54,9 @@
 
 /* ---- Interrupt Nesting ----
  * ARM Cortex-M33 on RP2350: 4 priority bits (0-15), lower = higher priority.
- * can2040 IRQ runs at priority 1 and calls FromISR functions.
- * configMAX_SYSCALL_INTERRUPT_PRIORITY must allow priority 1.
+ * can2040 PIO IRQ runs at priority 0 (above BASEPRI) — never masked by
+ * FreeRTOS. No FreeRTOS API calls in can2040 callbacks; data passes
+ * through lock-free ring buffers to can_task which polls every 1ms.
  */
 #define configPRIO_BITS                         4
 #define configLIBRARY_LOWEST_INTERRUPT_PRIORITY         15
