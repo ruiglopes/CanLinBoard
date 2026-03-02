@@ -151,69 +151,10 @@ set(COMMON_LIBS
     FreeRTOS-Kernel-Heap4
 )
 
-# ---- Bare-metal main app (flash via UF2/BOOTSEL, no bootloader) ----
-# Same sources as main app but without app_header.c and custom linker script
-add_executable(${PROJECT_NAME}_bare EXCLUDE_FROM_ALL
-    src/main.c
-    src/hal/hal_gpio.c
-    src/hal/hal_spi.c
-    src/hal/hal_flash_nvm.c
-    src/hal/hal_clock.c
-    src/can/can_manager.c
-    src/lin/sja1124_driver.c
-    src/lin/lin_manager.c
-)
-target_include_directories(${PROJECT_NAME}_bare PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/config
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-target_link_libraries(${PROJECT_NAME}_bare ${COMMON_LIBS})
-target_compile_definitions(${PROJECT_NAME}_bare PRIVATE NO_BOOTLOADER)
-pico_enable_stdio_usb(${PROJECT_NAME}_bare 0)
-pico_enable_stdio_uart(${PROJECT_NAME}_bare 0)
-pico_add_extra_outputs(${PROJECT_NAME}_bare)
-
 # ============================================================
 # Test Firmwares (build with: cmake --build build --target <name>)
+# All test targets use bootloader linker script + header patching.
 # ============================================================
-
-# ---- Common sources for bare-metal targets (no app_header) ----
-set(BARE_SOURCES
-    src/hal/hal_gpio.c
-    src/hal/hal_spi.c
-    src/hal/hal_flash_nvm.c
-    src/hal/hal_clock.c
-    src/can/can_manager.c
-    src/lin/sja1124_driver.c
-    src/lin/lin_manager.c
-)
-
-# ---- Phase 1 Bare-Metal Test (flash via UF2/BOOTSEL, no bootloader) ----
-add_executable(test_phase1_bare EXCLUDE_FROM_ALL
-    tests/phase1/test_hal.c
-    ${BARE_SOURCES}
-)
-target_include_directories(test_phase1_bare PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(test_phase1_bare ${COMMON_LIBS})
-target_compile_definitions(test_phase1_bare PRIVATE TEST_PHASE1)
-pico_enable_stdio_usb(test_phase1_bare 0)
-pico_enable_stdio_uart(test_phase1_bare 0)
-pico_add_extra_outputs(test_phase1_bare)
-
-# ---- Minimal CAN test (no FreeRTOS, bare-metal, flash via UF2) ----
-add_executable(test_can_minimal EXCLUDE_FROM_ALL
-    tests/phase1/test_can_minimal.c
-)
-target_link_libraries(test_can_minimal
-    pico_stdlib
-    hardware_gpio
-    hardware_clocks
-    can2040
-)
-pico_enable_stdio_usb(test_can_minimal 0)
-pico_enable_stdio_uart(test_can_minimal 0)
-pico_add_extra_outputs(test_can_minimal)
 
 # ---- Phase 1 Test: HAL ----
 add_executable(test_phase1 EXCLUDE_FROM_ALL
@@ -232,18 +173,6 @@ add_custom_command(TARGET test_phase1 POST_BUILD
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase1.bin
     VERBATIM
 )
-
-# ---- Phase 2 Bare-Metal Test (flash via UF2/BOOTSEL, no bootloader) ----
-add_executable(test_phase2_bare EXCLUDE_FROM_ALL
-    tests/phase2/test_can.c
-    ${BARE_SOURCES}
-)
-target_include_directories(test_phase2_bare PRIVATE ${COMMON_INCLUDES})
-target_link_libraries(test_phase2_bare ${COMMON_LIBS})
-target_compile_definitions(test_phase2_bare PRIVATE TEST_PHASE2)
-pico_enable_stdio_usb(test_phase2_bare 0)
-pico_enable_stdio_uart(test_phase2_bare 0)
-pico_add_extra_outputs(test_phase2_bare)
 
 # ---- Phase 2 Test: CAN ----
 add_executable(test_phase2 EXCLUDE_FROM_ALL
