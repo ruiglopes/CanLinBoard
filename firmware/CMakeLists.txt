@@ -151,6 +151,29 @@ set(COMMON_LIBS
     FreeRTOS-Kernel-Heap4
 )
 
+# ---- Bare-metal main app (flash via UF2/BOOTSEL, no bootloader) ----
+# Same sources as main app but without app_header.c and custom linker script
+add_executable(${PROJECT_NAME}_bare EXCLUDE_FROM_ALL
+    src/main.c
+    src/hal/hal_gpio.c
+    src/hal/hal_spi.c
+    src/hal/hal_flash_nvm.c
+    src/hal/hal_clock.c
+    src/can/can_manager.c
+    src/lin/sja1124_driver.c
+    src/lin/lin_manager.c
+)
+target_include_directories(${PROJECT_NAME}_bare PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/config
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(${PROJECT_NAME}_bare ${COMMON_LIBS})
+target_compile_definitions(${PROJECT_NAME}_bare PRIVATE NO_BOOTLOADER)
+pico_enable_stdio_usb(${PROJECT_NAME}_bare 0)
+pico_enable_stdio_uart(${PROJECT_NAME}_bare 0)
+pico_add_extra_outputs(${PROJECT_NAME}_bare)
+
 # ============================================================
 # Test Firmwares (build with: cmake --build build --target <name>)
 # ============================================================

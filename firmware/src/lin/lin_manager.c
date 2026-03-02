@@ -164,8 +164,8 @@ void lin_manager_init(QueueHandle_t gateway_queue, QueueHandle_t lin_tx_queue)
     /* Initialize SPI */
     hal_spi_init(&s_spi_ctx);
 
-    /* Initialize SJA1124 */
-    sja1124_init(&s_sja_ctx, &s_spi_ctx);
+    /* NOTE: sja1124_init() is deferred to lin_task_entry() because it uses
+     * vTaskDelay() and xTaskGetTickCount() which require the scheduler. */
 
     /* Setup GPIO interrupt on INTN pin (falling edge) */
     gpio_set_irq_enabled_with_callback(LIN_INT_PIN, GPIO_IRQ_EDGE_FALL,
@@ -245,6 +245,11 @@ void lin_task_entry(void *params)
     (void)params;
 
     s_lin_task_handle = xTaskGetCurrentTaskHandle();
+
+    /* Initialize SJA1124 now that the scheduler is running.
+     * sja1124_init() uses vTaskDelay() for PLL lock polling,
+     * which requires task context. */
+    sja1124_init(&s_sja_ctx, &s_spi_ctx);
 
     for (;;) {
         /* Wait for INTN interrupt notification or 5 ms timeout */
