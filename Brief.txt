@@ -1,0 +1,61 @@
+I have a custom board with the following:
+
+RP2350 MCU
+2x 16Mb flash (primary and secondary)
+2x CAN Transcievers
+2x Switchable CAN termination resistors
+1x LIN Transciever - SJA1124 SPI - datasheet in Datasheets folder
+1x Boot button
+
+The below code is from a different project that uses the same hardware and should tell you all the pins being used on the MCU
+
+//* CAN Transciever setup
+#define CAN1_RX_PIN     1
+#define CAN1_TX_PIN     2
+#define CAN1_EN_PIN     3   // Set pin low to enable transciever
+#define CAN1_TERM_PIN   4   // Pin high to terminate CAN bus
+
+#define CAN2_RX_PIN     13
+#define CAN2_TX_PIN     14
+#define CAN2_EN_PIN     15  // Set pin low to enable transciever
+#define CAN2_TERM_PIN   12  // Pin high to terminate CAN bus
+
+//* LIN Transciever setup
+#define LIN_SPI_PORT    spi0
+#define LIN_CS_PIN      33
+#define LIN_SCK_PIN     34
+#define LIN_MISO_PIN    32
+#define LIN_MOSI_PIN    23
+#define LIN_STAT_PIN    28
+#define LIN_INT_PIN     26
+#define LIN_CLOCK_PIN   21
+
+This should build to be flashed with the bootloader project in https://github.com/ruiglopes/2350Bootloader.git
+
+It should use can2040 as CAN bus implementation https://github.com/KevinOConnor/can2040
+
+It shouldn't use blocking code such as sleep or wait commands.
+
+All of its features should be configurable and stored in non-volatile memory
+
+An external windows software should be created to interface with the hardware and change the different parameters.
+
+From a CAN point of view, CAN 1 should always be available, CAN 2 should be switchable. Baud rate and termination resistors should be configurable for all buses.
+
+From a LIN point of view, all the buses will also require configuration capability. They should be switchable between master and slave and the baud rate should be configurable. A scheduling table should be available if set up as master.
+
+Some of the high level features of the board:
+
+Act as a gateway between CAN and LIN, between both CAN buses or between both LIN buses. Initially pass through complete frames, but ultimately it should have the ability of passing specific bytes or even modify them "in transit"
+
+We would aim to implement base features such as native support for the Bosch Motorsport WDA LIN wiper motor or the pierburg CWA400 LIN coolant pump.
+
+All the buses, CAN and LIN, should have diagnostics and watchdogs to monitor their health
+
+A configurable CAN message with diagnostics and statuses will also be required.
+
+An example of a product that uses a similar principle of firmware https://github.com/corygrant/DingoPDM_FW configuration being set with an external tool https://github.com/corygrant/dingoConfig for your reference
+
+Develop a comprehensive implementation plan for the brief, identifying potential gaps or suggesting additional features that have been overlooked. In case of ambiguity please ask what path to take.
+
+At this stage we will be working on a plan so do not start any implementation.
