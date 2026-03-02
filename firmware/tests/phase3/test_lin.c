@@ -128,8 +128,6 @@ static void test_t3_2_pll_lock_failure(void)
     /* T3.2: Stop clock, attempt PLL init — should fail.
      * NOTE: This would disrupt the already-initialized SJA1124,
      * so we just read the PLLIFF flag behavior. SKIP if clock is running. */
-    uint8_t status;
-    sja1124_err_t err = sja1124_pll_is_locked(&s_test_sja) ? SJA_OK : SJA_ERR_PLL_LOCK;
     uint8_t extra[1] = { s_test_sja.pll_locked ? 1 : 0 };
     /* Skip this test to avoid disrupting state — verified by T3.1 pass */
     report_test(2, RESULT_SKIP, extra, 1);

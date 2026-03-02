@@ -37,6 +37,7 @@
 #include "hal/hal_clock.h"
 #include "can/can_manager.h"
 #include "can/can_bus.h"
+#include "hardware/clocks.h"
 
 #define TEST_RESULT_CAN_ID  0x7FE
 #define TEST_SUMMARY_CAN_ID 0x7FF
@@ -98,9 +99,14 @@ static void test_t1_2_can1_en_disable(void)
     hal_can_enable(CAN_BUS_1, false);
     vTaskDelay(pdMS_TO_TICKS(1));
     bool pin_high = gpio_get(CAN1_EN_PIN);
-    report_test(2, pin_high ? RESULT_PASS : RESULT_FAIL, NULL, 0);
-    /* Re-enable for further tests */
+
+    /* Re-enable transceiver BEFORE reporting result over CAN.
+     * Transmitting with the transceiver disabled causes TX errors
+     * (no ACK) which can push can2040 into bus-off state. */
     hal_can_enable(CAN_BUS_1, true);
+    vTaskDelay(pdMS_TO_TICKS(2)); /* Let transceiver stabilize */
+
+    report_test(2, pin_high ? RESULT_PASS : RESULT_FAIL, NULL, 0);
 }
 
 static void test_t1_3_can1_term(void)
@@ -282,6 +288,20 @@ static void test_runner_task(void *params)
     /* Wait for CAN to be ready */
     vTaskDelay(pdMS_TO_TICKS(500));
 
+    /* Send diagnostic frame: actual system clock in Hz (ID 0x7FD) */
+    {
+        uint32_t clk = clock_get_hz(clk_sys);
+        can_frame_t diag = {0};
+        diag.id = 0x7FD;
+        diag.dlc = 4;
+        diag.data[0] = (clk >> 24) & 0xFF;
+        diag.data[1] = (clk >> 16) & 0xFF;
+        diag.data[2] = (clk >> 8) & 0xFF;
+        diag.data[3] = clk & 0xFF;
+        can_manager_transmit(CAN_BUS_1, &diag);
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+
     /* Run all tests */
     test_t1_1_can1_en_enable();
     test_t1_2_can1_en_disable();
@@ -302,6 +322,7 @@ static void test_runner_task(void *params)
      * vTaskDelay(pdMS_TO_TICKS(100));
      * test_t1_12_bootloader_entry();
      */
+    (void)test_t1_12_bootloader_entry; /* suppress unused warning */
 
     /* Done — idle */
     for (;;) {
@@ -319,6 +340,9 @@ int main(void)
 {
     stdio_init_all();
     hal_gpio_init();
+
+    /* Enable CAN1 termination for proper bus signalling */
+    hal_can_set_termination(CAN_BUS_1, true);
 
     /* Minimal queue setup for CAN TX */
     QueueHandle_t dummy_q1 = xQueueCreate(4, sizeof(gateway_frame_t));

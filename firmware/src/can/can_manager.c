@@ -4,6 +4,7 @@
 
 #include "can2040.h"
 #include "hardware/irq.h"
+#include "hardware/clocks.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -152,13 +153,16 @@ bool can_manager_start_can1(uint32_t bitrate)
     can2040_setup(&can2040_inst[0], CAN1_PIO_NUM);
     can2040_callback_config(&can2040_inst[0], can1_callback);
 
-    /* Configure PIO0 IRQ */
+    /* Configure PIO0 IRQ — must be at or below configMAX_SYSCALL_INTERRUPT_PRIORITY
+     * so FreeRTOS ISR-safe API calls in the callback are legal.
+     * Hardware priority = library priority << (8 - priority bits). */
     irq_set_exclusive_handler(PIO0_IRQ_0, pio0_irq_handler);
-    irq_set_priority(PIO0_IRQ_0, 1);   /* High priority for CAN timing */
+    irq_set_priority(PIO0_IRQ_0, configMAX_SYSCALL_INTERRUPT_PRIORITY);
     irq_set_enabled(PIO0_IRQ_0, true);
 
-    /* Start CAN */
-    can2040_start(&can2040_inst[0], SYS_CLOCK_HZ, bitrate, CAN1_RX_PIN, CAN1_TX_PIN);
+    /* Start CAN — use actual system clock for accurate bit timing */
+    uint32_t sys_clock = clock_get_hz(clk_sys);
+    can2040_start(&can2040_inst[0], sys_clock, bitrate, CAN1_RX_PIN, CAN1_TX_PIN);
 
     can_stats[0].state = CAN_STATE_ACTIVE;
     return true;
@@ -173,13 +177,14 @@ bool can_manager_start_can2(uint32_t bitrate)
     can2040_setup(&can2040_inst[1], CAN2_PIO_NUM);
     can2040_callback_config(&can2040_inst[1], can2_callback);
 
-    /* Configure PIO1 IRQ */
+    /* Configure PIO1 IRQ — same priority constraint as PIO0 */
     irq_set_exclusive_handler(PIO1_IRQ_0, pio1_irq_handler);
-    irq_set_priority(PIO1_IRQ_0, 1);
+    irq_set_priority(PIO1_IRQ_0, configMAX_SYSCALL_INTERRUPT_PRIORITY);
     irq_set_enabled(PIO1_IRQ_0, true);
 
-    /* Start CAN */
-    can2040_start(&can2040_inst[1], SYS_CLOCK_HZ, bitrate, CAN2_RX_PIN, CAN2_TX_PIN);
+    /* Start CAN — use actual system clock for accurate bit timing */
+    uint32_t sys_clock2 = clock_get_hz(clk_sys);
+    can2040_start(&can2040_inst[1], sys_clock2, bitrate, CAN2_RX_PIN, CAN2_TX_PIN);
 
     can_stats[1].state = CAN_STATE_ACTIVE;
     return true;

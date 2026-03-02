@@ -25,6 +25,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 from pcan_helper import PcanBus, TestResult
 
+TEST_DIAG_ID = 0x7FD
 TEST_RESULT_ID = 0x7FE
 TEST_SUMMARY_ID = 0x7FF
 
@@ -64,7 +65,11 @@ def run_collection(channel: str, bitrate: int, timeout: float):
             if not msg:
                 continue
 
-            if msg.arbitration_id == TEST_RESULT_ID and len(msg.data) >= 2:
+            if msg.arbitration_id == TEST_DIAG_ID and len(msg.data) >= 4:
+                clk_hz = (msg.data[0] << 24) | (msg.data[1] << 16) | (msg.data[2] << 8) | msg.data[3]
+                print(f"  [DIAG] System clock: {clk_hz} Hz ({clk_hz / 1_000_000:.1f} MHz)")
+
+            elif msg.arbitration_id == TEST_RESULT_ID and len(msg.data) >= 2:
                 test_id = msg.data[0]
                 result_code = msg.data[1]
                 extra = list(msg.data[2:msg.dlc]) if msg.dlc > 2 else []

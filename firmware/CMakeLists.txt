@@ -103,9 +103,6 @@ target_link_libraries(${PROJECT_NAME}
 # ---- Custom linker script ----
 pico_set_linker_script(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
 
-# ---- No boot2 stage (bootloader handles it) ----
-pico_set_binary_type(${PROJECT_NAME} no_flash)
-
 # Disable USB/UART stdio (we manage our own IO)
 pico_enable_stdio_usb(${PROJECT_NAME} 0)
 pico_enable_stdio_uart(${PROJECT_NAME} 0)
@@ -158,6 +155,43 @@ set(COMMON_LIBS
 # Test Firmwares (build with: cmake --build build --target <name>)
 # ============================================================
 
+# ---- Common sources for bare-metal targets (no app_header) ----
+set(BARE_SOURCES
+    src/hal/hal_gpio.c
+    src/hal/hal_spi.c
+    src/hal/hal_flash_nvm.c
+    src/hal/hal_clock.c
+    src/can/can_manager.c
+    src/lin/sja1124_driver.c
+    src/lin/lin_manager.c
+)
+
+# ---- Phase 1 Bare-Metal Test (flash via UF2/BOOTSEL, no bootloader) ----
+add_executable(test_phase1_bare EXCLUDE_FROM_ALL
+    tests/phase1/test_hal.c
+    ${BARE_SOURCES}
+)
+target_include_directories(test_phase1_bare PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(test_phase1_bare ${COMMON_LIBS})
+target_compile_definitions(test_phase1_bare PRIVATE TEST_PHASE1)
+pico_enable_stdio_usb(test_phase1_bare 0)
+pico_enable_stdio_uart(test_phase1_bare 0)
+pico_add_extra_outputs(test_phase1_bare)
+
+# ---- Minimal CAN test (no FreeRTOS, bare-metal, flash via UF2) ----
+add_executable(test_can_minimal EXCLUDE_FROM_ALL
+    tests/phase1/test_can_minimal.c
+)
+target_link_libraries(test_can_minimal
+    pico_stdlib
+    hardware_gpio
+    hardware_clocks
+    can2040
+)
+pico_enable_stdio_usb(test_can_minimal 0)
+pico_enable_stdio_uart(test_can_minimal 0)
+pico_add_extra_outputs(test_can_minimal)
+
 # ---- Phase 1 Test: HAL ----
 add_executable(test_phase1 EXCLUDE_FROM_ALL
     tests/phase1/test_hal.c
@@ -167,7 +201,6 @@ target_include_directories(test_phase1 PRIVATE ${COMMON_INCLUDES})
 target_link_libraries(test_phase1 ${COMMON_LIBS})
 target_compile_definitions(test_phase1 PRIVATE TEST_PHASE1)
 pico_set_linker_script(test_phase1 ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
-pico_set_binary_type(test_phase1 no_flash)
 pico_enable_stdio_usb(test_phase1 0)
 pico_enable_stdio_uart(test_phase1 0)
 pico_add_extra_outputs(test_phase1)
@@ -186,7 +219,6 @@ target_include_directories(test_phase2 PRIVATE ${COMMON_INCLUDES})
 target_link_libraries(test_phase2 ${COMMON_LIBS})
 target_compile_definitions(test_phase2 PRIVATE TEST_PHASE2)
 pico_set_linker_script(test_phase2 ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
-pico_set_binary_type(test_phase2 no_flash)
 pico_enable_stdio_usb(test_phase2 0)
 pico_enable_stdio_uart(test_phase2 0)
 pico_add_extra_outputs(test_phase2)
@@ -205,7 +237,6 @@ target_include_directories(test_phase3 PRIVATE ${COMMON_INCLUDES})
 target_link_libraries(test_phase3 ${COMMON_LIBS})
 target_compile_definitions(test_phase3 PRIVATE TEST_PHASE3)
 pico_set_linker_script(test_phase3 ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
-pico_set_binary_type(test_phase3 no_flash)
 pico_enable_stdio_usb(test_phase3 0)
 pico_enable_stdio_uart(test_phase3 0)
 pico_add_extra_outputs(test_phase3)
