@@ -1,4 +1,4 @@
-build/
+firmware/build/
 *.o
 *.elf
 *.bin
@@ -11,4 +11,4 @@ build/
 cmake-build-*/
 __pycache__/
 *.pyc
-lib/FreeRTOS-Kernel/
+firmware/lib/FreeRTOS-Kernel/

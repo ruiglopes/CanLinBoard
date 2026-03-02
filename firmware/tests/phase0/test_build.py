@@ -19,7 +19,7 @@ Prerequisites:
   - Python 3 available
 
 Usage:
-  cd CanLinBoard
+  cd CanLinBoard/firmware
   python tests/phase0/test_build.py
 """
 

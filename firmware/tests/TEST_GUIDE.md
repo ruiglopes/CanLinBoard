@@ -14,7 +14,11 @@ Tests are designed to be run **in order** — complete each phase before moving 
 
 ## Quick Reference
 
-```
+All commands below assume you are in the `firmware/` directory:
+
+```bash
+cd firmware
+
 # Build main firmware
 cmake -B build -G Ninja && cmake --build build
 
