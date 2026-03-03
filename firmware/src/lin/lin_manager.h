@@ -44,6 +44,16 @@ bool lin_manager_transmit(uint8_t ch, const lin_frame_t *frame);
 void lin_manager_get_stats(uint8_t ch, lin_channel_stats_t *stats);
 
 /**
+ * Get SJA1124 over-temperature warning count.
+ */
+uint32_t lin_manager_get_temp_warnings(void);
+
+/**
+ * Check if PLL lost lock at runtime (INT2 PLLOLI).
+ */
+bool lin_manager_get_pll_lost_lock(void);
+
+/**
  * Main LIN task function (FreeRTOS task entry point).
  * Handles SJA1124 interrupts, schedule ticks, TX queue.
  */

@@ -80,6 +80,8 @@ add_executable(${PROJECT_NAME}
     src/lin/lin_manager.c
     # Phase 4: Gateway Engine
     src/gateway/gateway_engine.c
+    # Phase 4.5: Debug Infrastructure
+    src/diag/fault_handler.c
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -97,6 +99,7 @@ target_link_libraries(${PROJECT_NAME}
     hardware_watchdog
     hardware_timer
     hardware_clocks
+    hardware_adc
     can2040
     FreeRTOS-Kernel
     FreeRTOS-Kernel-Heap4
@@ -132,6 +135,7 @@ set(COMMON_SOURCES
     src/lin/sja1124_driver.c
     src/lin/lin_manager.c
     src/gateway/gateway_engine.c
+    src/diag/fault_handler.c
 )
 
 set(COMMON_INCLUDES
@@ -149,6 +153,7 @@ set(COMMON_LIBS
     hardware_watchdog
     hardware_timer
     hardware_clocks
+    hardware_adc
     can2040
     FreeRTOS-Kernel
     FreeRTOS-Kernel-Heap4
@@ -228,5 +233,23 @@ pico_add_extra_outputs(test_phase4)
 add_custom_command(TARGET test_phase4 POST_BUILD
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase4.bin
+    VERBATIM
+)
+
+# ---- Phase 4.5 Test: Debug Infrastructure ----
+add_executable(test_phase4_5 EXCLUDE_FROM_ALL
+    tests/phase4_5/test_diag.c
+    ${COMMON_SOURCES}
+)
+target_include_directories(test_phase4_5 PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(test_phase4_5 ${COMMON_LIBS})
+target_compile_definitions(test_phase4_5 PRIVATE TEST_PHASE4_5)
+pico_set_linker_script(test_phase4_5 ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
+pico_enable_stdio_usb(test_phase4_5 0)
+pico_enable_stdio_uart(test_phase4_5 0)
+pico_add_extra_outputs(test_phase4_5)
+add_custom_command(TARGET test_phase4_5 POST_BUILD
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
+            ${CMAKE_CURRENT_BINARY_DIR}/test_phase4_5.bin
     VERBATIM
 )

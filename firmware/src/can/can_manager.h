@@ -52,9 +52,4 @@ void can_manager_get_stats(can_bus_id_t bus, can_bus_stats_t *stats);
  */
 void can_task_entry(void *params);
 
-/**
- * Feed the CAN bus watchdog (called on every RX frame).
- */
-void can_manager_feed_watchdog(can_bus_id_t bus);
-
 #endif /* CAN_MANAGER_H */

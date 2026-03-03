@@ -99,7 +99,7 @@
 #define TASK_STACK_LIN          512
 #define TASK_STACK_GATEWAY      1024
 #define TASK_STACK_CONFIG       512
-#define TASK_STACK_DIAG         256
+#define TASK_STACK_DIAG         384
 
 /* ---- Queue Depths ---- */
 #define QUEUE_DEPTH_GATEWAY_IN  32
@@ -117,7 +117,26 @@
 
 /* ---- Diagnostics ---- */
 #define DIAG_DEFAULT_CAN_ID     0x7F0U
+#define DIAG_STATS_CAN_ID      0x7F1U
+#define DIAG_LIN_STATS_CAN_ID  0x7F2U
+#define DIAG_CRASH_CAN_ID      0x7F3U
 #define DIAG_DEFAULT_INTERVAL_MS 100U
 #define HW_WATCHDOG_TIMEOUT_MS  5000U
+
+/* ---- System State ---- */
+typedef enum {
+    SYS_STATE_BOOT = 0,
+    SYS_STATE_OK,
+    SYS_STATE_WARN,
+    SYS_STATE_ERROR,
+} system_state_t;
+
+/* ---- Reset Reason ---- */
+typedef enum {
+    RESET_POWER_ON = 0,
+    RESET_WATCHDOG_TIMEOUT,
+    RESET_CRASH_REBOOT,
+    RESET_UNKNOWN,
+} reset_reason_t;
 
 #endif /* BOARD_CONFIG_H */

@@ -248,6 +248,90 @@ All 16 tests must report PASS. The host script shows per-test decoded details:
 
 ---
 
+## Phase 4.5: Debug Infrastructure (On-Target + Host)
+
+**Hardware:** Board + PCAN on CAN1. No additional hardware needed.
+
+Phase 4.5 validates the diagnostic heartbeat, crash reporting, hardware watchdog,
+and MCU telemetry. It runs in two phases: first boot (normal), then crash trigger
++ recovery validation.
+
+### Build & Flash
+
+```bash
+cmake --build build --target test_phase4_5
+```
+
+Flash `build/test_phase4_5.bin` via bootloader.
+
+### Run
+
+```bash
+python tests/phase4_5/test_diag_host.py --channel PCAN_USBBUS1
+```
+
+Reset/power the board after starting the host script. Phase A auto-runs on boot (~15s),
+then Phase B triggers a crash via CAN command and validates recovery (~25s).
+
+### Test Matrix
+
+**Phase A — First Boot Validation:**
+
+| Test | What it checks | Method |
+|------|---------------|--------|
+| T4.5.1 | Crash data clear on cold boot | On-target: no valid crash magic |
+| T4.5.2 | CAN1 active (heartbeat source) | On-target: CAN state = ACTIVE |
+| T4.5.3 | CAN stats readable (no errors) | On-target: state=ACTIVE, error_count=0 |
+| T4.5.4 | Heap readable | On-target: free heap > 0 and < 48 KB |
+| T4.5.5 | MCU temperature in sane range | On-target: 10–70°C |
+| T4.5.6 | System state = OK | On-target: SYS_STATE_OK after boot |
+| T4.5.7 | Reset reason = POWER_ON | On-target: first boot = 0x00 |
+| T4.5.8 | Heap free > 1 KB | On-target: sufficient free memory |
+| T4.5.9 | Stack watermark > 0 | On-target: all tasks have margin |
+| T4.5.10 | Watchdog feeding (alive) | On-target: board survived to test |
+| T4.5.H1–H3 | Heartbeat frames received | Host: 0x7F0/0x7F1/0x7F2 in 12s window |
+| T4.5.H4 | MCU temp sane in heartbeat | Host: 0x7F0 byte 6 in 10–70°C |
+| T4.5.H5 | System state in heartbeat | Host: 0x7F0 byte 4 = 0x01 |
+| T4.5.H6 | Heap free in heartbeat | Host: 0x7F2 byte 6 > 0 |
+| T4.5.H7 | Stack watermark in heartbeat | Host: 0x7F2 byte 7 > 0 |
+| T4.5.H8 | Watchdog sustained | Host: ≥8 heartbeats in 12 seconds |
+
+**Phase B — Crash Trigger + Recovery:**
+
+| Test | What it checks | Method |
+|------|---------------|--------|
+| T4.5.H9 | Crash report 0x7F3 received | Host: frame appears after crash reboot |
+| T4.5.H10 | Fault type = ASSERT_FAIL | Host: 0x7F3 byte 0 = 4 |
+| T4.5.H11 | Crash PC non-zero | Host: 0x7F3 bytes 1–4 ≠ 0 |
+| T4.5.H12 | Reset reason = CRASH_REBOOT | Host: 0x7F0 byte 7 = 2 |
+
+### Crash Data Architecture
+
+Crash data is stored in **watchdog scratch registers** [0–3], NOT in SRAM.
+The bootloader's CRT0 zeroes SRAM on every boot, but watchdog scratch registers
+survive all warm reboots:
+
+- `scratch[0]` = `CRASH_DATA_MAGIC` (0xDEADFA17)
+- `scratch[1]` = fault_type enum
+- `scratch[2]` = PC at crash
+- `scratch[3]` = LR at crash
+
+On boot, `fault_handler_init()` reconstructs a `crash_data_t` struct from scratch
+registers if the magic is valid.
+
+### Troubleshooting
+
+| Symptom | Likely cause |
+|---------|-------------|
+| T4.5.5/H4 FAIL (temp out of range) | Wrong ADC channel — must use `ADC_TEMPERATURE_CHANNEL_NUM` (8 on QFN-80) |
+| T4.5.H9–H11 FAIL (no crash frame) | 0x7F3 sent during result collection, not heartbeat window — host script must capture during both |
+| T4.5.H12 FAIL (reset reason wrong) | Crash data not surviving reboot — verify watchdog scratch registers used, not SRAM |
+| All Phase B tests FAIL | Crash trigger not received — verify 0x7F0 command reaches gateway queue |
+
+**Gate:** All 31 tests pass before proceeding to Phase 5.
+
+---
+
 ## Test Firmware Build Targets
 
 | Target | CMake Command | Define |
@@ -257,3 +341,4 @@ All 16 tests must report PASS. The host script shows per-test decoded details:
 | Phase 2 tests | `cmake --build build --target test_phase2` | `TEST_PHASE2` |
 | Phase 3 tests | `cmake --build build --target test_phase3` | `TEST_PHASE3` |
 | Phase 4 tests | `cmake --build build --target test_phase4` | `TEST_PHASE4` |
+| Phase 4.5 tests | `cmake --build build --target test_phase4_5` | `TEST_PHASE4_5` |

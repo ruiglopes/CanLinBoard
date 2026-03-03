@@ -23,6 +23,9 @@ static QueueHandle_t    s_lin_tx_queue;
 static lin_channel_config_t s_channel_config[LIN_CHANNEL_COUNT];
 static lin_channel_stats_t  s_channel_stats[LIN_CHANNEL_COUNT];
 
+static uint32_t s_temp_warning_count;
+static bool     s_pll_lost_lock;
+
 /* Master scheduling state per channel */
 static struct {
     bool     active;
@@ -137,6 +140,18 @@ static void process_channel_interrupt(uint8_t ch)
 
 static void process_sja1124_interrupts(void)
 {
+    /* Process INT2: over-temperature and PLL loss-of-lock */
+    uint8_t int2;
+    if (sja1124_read_int2(&s_sja_ctx, &int2) == SJA_OK) {
+        if (int2 & SJA_INT2_OTWI) {
+            s_temp_warning_count++;
+        }
+        if (int2 & SJA_INT2_PLLOLI) {
+            s_pll_lost_lock = true;
+        }
+    }
+
+    /* Process INT3: per-channel status and errors */
     uint8_t int3;
     if (sja1124_read_int3(&s_sja_ctx, &int3) != SJA_OK) return;
 
@@ -236,6 +251,16 @@ void lin_manager_get_stats(uint8_t ch, lin_channel_stats_t *stats)
 {
     if (ch >= LIN_CHANNEL_COUNT) return;
     *stats = s_channel_stats[ch];
+}
+
+uint32_t lin_manager_get_temp_warnings(void)
+{
+    return s_temp_warning_count;
+}
+
+bool lin_manager_get_pll_lost_lock(void)
+{
+    return s_pll_lost_lock;
 }
 
 /* ---- LIN Task ---- */

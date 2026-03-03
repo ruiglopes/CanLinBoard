@@ -99,6 +99,13 @@ sja1124_err_t sja1124_frame_rx(sja1124_ctx_t *ctx, uint8_t ch,
                                 lin_frame_t *frame);
 
 /**
+ * Read the INT2 register (PLL, over-temperature, SPI error flags).
+ * @param ctx     Driver context
+ * @param int2    Output: INT2 register value
+ */
+sja1124_err_t sja1124_read_int2(sja1124_ctx_t *ctx, uint8_t *int2);
+
+/**
  * Read the INT3 register to determine which channels have pending interrupts.
  * @param ctx     Driver context
  * @param int3    Output: INT3 register value

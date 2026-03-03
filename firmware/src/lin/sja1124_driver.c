@@ -301,6 +301,11 @@ sja1124_err_t sja1124_frame_rx(sja1124_ctx_t *ctx, uint8_t ch,
     return err;
 }
 
+sja1124_err_t sja1124_read_int2(sja1124_ctx_t *ctx, uint8_t *int2)
+{
+    return reg_read(ctx, SJA_REG_INT2, int2);
+}
+
 sja1124_err_t sja1124_read_int3(sja1124_ctx_t *ctx, uint8_t *int3)
 {
     return reg_read(ctx, SJA_REG_INT3, int3);

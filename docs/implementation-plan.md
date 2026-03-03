@@ -34,7 +34,7 @@ Ping-pong dual-sector scheme: write to inactive slot, verify CRC, flip active ma
 | `lin_task` | 4 | 512w | SJA1124 interrupt processing, LIN frame RX/TX via SPI, master scheduling engine |
 | `gateway_task` | 3 | 1024w | Core routing engine — applies routing rules, byte-level transforms, posts to CAN/LIN TX queues |
 | `config_task` | 2 | 512w | Handles CAN config protocol messages, reads/writes NVM, applies runtime config changes |
-| `diag_task` | 1 | 256w | Periodic bus health aggregation, watchdog management, diagnostic CAN message broadcast |
+| `diag_task` | 1 | 384w | 3-frame/sec heartbeat (0x7F0 status, 0x7F1 CAN stats, 0x7F2 LIN/heap/stack), crash report (0x7F3), MCU temp, stack watermark monitoring |
 
 **IRQ handlers** (not tasks):
 - PIO0_IRQ_0: can2040 CAN1 → lock-free SPSC ring buffer → `can_task`

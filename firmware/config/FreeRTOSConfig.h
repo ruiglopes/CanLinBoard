@@ -65,8 +65,10 @@
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY     (configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << (8 - configPRIO_BITS))
 
 /* ---- Assert ---- */
+extern void fault_handler_save_assert(void *pc, void *lr);
 #define configASSERT( x ) \
-    do { if( !( x ) ) { __asm volatile ("bkpt 0"); for(;;); } } while(0)
+    do { if( !( x ) ) { fault_handler_save_assert( \
+        __builtin_return_address(0), (void *)0); } } while(0)
 
 /* ---- INCLUDE functions ---- */
 #define INCLUDE_vTaskPrioritySet                1
@@ -80,6 +82,7 @@
 #define INCLUDE_xTimerPendFunctionCall          1
 #define INCLUDE_xTaskAbortDelay                 0
 #define INCLUDE_xTaskGetHandle                  0
+#define INCLUDE_uxTaskGetStackHighWaterMark      1
 
 /* ---- SMP Configuration (single core for now) ---- */
 #define configNUMBER_OF_CORES                   1

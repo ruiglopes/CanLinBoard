@@ -110,7 +110,10 @@ SECTIONS
 
     .uninitialized_data (NOLOAD): {
         . = ALIGN(4);
+        __uninitialized_data_start = .;
         *(.uninitialized_data*)
+        . = ALIGN(4);
+        __uninitialized_data_end = .;
     } > RAM
 
     .data : {
