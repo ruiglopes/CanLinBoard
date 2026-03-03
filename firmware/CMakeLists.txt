@@ -78,6 +78,8 @@ add_executable(${PROJECT_NAME}
     # Phase 3: LIN
     src/lin/sja1124_driver.c
     src/lin/lin_manager.c
+    # Phase 4: Gateway Engine
+    src/gateway/gateway_engine.c
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -129,6 +131,7 @@ set(COMMON_SOURCES
     src/can/can_manager.c
     src/lin/sja1124_driver.c
     src/lin/lin_manager.c
+    src/gateway/gateway_engine.c
 )
 
 set(COMMON_INCLUDES
@@ -207,5 +210,23 @@ pico_add_extra_outputs(test_phase3)
 add_custom_command(TARGET test_phase3 POST_BUILD
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase3.bin
+    VERBATIM
+)
+
+# ---- Phase 4 Test: Gateway Engine ----
+add_executable(test_phase4 EXCLUDE_FROM_ALL
+    tests/phase4/test_gateway.c
+    ${COMMON_SOURCES}
+)
+target_include_directories(test_phase4 PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(test_phase4 ${COMMON_LIBS})
+target_compile_definitions(test_phase4 PRIVATE TEST_PHASE4)
+pico_set_linker_script(test_phase4 ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
+pico_enable_stdio_usb(test_phase4 0)
+pico_enable_stdio_uart(test_phase4 0)
+pico_add_extra_outputs(test_phase4)
+add_custom_command(TARGET test_phase4 POST_BUILD
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
+            ${CMAKE_CURRENT_BINARY_DIR}/test_phase4.bin
     VERBATIM
 )

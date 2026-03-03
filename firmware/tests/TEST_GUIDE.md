@@ -23,13 +23,14 @@ cd firmware
 cmake -B build -G Ninja && cmake --build build
 
 # Build a test firmware
-cmake --build build --target test_phase1   # or test_phase2, test_phase3
+cmake --build build --target test_phase1   # or test_phase2, test_phase3, test_phase4
 
 # Run host-side tests
 python tests/phase0/test_build.py                        # No hardware needed
 python tests/phase1/test_hal_host.py --channel PCAN_USBBUS1
 python tests/phase2/test_can_host.py --channel PCAN_USBBUS1
 python tests/phase3/test_lin_host.py --channel PCAN_USBBUS1
+python tests/phase4/test_gateway_host.py --channel PCAN_USBBUS1
 ```
 
 ---
@@ -148,6 +149,105 @@ The firmware auto-runs tests on boot.
 
 ---
 
+## Phase 4: Gateway Engine (On-Target)
+
+**Hardware:** Board + PCAN on CAN1. No second adapter or oscilloscope needed.
+
+The gateway engine is the core routing and transformation layer. Phase 4 tests verify
+that frames are correctly matched, transformed, and dispatched across all bus
+combinations (CAN↔CAN, CAN↔LIN, LIN↔CAN) using a unified rule structure.
+
+### Build & Flash
+
+```bash
+cmake --build build --target test_phase4
+```
+
+Flash `build/test_phase4.bin` via bootloader (same procedure as previous phases).
+
+### Run
+
+```bash
+python tests/phase4/test_gateway_host.py --channel PCAN_USBBUS1
+```
+
+Reset/power the board after starting the host script. The firmware auto-runs all
+16 tests on boot. Results appear within ~15 seconds.
+
+### Test Architecture
+
+The test firmware uses a **TX capture** pattern to observe routed frames without
+needing a second CAN adapter:
+
+- A `test_can_tx_task` intercepts the CAN TX queue.
+- Test protocol frames (IDs 0x7F0–0x7FF) pass through to CAN hardware normally.
+- Routed output frames from the engine are captured into an internal queue for
+  the test orchestrator to verify.
+- LIN→CAN tests inject synthetic `gateway_frame_t` directly into the gateway
+  queue — no physical LIN bus needed.
+
+**Self-receive loop prevention:** Source IDs use 0x100–0x1FF, destination IDs use
+0x200–0x4FF. Rules only match the source range, so re-received output frames are
+not re-routed.
+
+### Test Matrix
+
+| Test | What it checks | Method |
+|------|---------------|--------|
+| T4.1 | CAN1→CAN1 passthrough | TX capture: send 0x100, verify 0x200 with identical data |
+| T4.2 | CAN1→CAN2 routing | Stats: `frames_routed ≥ 1` (CAN2 not physically started) |
+| T4.3 | ID translation | TX capture: send 0x101, verify output ID = 0x300 |
+| T4.4 | ID mask match (0xFF0) | TX capture: send 0x105, matches 0x100/0xFF0 rule → 0x400 |
+| T4.5 | No match → drop | Stats: `frames_dropped ≥ 1`, no frame in TX capture queue |
+| T4.6 | Full passthrough (0 mappings) | TX capture: all 8 bytes copied unchanged, DLC preserved |
+| T4.7 | Single byte extraction | TX capture: `src[2]` → `dst[0]` (0xCC) |
+| T4.8 | Mask + shift | TX capture: low nibble of 0xA5 shifted left 4 → 0x50 |
+| T4.9 | CAN→LIN routing | Stats: `frames_routed ≥ 1`, `lin_tx_overflow == 0` |
+| T4.10 | LIN→CAN routing | TX capture: synthetic LIN1 frame → CAN1 with ID 0x350 |
+| T4.11 | Fan-out (2 rules) | TX capture: 1 frame in → 2 distinct output IDs (0x260, 0x360) |
+| T4.12 | Disabled rule | TX capture: no output; stats: `frames_dropped ≥ 1` |
+| T4.13 | DLC override | TX capture: input DLC=8, output DLC=4 |
+| T4.14 | Multiple byte mappings | TX capture: 3 mappings (src[0]→dst[0], src[3]→dst[1], src[7]→dst[2]) |
+| T4.15 | Offset mapping | TX capture: `(0x32 & 0xFF) + 10 = 0x3C` |
+| T4.16 | Stats consistency | Direct inject 2 matching + 1 non-matching → `routed=2, dropped=1` |
+
+### Pass Criteria
+
+All 16 tests must report PASS. The host script shows per-test decoded details:
+
+```
+  [PASS] T4.1:  CAN1→CAN1 passthrough — received=1, out_id=0x200, data[0]=0x11
+  [PASS] T4.2:  CAN1→CAN2 routing — routed=1, dropped=0
+  ...
+  [PASS] T4.16: Gateway stats consistency — routed=2, dropped=1, can_ovf=0, lin_ovf=0
+
+  Target summary: 16/16 passed, 0 failed
+```
+
+### Troubleshooting
+
+| Symptom | Likely cause |
+|---------|-------------|
+| No results received (timeout) | Board not reset, wrong channel/bitrate, test firmware not flashed |
+| T4.1/T4.3/T4.4 FAIL with `received=0` | CAN self-receive not working — check CAN1 termination enabled |
+| T4.2/T4.9 FAIL with `routed=0` | Frame not reaching gateway queue — check CAN RX path |
+| T4.10 FAIL with `received=0` | Synthetic LIN inject not processed — check gateway task priority |
+| T4.11 FAIL with only 1 of 2 frames | TX queue depth too shallow or timing issue — increase delay |
+| T4.16 FAIL with wrong counts | Stale frames from prior test — flush not clearing properly |
+
+### What This Phase Does NOT Test
+
+- **Physical LIN TX/RX** — LIN bus wire-level verification was covered in Phase 3.
+  Phase 4 focuses on the engine's routing logic, not the SJA1124 driver.
+- **CAN2 physical TX** — CAN2 transceiver is not started in the test firmware.
+  T4.2 verifies the engine dispatches to CAN2 via stats, not wire-level.
+- **NVM persistence of rules** — Rule storage in flash is a Phase 5 (config) concern.
+- **Concurrent high-throughput** — Stress testing is deferred to Phase 6 (integration).
+
+**Gate:** All 16 T4.x pass before proceeding to Phase 5.
+
+---
+
 ## Test Firmware Build Targets
 
 | Target | CMake Command | Define |
@@ -156,3 +256,4 @@ The firmware auto-runs tests on boot.
 | Phase 1 tests | `cmake --build build --target test_phase1` | `TEST_PHASE1` |
 | Phase 2 tests | `cmake --build build --target test_phase2` | `TEST_PHASE2` |
 | Phase 3 tests | `cmake --build build --target test_phase3` | `TEST_PHASE3` |
+| Phase 4 tests | `cmake --build build --target test_phase4` | `TEST_PHASE4` |

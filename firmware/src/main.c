@@ -13,6 +13,7 @@
 #include "can/can_bus.h"
 #include "can/can_manager.h"
 #include "lin/lin_manager.h"
+#include "gateway/gateway_engine.h"
 
 /* ---- FreeRTOS Queue Handles (global) ---- */
 QueueHandle_t g_gateway_input_queue;
@@ -20,16 +21,17 @@ QueueHandle_t g_can_tx_queue;
 QueueHandle_t g_lin_tx_queue;
 QueueHandle_t g_config_rx_queue;
 
-/* ---- Stub tasks for phases not yet implemented ---- */
+/* ---- Gateway Task (Phase 4) ---- */
 
 static void gateway_task(void *params)
 {
     (void)params;
+    gateway_engine_init(g_can_tx_queue, g_lin_tx_queue);
     for (;;) {
-        /* Will be replaced by gateway_engine in Phase 4 */
         gateway_frame_t gf;
-        xQueueReceive(g_gateway_input_queue, &gf, portMAX_DELAY);
-        /* Drop frame — no routing rules yet */
+        if (xQueueReceive(g_gateway_input_queue, &gf, portMAX_DELAY) == pdTRUE) {
+            gateway_engine_process(&gf);
+        }
     }
 }
 
