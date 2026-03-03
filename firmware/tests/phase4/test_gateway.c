@@ -6,10 +6,12 @@
  *
  * Tests the gateway engine by:
  *   - Adding routing rules via gateway_engine_add_rule()
- *   - Sending CAN frames that transit through the engine
- *   - Verifying routed output on CAN1 (self-receive loop)
- *   - Injecting synthetic LIN frames into the gateway queue
+ *   - Injecting frames directly into the gateway queue
+ *   - Verifying routed output via TX queue interception
  *   - Checking stats counters for correctness
+ *
+ * Note: can2040 does not support CAN self-receive, so all frame
+ * injection is done via direct queue insertion, not CAN TX loopback.
  *
  * Results are reported via CAN1 on ID 0x7FE.
  * Summary on 0x7FF.
@@ -19,10 +21,9 @@
  *   Byte 1: Result (0x00=PASS, 0x01=FAIL, 0x02=SKIP)
  *   Byte 2-7: Test-specific data
  *
- * Self-Receive Loop Prevention:
+ * Routing Loop Prevention:
  *   Source IDs in 0x100-0x1FF, destination IDs in 0x200-0x4FF.
- *   Rules only match the source range, so re-received output frames
- *   are not re-routed.
+ *   Rules only match the source range.
  */
 
 #ifdef TEST_PHASE4
@@ -99,22 +100,9 @@ static void report_summary(void)
 }
 
 /**
- * Send a CAN frame on CAN1 that will be received by our own CAN RX,
- * routed into the gateway queue, processed by the engine, and the
- * output dispatched to the CAN TX queue.
- */
-static void inject_can_frame(uint32_t id, const uint8_t *data, uint8_t dlc)
-{
-    can_frame_t frame = {0};
-    frame.id = id;
-    frame.dlc = dlc;
-    if (data) memcpy(frame.data, data, dlc);
-    can_manager_transmit(CAN_BUS_1, &frame);
-}
-
-/**
  * Inject a synthetic gateway_frame_t directly into the gateway queue.
- * Used for LIN→CAN tests where we don't have physical LIN hardware.
+ * Used for all frame injection since can2040 does not support
+ * CAN self-receive (TX frames are not looped back to RX).
  */
 static void inject_gw_frame(bus_id_t src_bus, uint32_t id,
                               const uint8_t *data, uint8_t dlc)
@@ -126,6 +114,14 @@ static void inject_gw_frame(bus_id_t src_bus, uint32_t id,
     gf.timestamp = xTaskGetTickCount();
     if (data) memcpy(gf.frame.data, data, dlc);
     xQueueSend(s_gw_queue, &gf, pdMS_TO_TICKS(50));
+}
+
+/**
+ * Inject a CAN1-sourced frame into the gateway queue for processing.
+ */
+static void inject_can_frame(uint32_t id, const uint8_t *data, uint8_t dlc)
+{
+    inject_gw_frame(BUS_CAN1, id, data, dlc);
 }
 
 /**
