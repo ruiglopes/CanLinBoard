@@ -239,6 +239,25 @@ static bool is_config_frame(const gateway_frame_t *gf)
     return (id == CONFIG_CAN_CMD_ID || id == CONFIG_CAN_DATA_ID);
 }
 
+static void check_bootloader_cmd(const gateway_frame_t *gf)
+{
+    /* Only accept reboot command on CAN1 */
+    if (gf->source_bus != BUS_CAN1) return;
+    if (gf->frame.id != BL_CAN_CMD_ID) return;
+    if (gf->frame.dlc < 6) return;
+    if (gf->frame.data[0] != CMD_RESET) return;
+    if (gf->frame.data[1] != RESET_MODE_BOOTLOADER) return;
+
+    /* Validate 4-byte unlock key (little-endian) */
+    uint32_t key = (uint32_t)gf->frame.data[2]
+                 | ((uint32_t)gf->frame.data[3] << 8)
+                 | ((uint32_t)gf->frame.data[4] << 16)
+                 | ((uint32_t)gf->frame.data[5] << 24);
+    if (key != RESET_UNLOCK_KEY) return;
+
+    hal_request_bootloader();  /* noreturn */
+}
+
 void can_task_entry(void *params)
 {
     (void)params;
@@ -254,6 +273,9 @@ void can_task_entry(void *params)
 
         while (ring_pop(&can_rx_ring[0], &gf)) {
             can_stats[0].rx_count++;
+
+            /* Check for reboot-to-bootloader command (noreturn if matched) */
+            check_bootloader_cmd(&gf);
 
             if (is_config_frame(&gf)) {
                 xQueueSend(s_config_queue, &gf, 0);

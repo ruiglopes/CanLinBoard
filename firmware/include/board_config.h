@@ -72,6 +72,9 @@
 /* ---- Bootloader Interop ---- */
 #define SRAM_MAGIC_ADDR         (0x20000000U + (512U * 1024U) - 4U)  /* 0x2007FFFC */
 #define SRAM_MAGIC_VALUE        0xB00710ADU
+#define CMD_RESET               0x05U
+#define RESET_MODE_BOOTLOADER   0x01U
+#define RESET_UNLOCK_KEY        0xB007CAFEU
 
 /* ---- CAN Configuration Protocol IDs ---- */
 #define CONFIG_CAN_CMD_ID       0x600U
@@ -81,6 +84,8 @@
 /* ---- Bootloader CAN IDs ---- */
 #define BL_CAN_CMD_ID           0x700U
 #define BL_CAN_RESP_ID          0x701U
+#define BL_CAN_DATA_ID          0x702U
+#define BL_CAN_DEBUG_ID         0x7FFU
 
 /* ---- FreeRTOS Task Priorities ---- */
 #define TASK_PRIORITY_CAN       5
