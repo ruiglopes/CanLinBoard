@@ -43,6 +43,8 @@ typedef struct __attribute__((packed)) {
         uint16_t interval_ms;
         uint8_t  bus;           /* 0=CAN1, 1=CAN2 */
         uint8_t  enabled;       /* bool */
+        uint16_t can_watchdog_ms;  /* 0=disabled */
+        uint16_t lin_watchdog_ms;  /* 0=disabled */
     } diag;
 
     /* Device profiles */

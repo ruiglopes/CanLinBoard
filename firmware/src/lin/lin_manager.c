@@ -3,6 +3,7 @@
 #include "hal/hal_spi.h"
 #include "hal/hal_clock.h"
 #include "hal/hal_gpio.h"
+#include "diag/bus_watchdog.h"
 #include "board_config.h"
 
 #include "FreeRTOS.h"
@@ -106,6 +107,7 @@ static void process_channel_interrupt(uint8_t ch)
         lin_frame_t frame;
         if (sja1124_frame_rx(&s_sja_ctx, ch, &frame) == SJA_OK) {
             s_channel_stats[ch].rx_count++;
+            bus_watchdog_feed((bus_id_t)(BUS_LIN1 + ch));
 
             /* Forward to gateway as a gateway_frame_t */
             gateway_frame_t gf;

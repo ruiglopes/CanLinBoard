@@ -89,10 +89,12 @@ void nvm_config_defaults(nvm_config_t *cfg)
     cfg->routing_rule_count = 0;
 
     /* Diagnostics defaults */
-    cfg->diag.can_id      = DIAG_DEFAULT_CAN_ID;
-    cfg->diag.interval_ms = DIAG_DEFAULT_INTERVAL_MS;
-    cfg->diag.bus         = 0;  /* CAN1 */
-    cfg->diag.enabled     = 1;
+    cfg->diag.can_id          = DIAG_DEFAULT_CAN_ID;
+    cfg->diag.interval_ms     = DIAG_DEFAULT_INTERVAL_MS;
+    cfg->diag.bus             = 0;  /* CAN1 */
+    cfg->diag.enabled         = 1;
+    cfg->diag.can_watchdog_ms = 0;  /* disabled by default */
+    cfg->diag.lin_watchdog_ms = 0;  /* disabled by default */
 
     /* Profiles disabled */
     cfg->profiles.wda_enabled    = 0;

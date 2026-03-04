@@ -112,7 +112,7 @@
 #define TASK_STACK_LIN          512
 #define TASK_STACK_GATEWAY      1024
 #define TASK_STACK_CONFIG       768
-#define TASK_STACK_DIAG         384
+#define TASK_STACK_DIAG         512
 
 /* ---- Queue Depths ---- */
 #define QUEUE_DEPTH_GATEWAY_IN  32
@@ -130,7 +130,7 @@
 
 /* ---- NVM Configuration ---- */
 #define NVM_CONFIG_MAGIC        0x4E564D01U  /* "NVM\x01" */
-#define NVM_CONFIG_VERSION      1
+#define NVM_CONFIG_VERSION      2
 #define NVM_META_MAGIC          0x4E564D4DU  /* "NVMM" */
 
 /* ---- Diagnostics ---- */
@@ -139,7 +139,7 @@
 #define DIAG_LIN_STATS_CAN_ID  0x7F2U
 #define DIAG_CRASH_CAN_ID      0x7F3U
 #define DIAG_SYS_HEALTH_CAN_ID 0x7F4U
-#define DIAG_DEFAULT_INTERVAL_MS 100U
+#define DIAG_DEFAULT_INTERVAL_MS 1000U
 #define HW_WATCHDOG_TIMEOUT_MS  5000U
 
 /* ---- Test Framework CAN IDs ---- */

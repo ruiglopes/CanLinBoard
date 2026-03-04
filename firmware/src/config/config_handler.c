@@ -5,6 +5,8 @@
 #include "can/can_manager.h"
 #include "lin/lin_manager.h"
 #include "gateway/gateway_engine.h"
+#include "diag/diagnostics.h"
+#include "diag/bus_watchdog.h"
 #include "hal/hal_gpio.h"
 #include "util/crc32.h"
 #include "board_config.h"
@@ -60,8 +62,10 @@ static void apply_config(const nvm_config_t *cfg)
     /* CAN2: start/stop based on config */
     if (cfg->can[1].enabled) {
         can_manager_start_can2(cfg->can[1].bitrate);
+        bus_watchdog_set_enabled(BUS_CAN2, true);
     } else {
         can_manager_stop_can2();
+        bus_watchdog_set_enabled(BUS_CAN2, false);
     }
 
     /* LIN channels */
@@ -73,8 +77,10 @@ static void apply_config(const nvm_config_t *cfg)
             lc.baudrate = cfg->lin[ch].baudrate;
             memcpy(&lc.schedule, &cfg->lin[ch].schedule, sizeof(lin_schedule_table_t));
             lin_manager_start_channel(ch, &lc);
+            bus_watchdog_set_enabled((bus_id_t)(BUS_LIN1 + ch), true);
         } else {
             lin_manager_stop_channel(ch);
+            bus_watchdog_set_enabled((bus_id_t)(BUS_LIN1 + ch), false);
         }
     }
 
@@ -85,6 +91,9 @@ static void apply_config(const nvm_config_t *cfg)
         memcpy(&rule, &cfg->routing_rules[i], sizeof(routing_rule_t));
         gateway_engine_add_rule(&rule);
     }
+
+    /* Diagnostics reconfigure (interval, bus, watchdog timeouts) */
+    diagnostics_reconfigure();
 }
 
 /* ---- Command Handlers ---- */
@@ -250,6 +259,26 @@ static void handle_read_param(const uint8_t *data, uint8_t dlc)
             payload[3] = s_working_config.diag.enabled;
             plen = 4;
             break;
+        case 3: /* bus */
+            payload[3] = s_working_config.diag.bus;
+            plen = 4;
+            break;
+        case 4: /* can_watchdog_ms */
+        {
+            uint16_t wdt = s_working_config.diag.can_watchdog_ms;
+            payload[3] = (uint8_t)(wdt);
+            payload[4] = (uint8_t)(wdt >> 8);
+            plen = 5;
+            break;
+        }
+        case 5: /* lin_watchdog_ms */
+        {
+            uint16_t wdt = s_working_config.diag.lin_watchdog_ms;
+            payload[3] = (uint8_t)(wdt);
+            payload[4] = (uint8_t)(wdt >> 8);
+            plen = 5;
+            break;
+        }
         default:
             send_response(CFG_CMD_READ_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
             return;
@@ -349,6 +378,17 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
             break;
         case 2: /* enabled */
             s_working_config.diag.enabled = data[4] ? 1 : 0;
+            break;
+        case 3: /* bus */
+            s_working_config.diag.bus = data[4];
+            break;
+        case 4: /* can_watchdog_ms */
+            if (dlc < 6) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            s_working_config.diag.can_watchdog_ms = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+            break;
+        case 5: /* lin_watchdog_ms */
+            if (dlc < 6) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            s_working_config.diag.lin_watchdog_ms = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
             break;
         default:
             send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);

@@ -71,9 +71,10 @@ BO_ 2035 DIAG_CrashReport: 8 Board
  SG_ CrashUptime_s : 47|16@0+ (1,0) [0|65535] "s" Host
  SG_ TaskNameChar : 56|8@1+ (1,0) [0|255] "" Host
 
-BO_ 2036 DIAG_SysHealth: 2 Board
+BO_ 2036 DIAG_SysHealth: 3 Board
  SG_ HeapFree_KB : 0|8@1+ (1,0) [0|255] "KB" Host
  SG_ MinStackWatermark : 8|8@1+ (1,0) [0|255] "words" Host
+ SG_ WdtTimeoutMask : 16|8@1+ (1,0) [0|63] "" Host
 
 BO_ 2042 TEST_Result: 8 Board
  SG_ TestID : 0|8@1+ (1,0) [0|255] "" Host
@@ -105,7 +106,7 @@ CM_ BO_ 2034 "LIN channel statistics for all 4 channels, sent every 1 second (10
 
 CM_ BO_ 2035 "Crash report, sent once at boot if a valid crash record exists in watchdog scratch registers. Cleared after transmission. Only present if the previous boot ended in a fault.";
 
-CM_ BO_ 2036 "System health indicators, sent every 1 second (15 ms after DIAG_Status). Heap and stack watermark monitoring.";
+CM_ BO_ 2036 "System health indicators, sent every 1 second (15 ms after DIAG_Status). Heap, stack watermark, and bus watchdog timeout monitoring.";
 
 CM_ BO_ 2042 "Test result frame (test firmware only). Sent once per test case. TestID = test number within the phase. Result: 0=PASS, 1=FAIL, 2=SKIP. Bytes 2-7 may carry test-specific auxiliary data.";
 
@@ -142,6 +143,7 @@ CM_ SG_ 2035 CrashUptime_s "Uptime in seconds when the crash occurred (big-endia
 CM_ SG_ 2035 TaskNameChar "First ASCII character of the faulting FreeRTOS task name.";
 CM_ SG_ 2036 HeapFree_KB "Free FreeRTOS heap in kilobytes.";
 CM_ SG_ 2036 MinStackWatermark "Minimum stack high-water mark across all tasks (in words, saturated at 255).";
+CM_ SG_ 2036 WdtTimeoutMask "Bus software watchdog timeout bitmask: bit0=CAN1, bit1=CAN2, bit2=LIN1, bit3=LIN2, bit4=LIN3, bit5=LIN4. 0=no timeout.";
 
 
 BA_DEF_ BO_ "GenMsgCycleTime" INT 0 10000;

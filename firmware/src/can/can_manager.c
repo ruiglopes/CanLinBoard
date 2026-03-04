@@ -1,6 +1,7 @@
 #include "can/can_manager.h"
 #include "board_config.h"
 #include "hal/hal_gpio.h"
+#include "diag/bus_watchdog.h"
 
 #include "can2040.h"
 #include "hardware/irq.h"
@@ -271,9 +272,12 @@ void can_task_entry(void *params)
 
         /* Drain both CAN RX ring buffers */
         gateway_frame_t gf;
+        bool had_frames;
 
+        had_frames = false;
         while (ring_pop(&can_rx_ring[0], &gf)) {
             can_stats[0].rx_count++;
+            had_frames = true;
 
             /* Check for reboot-to-bootloader command (noreturn if matched) */
             check_bootloader_cmd(&gf);
@@ -284,11 +288,15 @@ void can_task_entry(void *params)
                 xQueueSend(s_gateway_queue, &gf, 0);
             }
         }
+        if (had_frames) bus_watchdog_feed(BUS_CAN1);
 
+        had_frames = false;
         while (ring_pop(&can_rx_ring[1], &gf)) {
             can_stats[1].rx_count++;
+            had_frames = true;
             xQueueSend(s_gateway_queue, &gf, 0);
         }
+        if (had_frames) bus_watchdog_feed(BUS_CAN2);
 
         /* Process outbound CAN TX queue */
         gateway_frame_t tx_gf;
