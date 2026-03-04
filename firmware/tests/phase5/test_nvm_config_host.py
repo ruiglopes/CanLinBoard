@@ -11,7 +11,7 @@ Requires:
   - PCAN adapter connected to CAN1
 
 Test flow:
-  Phase A — Auto-tests (on-target, results on 0x7FE/0x7FF)
+  Phase A — Auto-tests (on-target, results on 0x7FA/0x7FB)
     T5.1   First boot defaults
     T5.2   Config persistence
     T5.3   Ping-pong slot swap
@@ -50,8 +50,8 @@ from pcan_helper import PcanBus, TestResult
 # CAN IDs
 CONFIG_CMD_ID   = 0x600
 CONFIG_RESP_ID  = 0x601
-TEST_RESULT_ID  = 0x7FE
-TEST_SUMMARY_ID = 0x7FF
+TEST_RESULT_ID  = 0x7FA
+TEST_SUMMARY_ID = 0x7FB
 BL_CMD_ID       = 0x700
 BL_RESP_ID      = 0x701
 
@@ -87,7 +87,7 @@ TEST_DESCRIPTIONS = {
 
 
 def collect_on_target_results(bus, results, timeout=30.0):
-    """Collect test results from on-target firmware (0x7FE frames)."""
+    """Collect test results from on-target firmware (0x7FA frames)."""
     deadline = time.time() + timeout
     summary_received = False
     on_target_total = 0

@@ -216,6 +216,7 @@ bool lin_manager_start_channel(uint8_t ch, const lin_channel_config_t *config)
 void lin_manager_stop_channel(uint8_t ch)
 {
     if (ch >= LIN_CHANNEL_COUNT) return;
+    if (s_channel_stats[ch].state == LIN_STATE_UNINIT) return;
 
     s_schedule_state[ch].active = false;
     sja1124_channel_stop(&s_sja_ctx, ch);

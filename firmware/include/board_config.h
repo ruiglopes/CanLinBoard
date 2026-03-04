@@ -136,8 +136,15 @@
 #define DIAG_STATS_CAN_ID      0x7F1U
 #define DIAG_LIN_STATS_CAN_ID  0x7F2U
 #define DIAG_CRASH_CAN_ID      0x7F3U
+#define DIAG_SYS_HEALTH_CAN_ID 0x7F4U
 #define DIAG_DEFAULT_INTERVAL_MS 100U
 #define HW_WATCHDOG_TIMEOUT_MS  5000U
+
+/* ---- Test Framework CAN IDs ---- */
+#define TEST_RESULT_CAN_ID      0x7FAU
+#define TEST_SUMMARY_CAN_ID     0x7FBU
+#define TEST_DIAG_CAN_ID        0x7FDU
+#define TEST_PROGRESS_CAN_ID    0x7FCU
 
 /* ---- System State ---- */
 typedef enum {

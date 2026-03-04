@@ -5,7 +5,7 @@ Phase 3 Host-Side Test Collector: LIN Subsystem
 
 Listens on PCAN for test results from the Phase 3 on-target test firmware.
 
-The target runs auto-tests on boot and reports results on CAN1 ID 0x7FE.
+The target runs auto-tests on boot and reports results on CAN1 ID 0x7FA.
 
 Tests verified:
   T3.1   PLL lock with 8 MHz clock
@@ -39,8 +39,8 @@ import argparse
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 from pcan_helper import PcanBus, TestResult
 
-TEST_RESULT_ID = 0x7FE
-TEST_SUMMARY_ID = 0x7FF
+TEST_RESULT_ID = 0x7FA
+TEST_SUMMARY_ID = 0x7FB
 TEST_CMD_ID = 0x7F0
 
 RESULT_NAMES = {0x00: "PASS", 0x01: "FAIL", 0x02: "SKIP"}

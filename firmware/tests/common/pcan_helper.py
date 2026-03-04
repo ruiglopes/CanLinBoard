@@ -13,9 +13,16 @@ Usage:
 """
 
 import can
+import logging
 import time
 import struct
 from typing import Optional, List
+
+# Suppress noisy bus-error messages from the PCAN driver during board reboots.
+# These are expected when the target MCU goes offline temporarily.
+logging.getLogger('can').setLevel(logging.CRITICAL)
+logging.getLogger('can.pcan').setLevel(logging.CRITICAL)
+logging.getLogger('can.interfaces.pcan').setLevel(logging.CRITICAL)
 
 
 class PcanBus:
@@ -38,12 +45,23 @@ class PcanBus:
             interface='pcan',
             channel=self.channel,
             bitrate=self.bitrate,
+            auto_reset=True,
         )
 
     def close(self):
         if self.bus:
             self.bus.shutdown()
             self.bus = None
+
+    def reinit(self):
+        """Shutdown and recreate the PCAN bus to clear error counters."""
+        try:
+            if self.bus:
+                self.bus.shutdown()
+        except Exception:
+            pass
+        time.sleep(0.3)
+        self.open()
 
     def send_frame(self, can_id: int, data: List[int], extended: bool = False):
         """Send a single CAN frame."""
@@ -55,26 +73,39 @@ class PcanBus:
         self.bus.send(msg)
 
     def recv_frame(self, timeout: float = 1.0) -> Optional[can.Message]:
-        """Receive a single CAN frame (blocking with timeout)."""
-        return self.bus.recv(timeout=timeout)
+        """Receive a single CAN frame (blocking with timeout).
+        Silently discards PCAN error frames."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            remaining = max(0.01, deadline - time.time())
+            msg = self.bus.recv(timeout=remaining)
+            if msg is None:
+                return None
+            if not msg.is_error_frame:
+                return msg
+        return None
 
     def recv_frames(self, count: int, timeout: float = 5.0) -> List[can.Message]:
-        """Receive up to `count` frames within `timeout` seconds."""
+        """Receive up to `count` frames within `timeout` seconds.
+        Silently discards PCAN error frames."""
         frames = []
         deadline = time.time() + timeout
         while len(frames) < count and time.time() < deadline:
             remaining = deadline - time.time()
             msg = self.bus.recv(timeout=max(0.01, remaining))
-            if msg:
+            if msg and not msg.is_error_frame:
                 frames.append(msg)
         return frames
 
     def recv_until_id(self, target_id: int, timeout: float = 2.0) -> Optional[can.Message]:
-        """Receive frames until one matches `target_id`."""
+        """Receive frames until one matches `target_id`.
+        Silently discards PCAN error frames."""
         deadline = time.time() + timeout
         while time.time() < deadline:
             msg = self.bus.recv(timeout=max(0.01, deadline - time.time()))
-            if msg and msg.arbitration_id == target_id:
+            if not msg or msg.is_error_frame:
+                continue
+            if msg.arbitration_id == target_id:
                 return msg
         return None
 

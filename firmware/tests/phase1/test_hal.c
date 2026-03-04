@@ -3,7 +3,7 @@
  * ==========================================
  *
  * This is a standalone test firmware that exercises the HAL layer.
- * Results are reported via CAN1 on ID 0x7FE (test results).
+ * Results are reported via CAN1 on ID 0x7FA (test results).
  *
  * Build: Compile with -DTEST_PHASE1 to replace main() with test harness.
  *
@@ -12,7 +12,7 @@
  *   Byte 1: Result (0x00=PASS, 0x01=FAIL, 0x02=SKIP)
  *   Byte 2-7: Test-specific data
  *
- * Final summary frame on 0x7FF:
+ * Final summary frame on 0x7FB:
  *   Byte 0: Total tests
  *   Byte 1: Passed
  *   Byte 2: Failed
@@ -39,8 +39,7 @@
 #include "can/can_bus.h"
 #include "hardware/clocks.h"
 
-#define TEST_RESULT_CAN_ID  0x7FE
-#define TEST_SUMMARY_CAN_ID 0x7FF
+/* Test Protocol IDs from board_config.h */
 
 #define RESULT_PASS 0x00
 #define RESULT_FAIL 0x01

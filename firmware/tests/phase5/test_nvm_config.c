@@ -22,7 +22,7 @@
  *   T5.15  Unknown param (invalid section returns error)
  *   T5.16  Runtime apply (write CAN2 term=true + SAVE, verify pin)
  *
- * Results reported on CAN1 ID 0x7FE, summary on 0x7FF.
+ * Results reported on CAN1 ID 0x7FA, summary on 0x7FB.
  * T5.13 and T5.14 are host-verified (cause board resets).
  */
 
@@ -52,11 +52,8 @@
 
 #include <string.h>
 
-/* ---- Test Protocol IDs ---- */
-#define TEST_RESULT_CAN_ID  0x7FE
-#define TEST_SUMMARY_CAN_ID 0x7FF
-#define TEST_DIAG_CAN_ID    0x7FD
-#define TEST_PROGRESS_CAN_ID 0x7FC
+/* Test Protocol IDs from board_config.h: TEST_RESULT_CAN_ID, TEST_SUMMARY_CAN_ID,
+ * TEST_DIAG_CAN_ID, TEST_PROGRESS_CAN_ID */
 
 #define RESULT_PASS 0x00
 #define RESULT_FAIL 0x01

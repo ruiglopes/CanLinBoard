@@ -10,10 +10,10 @@
  *   - Running master schedule tables
  *   - Reading error/status registers
  *
- * Results are reported via CAN1 on ID 0x7FE.
+ * Results are reported via CAN1 on ID 0x7FA.
  * Commands are received on CAN1 ID 0x7F0.
  *
- * Test result frame (CAN1, ID 0x7FE):
+ * Test result frame (CAN1, ID 0x7FA):
  *   Byte 0: Test ID (1-14)
  *   Byte 1: Result (0x00=PASS, 0x01=FAIL, 0x02=SKIP)
  *   Byte 2-7: Test-specific data
@@ -21,7 +21,7 @@
  * Command frame (CAN1, ID 0x7F0):
  *   Byte 0: Command
  *     0x01 = Run all auto-tests (T3.1 - T3.8 that don't need external hardware)
- *     0x02 = Read SJA1124 register (byte 1 = addr, response in 0x7FE)
+ *     0x02 = Read SJA1124 register (byte 1 = addr, response in 0x7FA)
  *     0x03 = Start channel (byte 1 = ch, byte 2 = mode, bytes 3-6 = baudrate LE)
  *     0x04 = Stop channel (byte 1 = ch)
  *     0x05 = TX frame on channel (byte 1 = ch, byte 2 = ID, byte 3 = DLC)
@@ -55,9 +55,8 @@
 /* Forward declaration */
 static sja1124_err_t reg_read_via_spi(uint8_t ch, uint8_t offset, uint8_t *val);
 
+/* Test Protocol IDs from board_config.h */
 #define TEST_CMD_ID         0x7F0
-#define TEST_RESULT_CAN_ID  0x7FE
-#define TEST_SUMMARY_CAN_ID 0x7FF
 
 #define RESULT_PASS 0x00
 #define RESULT_FAIL 0x01

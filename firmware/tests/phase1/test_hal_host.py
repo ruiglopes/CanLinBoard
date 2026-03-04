@@ -6,8 +6,8 @@ Phase 1 Host-Side Test Collector: HAL Verification
 Listens on PCAN for test results from the Phase 1 on-target test firmware.
 
 The target sends:
-  - ID 0x7FE: Individual test results
-  - ID 0x7FF: Final summary
+  - ID 0x7FA: Individual test results
+  - ID 0x7FB: Final summary
 
 Usage:
   1. Flash the Phase 1 test firmware (built with -DTEST_PHASE1)
@@ -26,8 +26,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 from pcan_helper import PcanBus, TestResult
 
 TEST_DIAG_ID = 0x7FD
-TEST_RESULT_ID = 0x7FE
-TEST_SUMMARY_ID = 0x7FF
+TEST_RESULT_ID = 0x7FA
+TEST_SUMMARY_ID = 0x7FB
 
 RESULT_NAMES = {0x00: "PASS", 0x01: "FAIL", 0x02: "SKIP"}
 

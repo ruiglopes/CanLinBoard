@@ -198,7 +198,7 @@ static void diag_task(void *params)
 
         vTaskDelay(pdMS_TO_TICKS(5));
 
-        /* ---- Frame 3: LIN + heap/stack on 0x7F2 (8B) ---- */
+        /* ---- Frame 3: LIN stats on 0x7F2 (8B) ---- */
         {
             can_frame_t lf = {0};
             lf.id = DIAG_LIN_STATS_CAN_ID;
@@ -212,11 +212,22 @@ static void diag_task(void *params)
                 lf.data[ch * 2 + 1] = (ls.error_count > 255) ? 255 : (uint8_t)ls.error_count;
             }
 
-            /* Byte 6: free heap in KB */
-            size_t free_heap = xPortGetFreeHeapSize();
-            lf.data[6] = (uint8_t)(free_heap / 1024);
+            can_manager_transmit(CAN_BUS_1, &lf);
+        }
 
-            /* Byte 7: minimum stack watermark across all tasks (in words) */
+        vTaskDelay(pdMS_TO_TICKS(5));
+
+        /* ---- Frame 4: System health on 0x7F4 (2B) ---- */
+        {
+            can_frame_t hf = {0};
+            hf.id = DIAG_SYS_HEALTH_CAN_ID;
+            hf.dlc = 2;
+
+            /* Byte 0: free heap in KB */
+            size_t free_heap = xPortGetFreeHeapSize();
+            hf.data[0] = (uint8_t)(free_heap / 1024);
+
+            /* Byte 1: minimum stack watermark across all tasks (in words) */
             uint16_t min_wm = 0xFFFF;
             for (int i = 0; i < NUM_APP_TASKS; i++) {
                 if (s_task_handles[i]) {
@@ -224,9 +235,9 @@ static void diag_task(void *params)
                     if (wm < min_wm) min_wm = (uint16_t)wm;
                 }
             }
-            lf.data[7] = (min_wm > 255) ? 255 : (uint8_t)min_wm;
+            hf.data[1] = (min_wm > 255) ? 255 : (uint8_t)min_wm;
 
-            can_manager_transmit(CAN_BUS_1, &lf);
+            can_manager_transmit(CAN_BUS_1, &hf);
         }
 
         /* Every 10 seconds: check stack watermarks for warnings */

@@ -22,7 +22,7 @@
  * CAN commands (sent by host on 0x7F0):
  *   [0x10] — Trigger configASSERT(0) (saves crash data + reboots)
  *   [0x11] — Trigger stack overflow (writes past stack)
- *   [0x12] — Report crash data validity (responds on 0x7FE)
+ *   [0x12] — Report crash data validity (responds on 0x7FA)
  *
  * After a crash reboot, the host re-checks:
  *   T4.5.11  Crash report frame 0x7F3 appears after reboot
@@ -30,8 +30,8 @@
  *   T4.5.13  Reset reason = CRASH_REBOOT (0x02) after crash
  *   T4.5.14  Crash data PC is non-zero (for assert)
  *
- * Results are reported via CAN1 on ID 0x7FE.
- * Summary on 0x7FF.
+ * Results are reported via CAN1 on ID 0x7FA.
+ * Summary on 0x7FB.
  */
 
 #ifdef TEST_PHASE4_5
@@ -55,10 +55,8 @@
 
 #include <string.h>
 
-/* ---- Test Protocol IDs ---- */
+/* Test Protocol IDs from board_config.h */
 #define TEST_CMD_CAN_ID     0x7F0
-#define TEST_RESULT_CAN_ID  0x7FE
-#define TEST_SUMMARY_CAN_ID 0x7FF
 
 #define RESULT_PASS 0x00
 #define RESULT_FAIL 0x01
@@ -246,7 +244,7 @@ static void cmd_listener_task(void *params)
                     trigger_stack_overflow();
                 }
                 else if (cmd == CMD_QUERY_CRASH_DATA) {
-                    /* Report crash data validity on 0x7FE */
+                    /* Report crash data validity on 0x7FA */
                     const crash_data_t *cd = fault_handler_get_crash_data();
                     can_frame_t resp = {0};
                     resp.id = TEST_RESULT_CAN_ID;

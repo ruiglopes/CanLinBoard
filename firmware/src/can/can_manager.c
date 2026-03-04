@@ -193,6 +193,7 @@ bool can_manager_start_can2(uint32_t bitrate)
 
 void can_manager_stop_can2(void)
 {
+    if (can_stats[1].state != CAN_STATE_ACTIVE) return;
     can2040_stop(&can2040_inst[1]);
     irq_set_enabled(PIO1_IRQ_0, false);
     hal_can_enable(CAN_BUS_2, false);

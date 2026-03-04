@@ -56,8 +56,8 @@ DIAG_STATUS_ID  = 0x7F0
 DIAG_STATS_ID   = 0x7F1
 DIAG_LIN_ID     = 0x7F2
 DIAG_CRASH_ID   = 0x7F3
-TEST_RESULT_ID  = 0x7FE
-TEST_SUMMARY_ID = 0x7FF
+TEST_RESULT_ID  = 0x7FA
+TEST_SUMMARY_ID = 0x7FB
 TEST_CMD_ID     = 0x7F0  # Overloaded — host sends commands on this ID
 
 # Test commands
@@ -100,7 +100,7 @@ TEST_DESCRIPTIONS = {
 
 
 def collect_on_target_results(bus, results, timeout=20.0):
-    """Collect test results from on-target firmware (0x7FE frames).
+    """Collect test results from on-target firmware (0x7FA frames).
     Also captures any 0x7F3 crash report frames that arrive during collection.
     Returns (summary_received, list_of_crash_frames)."""
     deadline = time.time() + timeout

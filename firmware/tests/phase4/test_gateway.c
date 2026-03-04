@@ -13,10 +13,10 @@
  * Note: can2040 does not support CAN self-receive, so all frame
  * injection is done via direct queue insertion, not CAN TX loopback.
  *
- * Results are reported via CAN1 on ID 0x7FE.
- * Summary on 0x7FF.
+ * Results are reported via CAN1 on ID 0x7FA.
+ * Summary on 0x7FB.
  *
- * Test result frame (CAN1, ID 0x7FE):
+ * Test result frame (CAN1, ID 0x7FA):
  *   Byte 0: Test ID (1-16)
  *   Byte 1: Result (0x00=PASS, 0x01=FAIL, 0x02=SKIP)
  *   Byte 2-7: Test-specific data
@@ -43,10 +43,8 @@
 
 #include <string.h>
 
-/* ---- Test Protocol IDs ---- */
-#define TEST_RESULT_CAN_ID  0x7FE
-#define TEST_SUMMARY_CAN_ID 0x7FF
-#define TEST_DIAG_CAN_ID    0x7FD
+/* Test Protocol IDs from board_config.h: TEST_RESULT_CAN_ID, TEST_SUMMARY_CAN_ID,
+ * TEST_DIAG_CAN_ID */
 
 #define RESULT_PASS 0x00
 #define RESULT_FAIL 0x01
