@@ -82,6 +82,10 @@ add_executable(${PROJECT_NAME}
     src/gateway/gateway_engine.c
     # Phase 4.5: Debug Infrastructure
     src/diag/fault_handler.c
+    # Phase 5: Configuration System
+    src/util/crc32.c
+    src/config/nvm_config.c
+    src/config/config_handler.c
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -136,6 +140,9 @@ set(COMMON_SOURCES
     src/lin/lin_manager.c
     src/gateway/gateway_engine.c
     src/diag/fault_handler.c
+    src/util/crc32.c
+    src/config/nvm_config.c
+    src/config/config_handler.c
 )
 
 set(COMMON_INCLUDES
@@ -251,5 +258,23 @@ pico_add_extra_outputs(test_phase4_5)
 add_custom_command(TARGET test_phase4_5 POST_BUILD
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase4_5.bin
+    VERBATIM
+)
+
+# ---- Phase 5 Test: Configuration System ----
+add_executable(test_phase5 EXCLUDE_FROM_ALL
+    tests/phase5/test_nvm_config.c
+    ${COMMON_SOURCES}
+)
+target_include_directories(test_phase5 PRIVATE ${COMMON_INCLUDES})
+target_link_libraries(test_phase5 ${COMMON_LIBS})
+target_compile_definitions(test_phase5 PRIVATE TEST_PHASE5)
+pico_set_linker_script(test_phase5 ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
+pico_enable_stdio_usb(test_phase5 0)
+pico_enable_stdio_uart(test_phase5 0)
+pico_add_extra_outputs(test_phase5)
+add_custom_command(TARGET test_phase5 POST_BUILD
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
+            ${CMAKE_CURRENT_BINARY_DIR}/test_phase5.bin
     VERBATIM
 )

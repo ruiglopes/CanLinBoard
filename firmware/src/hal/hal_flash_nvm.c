@@ -2,50 +2,44 @@
 #include "board_config.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
+#include "pico/platform.h"
 #include <string.h>
 
 /*
- * NVM storage on secondary flash (XIP CS1).
+ * NVM storage in the tail of primary flash (CS0).
  *
- * The RP2350 secondary flash is accessible via XIP at a separate address.
- * For erase/program operations we use the hardware_flash API with the
- * appropriate offset from the flash base.
+ * Uses the last 12 KB of the 2 MB primary flash:
+ *   Offset 0x1FD000: Slot A  (4 KB)
+ *   Offset 0x1FE000: Slot B  (4 KB)
+ *   Offset 0x1FF000: Meta    (4 KB)
  *
- * Note: The Pico SDK flash_range_erase/program functions require interrupts
- * to be disabled and operate relative to XIP_BASE (0x10000000).
- * For secondary flash we compute the offset accordingly.
+ * The Pico SDK flash_range_erase/program functions operate relative
+ * to XIP_BASE (0x10000000). NVM_FLASH_OFFSET is defined in board_config.h.
  *
- * TODO: Verify CS1 flash addressing on actual hardware. If XIP CS1
- * is not directly supported, fall back to tail of primary flash.
+ * Reads use the XIP memory-mapped address directly.
+ * Writes/erases use flash_range_erase/program.
+ *
+ * IMPORTANT: All functions that call flash_range_erase/program MUST be
+ * placed in RAM via __no_inline_not_in_flash_func. The SDK flash functions
+ * disable XIP during flash operations; if the caller is in flash (XIP),
+ * returning to it after XIP re-enable can race with the XIP controller
+ * readiness on RP2350.
  */
-
-/*
- * Compute the flash offset for NVM operations.
- * Primary flash: 0x10000000 - 0x101FFFFF (2 MB)
- * Secondary flash: starts at offset 0x200000 from FLASH_BASE (tentative).
- * This may need adjustment based on actual hardware mapping.
- */
-#define NVM_FLASH_OFFSET    0x200000U   /* Offset into flash address space */
 
 void hal_nvm_init(void)
 {
-    /* Nothing to initialize — flash is memory-mapped via XIP */
+    /* Nothing to initialize — primary flash is already configured by boot2 */
 }
 
 bool hal_nvm_read(uint32_t offset, void *buf, size_t len)
 {
-    /*
-     * Read directly from memory-mapped flash.
-     * XIP_BASE + NVM_FLASH_OFFSET + offset gives the memory address.
-     */
     const uint8_t *src = (const uint8_t *)(XIP_BASE + NVM_FLASH_OFFSET + offset);
     memcpy(buf, src, len);
     return true;
 }
 
-bool hal_nvm_erase_sector(uint32_t offset)
+bool __no_inline_not_in_flash_func(hal_nvm_erase_sector)(uint32_t offset)
 {
-    /* Offset must be sector-aligned */
     if (offset % NVM_SECTOR_SIZE != 0) return false;
 
     uint32_t flash_offset = NVM_FLASH_OFFSET + offset;
@@ -57,16 +51,13 @@ bool hal_nvm_erase_sector(uint32_t offset)
     return true;
 }
 
-bool hal_nvm_write_page(uint32_t offset, const void *data, size_t len)
+bool __no_inline_not_in_flash_func(hal_nvm_write_page)(uint32_t offset, const void *data, size_t len)
 {
     if (len == 0 || len > NVM_PAGE_SIZE) return false;
-    /* Offset must be page-aligned */
     if (offset % NVM_PAGE_SIZE != 0) return false;
 
     uint32_t flash_offset = NVM_FLASH_OFFSET + offset;
 
-    /* flash_range_program requires page-aligned, page-sized writes.
-     * Pad to full page if needed. */
     uint8_t page_buf[NVM_PAGE_SIZE];
     memset(page_buf, 0xFF, NVM_PAGE_SIZE);
     memcpy(page_buf, data, len);
@@ -78,18 +69,16 @@ bool hal_nvm_write_page(uint32_t offset, const void *data, size_t len)
     return true;
 }
 
-bool hal_nvm_write(uint32_t offset, const void *data, size_t len)
+bool __no_inline_not_in_flash_func(hal_nvm_write)(uint32_t offset, const void *data, size_t len)
 {
     const uint8_t *src = (const uint8_t *)data;
 
     while (len > 0) {
-        /* Align to next page boundary */
         uint32_t page_offset = offset & ~(NVM_PAGE_SIZE - 1);
         uint32_t offset_in_page = offset - page_offset;
         size_t chunk = NVM_PAGE_SIZE - offset_in_page;
         if (chunk > len) chunk = len;
 
-        /* Read existing page, merge, write back */
         uint8_t page_buf[NVM_PAGE_SIZE];
         if (!hal_nvm_read(page_offset, page_buf, NVM_PAGE_SIZE)) return false;
         memcpy(page_buf + offset_in_page, src, chunk);

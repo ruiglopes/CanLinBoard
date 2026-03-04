@@ -61,10 +61,21 @@
 #define APP_HEADER_SIZE         256U
 #define APP_CODE_BASE           (APP_BASE + APP_HEADER_SIZE)     /* 0x10008100 */
 
-/* ---- Secondary Flash (NVM) ---- */
-#define NVM_FLASH_BASE          0x11000000U  /* XIP CS1 base (placeholder) */
+/* ---- NVM Storage (tail of primary flash) ---- */
+/*
+ * Uses the last 12 KB of the 2 MB primary flash (CS0).
+ * CS1 secondary flash requires QMI init not yet implemented.
+ *
+ *   0x101FD000  Slot A  (4 KB)
+ *   0x101FE000  Slot B  (4 KB)
+ *   0x101FF000  Meta    (4 KB)
+ *   0x10200000  End of 2 MB flash
+ */
+#define PRIMARY_FLASH_SIZE      (2U * 1024U * 1024U)  /* 2 MB */
 #define NVM_SECTOR_SIZE         4096U
 #define NVM_PAGE_SIZE           256U
+#define NVM_SECTOR_COUNT        3U  /* Slot A + Slot B + Meta */
+#define NVM_FLASH_OFFSET        (PRIMARY_FLASH_SIZE - (NVM_SECTOR_COUNT * NVM_SECTOR_SIZE))  /* 0x1FD000 */
 #define NVM_SLOT_A_OFFSET       0U
 #define NVM_SLOT_B_OFFSET       NVM_SECTOR_SIZE
 #define NVM_META_OFFSET         (2U * NVM_SECTOR_SIZE)
@@ -98,7 +109,7 @@
 #define TASK_STACK_CAN          512
 #define TASK_STACK_LIN          512
 #define TASK_STACK_GATEWAY      1024
-#define TASK_STACK_CONFIG       512
+#define TASK_STACK_CONFIG       768
 #define TASK_STACK_DIAG         384
 
 /* ---- Queue Depths ---- */
@@ -114,6 +125,11 @@
 #define MAX_ROUTING_RULES       32
 #define MAX_BYTE_MAPPINGS       8
 #define MAX_SCHEDULE_ENTRIES    16
+
+/* ---- NVM Configuration ---- */
+#define NVM_CONFIG_MAGIC        0x4E564D01U  /* "NVM\x01" */
+#define NVM_CONFIG_VERSION      1
+#define NVM_META_MAGIC          0x4E564D4DU  /* "NVMM" */
 
 /* ---- Diagnostics ---- */
 #define DIAG_DEFAULT_CAN_ID     0x7F0U

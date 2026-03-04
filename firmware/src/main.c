@@ -11,11 +11,13 @@
 #include "board_config.h"
 #include "app_header.h"
 #include "hal/hal_gpio.h"
+#include "hal/hal_flash_nvm.h"
 #include "can/can_bus.h"
 #include "can/can_manager.h"
 #include "lin/lin_manager.h"
 #include "gateway/gateway_engine.h"
 #include "diag/fault_handler.h"
+#include "config/config_handler.h"
 
 /* ---- FreeRTOS Queue Handles (global) ---- */
 QueueHandle_t g_gateway_input_queue;
@@ -48,12 +50,7 @@ static void gateway_task(void *params)
 static void config_task(void *params)
 {
     (void)params;
-    for (;;) {
-        /* Will be replaced by config_handler in Phase 5 */
-        gateway_frame_t gf;
-        xQueueReceive(g_config_rx_queue, &gf, portMAX_DELAY);
-        /* Drop frame — no config handler yet */
-    }
+    config_handler_task(NULL);  /* Never returns */
 }
 
 /* ---- MCU Temperature Reading ---- */
@@ -301,11 +298,13 @@ int main(void)
 
     /* Initialize HAL */
     hal_gpio_init();
-    hal_can_set_termination(CAN_BUS_1, true);
 
     /* Initialize ADC for MCU temperature sensor */
     adc_init();
     adc_set_temp_sensor_enabled(true);
+
+    /* Initialize NVM */
+    hal_nvm_init();
 
     /* Create queues (using real gateway_frame_t size) */
     g_gateway_input_queue = xQueueCreate(QUEUE_DEPTH_GATEWAY_IN, sizeof(gateway_frame_t));
@@ -313,12 +312,23 @@ int main(void)
     g_lin_tx_queue        = xQueueCreate(QUEUE_DEPTH_LIN_TX,     sizeof(gateway_frame_t));
     g_config_rx_queue     = xQueueCreate(QUEUE_DEPTH_CONFIG_RX,  sizeof(gateway_frame_t));
 
+    /* Initialize config handler — loads config from NVM (or defaults) */
+    config_handler_init(g_config_rx_queue, g_can_tx_queue);
+    const nvm_config_t *cfg = config_handler_get_config();
+
     /* Initialize subsystems */
     can_manager_init(g_gateway_input_queue, g_config_rx_queue, g_can_tx_queue);
     lin_manager_init(g_gateway_input_queue, g_lin_tx_queue);
 
-    /* Start CAN1 (always on) */
-    can_manager_start_can1(CAN_DEFAULT_BITRATE);
+    /* Start CAN1 with config bitrate */
+    can_manager_start_can1(cfg->can[0].bitrate);
+    hal_can_set_termination(CAN_BUS_1, cfg->can[0].termination);
+
+    /* Start CAN2 if enabled in config */
+    if (cfg->can[1].enabled) {
+        can_manager_start_can2(cfg->can[1].bitrate);
+        hal_can_set_termination(CAN_BUS_2, cfg->can[1].termination);
+    }
 
     /* Create tasks — store handles for stack watermark monitoring */
     xTaskCreate(can_task_entry,  "CAN",  TASK_STACK_CAN,     NULL, TASK_PRIORITY_CAN,     &s_task_handles[0]);
