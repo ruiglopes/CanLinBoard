@@ -1,0 +1,100 @@
+<mah:MetroWindow x:Class="CanLinConfig.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+        xmlns:vm="clr-namespace:CanLinConfig.ViewModels"
+        xmlns:views="clr-namespace:CanLinConfig.Views"
+        Title="CanLinConfig" Height="750" Width="1100"
+        WindowStartupLocation="CenterScreen"
+        Closing="OnClosing">
+    <mah:MetroWindow.DataContext>
+        <vm:MainViewModel />
+    </mah:MetroWindow.DataContext>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Connection Bar -->
+        <Border Grid.Row="0" Background="{DynamicResource MahApps.Brushes.Window.Background}" Padding="8">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Adapter:" VerticalAlignment="Center" Margin="0,0,5,0" />
+                <ComboBox ItemsSource="{Binding AvailableAdapters}" SelectedItem="{Binding SelectedAdapter}"
+                          Width="90" Margin="0,0,10,0" IsEnabled="{Binding IsConnected, Converter={StaticResource InverseBoolConverter}}" />
+
+                <TextBlock Text="Channel:" VerticalAlignment="Center" Margin="0,0,5,0" />
+                <ComboBox ItemsSource="{Binding AvailableChannels}" SelectedItem="{Binding SelectedChannel}"
+                          Width="150" Margin="0,0,10,0" IsEnabled="{Binding IsConnected, Converter={StaticResource InverseBoolConverter}}" />
+
+                <TextBlock Text="Bitrate:" VerticalAlignment="Center" Margin="0,0,5,0" />
+                <ComboBox ItemsSource="{Binding AvailableBitrates}" SelectedItem="{Binding SelectedBitrate}" IsEditable="True"
+                          Width="90" Margin="0,0,10,0" IsEnabled="{Binding IsConnected, Converter={StaticResource InverseBoolConverter}}" />
+
+                <Button Content="{Binding IsConnected, Converter={StaticResource ConnectButtonTextConverter}}"
+                        Command="{Binding ToggleConnectionCommand}" Width="100" Margin="0,0,15,0" />
+
+                <Ellipse Width="12" Height="12" Margin="0,0,5,0" VerticalAlignment="Center">
+                    <Ellipse.Fill>
+                        <SolidColorBrush Color="{Binding IsConnected, Converter={StaticResource ConnectionColorConverter}}" />
+                    </Ellipse.Fill>
+                </Ellipse>
+                <TextBlock Text="{Binding ConnectionStatus}" VerticalAlignment="Center" FontWeight="SemiBold" />
+            </StackPanel>
+        </Border>
+
+        <!-- Tab Control -->
+        <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}" Margin="5">
+            <TabItem Header="CAN">
+                <views:CanConfigView DataContext="{Binding CanConfig}" />
+            </TabItem>
+            <TabItem Header="LIN">
+                <views:LinConfigView DataContext="{Binding LinConfig}" />
+            </TabItem>
+            <TabItem Header="Routing">
+                <views:RoutingView DataContext="{Binding Routing}" />
+            </TabItem>
+            <TabItem Header="Diagnostics Settings">
+                <views:DiagConfigView DataContext="{Binding DiagConfig}" />
+            </TabItem>
+            <TabItem Header="Live Diagnostics">
+                <views:DiagnosticsView DataContext="{Binding Diagnostics}" />
+            </TabItem>
+            <TabItem Header="Profiles">
+                <views:ProfilesView DataContext="{Binding Profiles}" />
+            </TabItem>
+        </TabControl>
+
+        <!-- Bottom Action Bar -->
+        <Border Grid.Row="2" Background="{DynamicResource MahApps.Brushes.Window.Background}" Padding="8">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="Read All" Command="{Binding ReadAllCommand}" Width="90" Margin="5,0"
+                        IsEnabled="{Binding IsConnected}" />
+                <Button Content="Write All" Command="{Binding WriteAllCommand}" Width="90" Margin="5,0"
+                        IsEnabled="{Binding IsConnected}" />
+                <Button Content="Save NVM" Command="{Binding SaveToNvmCommand}" Width="90" Margin="5,0"
+                        IsEnabled="{Binding IsConnected}" />
+                <Button Content="Load Defaults" Command="{Binding LoadDefaultsCommand}" Width="100" Margin="5,0"
+                        IsEnabled="{Binding IsConnected}" />
+                <Button Content="Enter Bootloader" Command="{Binding EnterBootloaderCommand}" Width="120" Margin="5,0"
+                        IsEnabled="{Binding IsConnected}" />
+                <Separator Margin="10,0" />
+                <Button Content="Export File" Command="{Binding SaveConfigFileCommand}" Width="90" Margin="5,0" />
+                <Button Content="Import File" Command="{Binding LoadConfigFileCommand}" Width="90" Margin="5,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- Status Bar -->
+        <StatusBar Grid.Row="3">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusBarText}" />
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock Text="{Binding FirmwareVersion}" />
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</mah:MetroWindow>

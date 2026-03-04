@@ -27,6 +27,7 @@ static QueueHandle_t s_can_tx_queue;
 /* Bulk transfer state */
 static bool     s_bulk_active;
 static uint8_t  s_bulk_section;
+static uint8_t  s_bulk_sub;         /* Sub-index (LIN channel for section=0x01) */
 static uint16_t s_bulk_expected_size;
 static uint32_t s_bulk_expected_crc;
 static uint16_t s_bulk_received;
@@ -430,9 +431,16 @@ static void handle_bulk_start(const uint8_t *data, uint8_t dlc)
     }
 
     s_bulk_section       = data[1];
-    s_bulk_expected_size = (uint16_t)data[2] | ((uint16_t)data[3] << 8);
-    s_bulk_expected_crc  = (uint32_t)data[4] | ((uint32_t)data[5] << 8) |
-                           ((uint32_t)data[6] << 16) | ((uint32_t)data[7] << 24);
+    s_bulk_sub           = data[2];
+    s_bulk_expected_size = (uint16_t)data[3] | ((uint16_t)data[4] << 8);
+    s_bulk_expected_crc  = (uint32_t)data[5] | ((uint32_t)data[6] << 8) |
+                           ((uint32_t)data[7] << 16);  /* 24-bit CRC */
+
+    /* Validate section + sub */
+    if (s_bulk_section == CFG_SECTION_LIN && s_bulk_sub >= LIN_CHANNEL_COUNT) {
+        send_response(CFG_CMD_BULK_START, CFG_STATUS_INVALID_PARAM, NULL, 0);
+        return;
+    }
 
     if (s_bulk_expected_size > sizeof(s_bulk_buffer)) {
         send_response(CFG_CMD_BULK_START, CFG_STATUS_INVALID_PARAM, NULL, 0);
@@ -479,25 +487,112 @@ static void handle_bulk_end(const uint8_t *data, uint8_t dlc)
 
     s_bulk_active = false;
 
-    /* Verify CRC of received data */
-    uint32_t actual_crc = crc32_compute(s_bulk_buffer, s_bulk_received);
+    /* Verify CRC of received data (24-bit comparison) */
+    uint32_t actual_crc = crc32_compute(s_bulk_buffer, s_bulk_received) & 0x00FFFFFF;
     if (actual_crc != s_bulk_expected_crc) {
         send_response(CFG_CMD_BULK_END, CFG_STATUS_CRC_MISMATCH, NULL, 0);
         return;
     }
 
     /* Deserialize based on section */
-    if (s_bulk_section == CFG_SECTION_ROUTING) {
-        /* Routing rules: packed array of routing_rule_t */
+    switch (s_bulk_section) {
+    case CFG_SECTION_ROUTING: {
         uint8_t count = (uint8_t)(s_bulk_received / sizeof(routing_rule_t));
         if (count > MAX_ROUTING_RULES) count = MAX_ROUTING_RULES;
-
         s_working_config.routing_rule_count = count;
         memcpy(s_working_config.routing_rules, s_bulk_buffer,
                count * sizeof(routing_rule_t));
+        break;
+    }
+    case CFG_SECTION_LIN: {
+        if (s_bulk_sub >= LIN_CHANNEL_COUNT) {
+            send_response(CFG_CMD_BULK_END, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        if (s_bulk_received > sizeof(lin_schedule_table_t)) {
+            send_response(CFG_CMD_BULK_END, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        memcpy(&s_working_config.lin[s_bulk_sub].schedule, s_bulk_buffer,
+               s_bulk_received);
+        break;
+    }
+    default:
+        send_response(CFG_CMD_BULK_END, CFG_STATUS_INVALID_PARAM, NULL, 0);
+        return;
     }
 
     send_response(CFG_CMD_BULK_END, CFG_STATUS_OK, NULL, 0);
+}
+
+/* ---- Bulk Read ---- */
+
+static void handle_bulk_read(const uint8_t *data, uint8_t dlc)
+{
+    if (dlc < 3) {
+        send_response(CFG_CMD_BULK_READ, CFG_STATUS_INVALID_PARAM, NULL, 0);
+        return;
+    }
+
+    uint8_t section = data[1];
+    uint8_t sub     = data[2];
+    uint16_t size   = 0;
+
+    /* Serialize requested section into bulk buffer */
+    switch (section) {
+    case CFG_SECTION_ROUTING: {
+        uint8_t count = s_working_config.routing_rule_count;
+        if (count > MAX_ROUTING_RULES) count = MAX_ROUTING_RULES;
+        size = (uint16_t)(count * sizeof(routing_rule_t));
+        memcpy(s_bulk_buffer, s_working_config.routing_rules, size);
+        break;
+    }
+    case CFG_SECTION_LIN: {
+        if (sub >= LIN_CHANNEL_COUNT) {
+            send_response(CFG_CMD_BULK_READ, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        size = sizeof(lin_schedule_table_t);
+        memcpy(s_bulk_buffer, &s_working_config.lin[sub].schedule, size);
+        break;
+    }
+    default:
+        send_response(CFG_CMD_BULK_READ, CFG_STATUS_INVALID_PARAM, NULL, 0);
+        return;
+    }
+
+    /* Compute CRC32 over serialized data */
+    uint32_t crc = crc32_compute(s_bulk_buffer, size);
+
+    /* Send response header: [cmd] [status] [size_lo] [size_hi] [crc_b0..b3] */
+    uint8_t payload[6];
+    payload[0] = (uint8_t)(size);
+    payload[1] = (uint8_t)(size >> 8);
+    payload[2] = (uint8_t)(crc);
+    payload[3] = (uint8_t)(crc >> 8);
+    payload[4] = (uint8_t)(crc >> 16);
+    payload[5] = (uint8_t)(crc >> 24);
+    send_response(CFG_CMD_BULK_READ, CFG_STATUS_OK, payload, 6);
+
+    /* Send data frames on BULK_RESP_ID */
+    uint16_t offset = 0;
+    uint8_t  seq    = 0;
+    while (offset < size) {
+        can_frame_t frame = {0};
+        frame.id  = CONFIG_CAN_BULK_RESP_ID;
+        frame.data[0] = seq++;
+
+        uint16_t remaining = size - offset;
+        uint8_t  chunk     = (remaining > 7) ? 7 : (uint8_t)remaining;
+        memcpy(&frame.data[1], &s_bulk_buffer[offset], chunk);
+        frame.dlc = 1 + chunk;
+        offset += chunk;
+
+        /* Retry with yield if TX queue is full */
+        while (!can_manager_transmit(CAN_BUS_1, &frame)) {
+            vTaskDelay(pdMS_TO_TICKS(1));
+        }
+    }
 }
 
 /* ---- Command Dispatch ---- */
@@ -528,6 +623,7 @@ static void dispatch_command(const gateway_frame_t *gf)
     case CFG_CMD_WRITE_PARAM:       handle_write_param(data, dlc); break;
     case CFG_CMD_BULK_START:        handle_bulk_start(data, dlc); break;
     case CFG_CMD_BULK_END:          handle_bulk_end(data, dlc); break;
+    case CFG_CMD_BULK_READ:         handle_bulk_read(data, dlc); break;
     default:
         send_response(cmd, CFG_STATUS_UNKNOWN_CMD, NULL, 0);
         break;

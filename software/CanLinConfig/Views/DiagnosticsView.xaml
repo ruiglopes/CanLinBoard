@@ -1,0 +1,141 @@
+<UserControl x:Class="CanLinConfig.Views.DiagnosticsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Dashboard -->
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" MaxHeight="350">
+            <WrapPanel>
+                <!-- System Status -->
+                <GroupBox Header="System Status" Width="250" Margin="5">
+                    <StackPanel Margin="5">
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="State: " FontWeight="SemiBold" Width="80" />
+                            <TextBlock Text="{Binding SystemState}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="Uptime: " FontWeight="SemiBold" Width="80" />
+                            <TextBlock Text="{Binding Uptime}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="MCU Temp: " FontWeight="SemiBold" Width="80" />
+                            <TextBlock Text="{Binding McuTemp}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="Reset: " FontWeight="SemiBold" Width="80" />
+                            <TextBlock Text="{Binding ResetReason}" />
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- CAN Stats -->
+                <GroupBox Header="CAN Statistics" Width="250" Margin="5">
+                    <StackPanel Margin="5">
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="CAN1 RX: " FontWeight="SemiBold" Width="80" />
+                            <TextBlock Text="{Binding Can1RxCount}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="CAN1 Err: " FontWeight="SemiBold" Width="80" />
+                            <TextBlock Text="{Binding Can1ErrorCount}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="CAN2 RX: " FontWeight="SemiBold" Width="80" />
+                            <TextBlock Text="{Binding Can2RxCount}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="CAN2 Err: " FontWeight="SemiBold" Width="80" />
+                            <TextBlock Text="{Binding Can2ErrorCount}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="GW Routed: " FontWeight="SemiBold" Width="80" />
+                            <TextBlock Text="{Binding GwRoutedCount}" />
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- LIN Stats -->
+                <GroupBox Header="LIN Statistics" Width="250" Margin="5">
+                    <StackPanel Margin="5">
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="LIN1: " FontWeight="SemiBold" Width="50" />
+                            <TextBlock Text="{Binding Lin1RxCount, StringFormat='RX:{0}'}" Width="60" />
+                            <TextBlock Text="{Binding Lin1ErrorCount, StringFormat='Err:{0}'}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="LIN2: " FontWeight="SemiBold" Width="50" />
+                            <TextBlock Text="{Binding Lin2RxCount, StringFormat='RX:{0}'}" Width="60" />
+                            <TextBlock Text="{Binding Lin2ErrorCount, StringFormat='Err:{0}'}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="LIN3: " FontWeight="SemiBold" Width="50" />
+                            <TextBlock Text="{Binding Lin3RxCount, StringFormat='RX:{0}'}" Width="60" />
+                            <TextBlock Text="{Binding Lin3ErrorCount, StringFormat='Err:{0}'}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="LIN4: " FontWeight="SemiBold" Width="50" />
+                            <TextBlock Text="{Binding Lin4RxCount, StringFormat='RX:{0}'}" Width="60" />
+                            <TextBlock Text="{Binding Lin4ErrorCount, StringFormat='Err:{0}'}" />
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- System Health -->
+                <GroupBox Header="System Health" Width="250" Margin="5">
+                    <StackPanel Margin="5">
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="Heap Free: " FontWeight="SemiBold" Width="100" />
+                            <TextBlock Text="{Binding HeapFreeKb, StringFormat='{}{0} KB'}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="Min Stack: " FontWeight="SemiBold" Width="100" />
+                            <TextBlock Text="{Binding MinStackWatermark, StringFormat='{}{0} words'}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                            <TextBlock Text="WDT Mask: " FontWeight="SemiBold" Width="100" />
+                            <TextBlock Text="{Binding WdtTimeoutMask, StringFormat='0x{0:X2}'}" />
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Crash Report -->
+                <GroupBox Header="Crash Report" Width="510" Margin="5">
+                    <TextBlock Text="{Binding CrashInfo}" Margin="5" TextWrapping="Wrap" />
+                </GroupBox>
+            </WrapPanel>
+        </ScrollViewer>
+
+        <!-- Frame Monitor -->
+        <GroupBox Grid.Row="1" Header="CAN Frame Monitor" Margin="0,5,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5">
+                    <Button Content="{Binding IsMonitorPaused, Converter={StaticResource PauseButtonConverter}, FallbackValue='Pause'}"
+                            Command="{Binding TogglePauseCommand}" Width="70" Margin="0,0,5,0" />
+                    <Button Content="Clear" Command="{Binding ClearLogCommand}" Width="60" Margin="0,0,10,0" />
+                    <TextBlock Text="Filter ID:" VerticalAlignment="Center" Margin="0,0,5,0" />
+                    <TextBox Text="{Binding IdFilter, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                </StackPanel>
+
+                <DataGrid Grid.Row="1" ItemsSource="{Binding FrameLog}" AutoGenerateColumns="False"
+                          CanUserAddRows="False" IsReadOnly="True" Margin="5">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="100" />
+                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="70" />
+                        <DataGridTextColumn Header="DLC" Binding="{Binding Dlc}" Width="45" />
+                        <DataGridTextColumn Header="Data" Binding="{Binding DataHex}" Width="*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </GroupBox>
+    </Grid>
+</UserControl>

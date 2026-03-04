@@ -1,0 +1,40 @@
+{
+  "name": "Bosch WDA LIN Wiper Motor",
+  "id": "wda-wiper",
+  "version": "1.0",
+  "description": "Bosch Motorsport WDA series LIN wiper motor. Master mode at 19200 baud.",
+  "lin_config": {
+    "mode": "master",
+    "baudrate": 19200
+  },
+  "schedule_table": [
+    {
+      "id": 33,
+      "direction": "publish",
+      "dlc": 2,
+      "interval_ms": 20
+    },
+    {
+      "id": 34,
+      "direction": "subscribe",
+      "dlc": 4,
+      "interval_ms": 20
+    }
+  ],
+  "can_control": {
+    "can_id": 640,
+    "mappings": [
+      { "src_byte": 0, "dst_byte": 0, "mask": 255 },
+      { "src_byte": 1, "dst_byte": 1, "mask": 255 }
+    ]
+  },
+  "can_status": {
+    "can_id": 641,
+    "mappings": [
+      { "src_byte": 0, "dst_byte": 0, "mask": 255 },
+      { "src_byte": 1, "dst_byte": 1, "mask": 255 },
+      { "src_byte": 2, "dst_byte": 2, "mask": 255 },
+      { "src_byte": 3, "dst_byte": 3, "mask": 255 }
+    ]
+  }
+}

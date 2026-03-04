@@ -1,0 +1,75 @@
+<UserControl x:Class="CanLinConfig.Views.RoutingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="200" />
+        </Grid.RowDefinitions>
+
+        <!-- Rules Toolbar -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,5">
+            <Button Content="Add Rule" Command="{Binding AddRuleCommand}" Width="80" Margin="0,0,5,0" />
+            <Button Content="Remove Rule" Command="{Binding RemoveRuleCommand}" Width="90" />
+            <TextBlock Text="{Binding Rules.Count, StringFormat='  {0} rules'}" VerticalAlignment="Center" Margin="10,0" />
+        </StackPanel>
+
+        <!-- Rules DataGrid -->
+        <DataGrid Grid.Row="1" ItemsSource="{Binding Rules}" SelectedItem="{Binding SelectedRule}"
+                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                  SelectionMode="Single">
+            <DataGrid.Columns>
+                <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled}" Width="65" />
+                <DataGridComboBoxColumn Header="Src Bus" SelectedValueBinding="{Binding SrcBus}" Width="80">
+                    <DataGridComboBoxColumn.ItemsSource>
+                        <x:Array Type="{x:Type sys:Byte}" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                            <sys:Byte>0</sys:Byte><sys:Byte>1</sys:Byte><sys:Byte>2</sys:Byte>
+                            <sys:Byte>3</sys:Byte><sys:Byte>4</sys:Byte><sys:Byte>5</sys:Byte>
+                        </x:Array>
+                    </DataGridComboBoxColumn.ItemsSource>
+                </DataGridComboBoxColumn>
+                <DataGridTextColumn Header="Src ID" Binding="{Binding SrcId, StringFormat=X3}" Width="80" />
+                <DataGridTextColumn Header="Src Mask" Binding="{Binding SrcMask, StringFormat=X3}" Width="80" />
+                <DataGridComboBoxColumn Header="Dst Bus" SelectedValueBinding="{Binding DstBus}" Width="80">
+                    <DataGridComboBoxColumn.ItemsSource>
+                        <x:Array Type="{x:Type sys:Byte}" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                            <sys:Byte>0</sys:Byte><sys:Byte>1</sys:Byte><sys:Byte>2</sys:Byte>
+                            <sys:Byte>3</sys:Byte><sys:Byte>4</sys:Byte><sys:Byte>5</sys:Byte>
+                        </x:Array>
+                    </DataGridComboBoxColumn.ItemsSource>
+                </DataGridComboBoxColumn>
+                <DataGridTextColumn Header="Dst ID" Binding="{Binding DstId, StringFormat=X3}" Width="90" />
+                <DataGridTextColumn Header="DLC" Binding="{Binding DstDlc}" Width="50" />
+                <DataGridTextColumn Header="Maps" Binding="{Binding Mappings.Count}" Width="50" IsReadOnly="True" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Byte Mapping Section -->
+        <TextBlock Grid.Row="2" Text="Byte Mappings (selected rule)" Margin="0,10,0,5" FontWeight="SemiBold" />
+        <Grid Grid.Row="3">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,3">
+                <Button Content="Add Mapping" Command="{Binding AddMappingCommand}" Width="100" Margin="0,0,5,0" />
+                <Button Content="Remove" Command="{Binding RemoveMappingCommand}" Width="70" />
+            </StackPanel>
+
+            <DataGrid Grid.Row="1" ItemsSource="{Binding SelectedRule.Mappings}"
+                      AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Src Byte" Binding="{Binding SrcByte}" Width="80" />
+                    <DataGridTextColumn Header="Dst Byte" Binding="{Binding DstByte}" Width="80" />
+                    <DataGridTextColumn Header="Mask" Binding="{Binding Mask, StringFormat=X2}" Width="70" />
+                    <DataGridTextColumn Header="Shift" Binding="{Binding Shift}" Width="60" />
+                    <DataGridTextColumn Header="Offset" Binding="{Binding Offset}" Width="60" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
+    </Grid>
+</UserControl>

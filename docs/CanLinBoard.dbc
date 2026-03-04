@@ -36,6 +36,15 @@ BO_ 1538 CFG_BulkData: 8 Host
  SG_ BulkPayload_5 : 40|8@1+ (1,0) [0|255] "" Board
  SG_ BulkPayload_6 : 48|8@1+ (1,0) [0|255] "" Board
 
+BO_ 1539 CFG_BulkResp: 8 Board
+ SG_ SeqNum : 0|8@1+ (1,0) [0|255] "" Host
+ SG_ BulkRespPayload_1 : 8|8@1+ (1,0) [0|255] "" Host
+ SG_ BulkRespPayload_2 : 16|8@1+ (1,0) [0|255] "" Host
+ SG_ BulkRespPayload_3 : 24|8@1+ (1,0) [0|255] "" Host
+ SG_ BulkRespPayload_4 : 32|8@1+ (1,0) [0|255] "" Host
+ SG_ BulkRespPayload_5 : 40|8@1+ (1,0) [0|255] "" Host
+ SG_ BulkRespPayload_6 : 48|8@1+ (1,0) [0|255] "" Host
+
 BO_ 1792 BL_RebootCmd: 6 Host
  SG_ Cmd : 0|8@1+ (1,0) [0|255] "" Board
  SG_ Mode : 8|8@1+ (1,0) [0|255] "" Board
@@ -90,11 +99,13 @@ BO_ 2043 TEST_Summary: 4 Board
 CM_ BU_ Board "CAN/LIN gateway board (RP2350, FreeRTOS). CAN1 always on, CAN2 switchable.";
 CM_ BU_ Host "External host tool (Windows config app or PCAN test script).";
 
-CM_ BO_ 1536 "Config command from host. Byte 0 = command code; remaining bytes are command-specific. See config_protocol.h for full details.\n\nCmd values:\n  0x01 CONNECT - no payload, returns FW version\n  0x02 SAVE - save working config to NVM\n  0x03 DEFAULTS - reset config to factory defaults\n  0x04 REBOOT - MCU software reset\n  0x05 ENTER_BL - bytes 1-4: unlock key 0xB007CAFE (LE)\n  0x06 GET_STATUS - returns NVM write count\n  0x10 READ_PARAM - bytes 1-3: section/param/sub\n  0x11 WRITE_PARAM - bytes 1-3: section/param/sub, bytes 4+: value (LE)\n  0x20 BULK_START - byte 1: section, bytes 2-3: size (LE), bytes 4-7: CRC32 (LE)\n  0x21 BULK_END - finalize bulk transfer";
+CM_ BO_ 1536 "Config command from host. Byte 0 = command code; remaining bytes are command-specific. See config_protocol.h for full details.\n\nCmd values:\n  0x01 CONNECT - no payload, returns FW version\n  0x02 SAVE - save working config to NVM\n  0x03 DEFAULTS - reset config to factory defaults\n  0x04 REBOOT - MCU software reset\n  0x05 ENTER_BL - bytes 1-4: unlock key 0xB007CAFE (LE)\n  0x06 GET_STATUS - returns NVM write count\n  0x10 READ_PARAM - bytes 1-3: section/param/sub\n  0x11 WRITE_PARAM - bytes 1-3: section/param/sub, bytes 4+: value (LE)\n  0x20 BULK_START - byte 1: section, byte 2: sub, bytes 3-4: size (LE), bytes 5-7: CRC24 (LE, lower 24 bits of CRC32)\n  0x21 BULK_END - finalize bulk transfer\n  0x22 BULK_READ - byte 1: section (0x02=routing, 0x01=LIN), byte 2: sub (LIN channel). Response on 0x601 then data on 0x603";
 
 CM_ BO_ 1537 "Config response from board. Byte 0 echoes the command; byte 1 = status code; bytes 2+ are command-specific payload.\n\nCONNECT response (DLC=8): bytes 2-4: FW major/minor/patch, bytes 5-6: sizeof(nvm_config_t) LE, byte 7: routing rule count.\nGET_STATUS response (DLC=6): bytes 2-5: NVM write count (LE).\nREAD_PARAM response: bytes 2-4: section/param/sub echo, bytes 5+: value (LE).";
 
-CM_ BO_ 1538 "Bulk data frames during bulk transfer. Byte 0 = sequence number (0,1,2,...). Bytes 1-7 = payload (up to 7 bytes per frame). No individual ACK per frame; send BULK_END (0x21) to finalize.";
+CM_ BO_ 1538 "Bulk data frames during bulk write transfer (host to board). Byte 0 = sequence number (0,1,2,...). Bytes 1-7 = payload (up to 7 bytes per frame). No individual ACK per frame; send BULK_END (0x21) to finalize.";
+
+CM_ BO_ 1539 "Bulk data response frames during bulk read transfer (board to host). Sent after a BULK_READ (0x22) command response. Byte 0 = sequence number (0,1,2,...). Bytes 1-7 = payload (up to 7 bytes per frame). Host reads total size from the BULK_READ response header.";
 
 CM_ BO_ 1792 "Bootloader reboot trigger handled by application firmware. Cmd must be 0x05 (CMD_RESET), Mode must be 0x01 (RESET_MODE_BOOTLOADER). UnlockKey = 0xB007CAFE (little-endian). Board writes SRAM magic and reboots immediately (no response sent). Other 0x700 commands are handled by the bootloader only.";
 
@@ -155,6 +166,7 @@ BA_DEF_DEF_ "GenMsgSendType" "";
 BA_ "GenMsgSendType" BO_ 1536 "NoMsgSendType";
 BA_ "GenMsgSendType" BO_ 1537 "NoMsgSendType";
 BA_ "GenMsgSendType" BO_ 1538 "NoMsgSendType";
+BA_ "GenMsgSendType" BO_ 1539 "NoMsgSendType";
 BA_ "GenMsgSendType" BO_ 1792 "NoMsgSendType";
 BA_ "GenMsgSendType" BO_ 2032 "Cyclic";
 BA_ "GenMsgCycleTime" BO_ 2032 1000;
@@ -174,5 +186,5 @@ VAL_ 2032 SysState 0 "BOOT" 1 "OK" 2 "WARN" 3 "ERROR" ;
 VAL_ 2032 ResetReason 0 "PowerOn" 1 "WatchdogTimeout" 2 "CrashReboot" 3 "Unknown" ;
 VAL_ 2035 FaultType 0 "None" 1 "HardFault" 2 "StackOverflow" 3 "MallocFail" 4 "AssertFail" 5 "WatchdogTimeout" ;
 VAL_ 2042 Result 0 "PASS" 1 "FAIL" 2 "SKIP" ;
-VAL_ 1536 Cmd 1 "CONNECT" 2 "SAVE" 3 "DEFAULTS" 4 "REBOOT" 5 "ENTER_BL" 6 "GET_STATUS" 16 "READ_PARAM" 17 "WRITE_PARAM" 32 "BULK_START" 33 "BULK_END" ;
+VAL_ 1536 Cmd 1 "CONNECT" 2 "SAVE" 3 "DEFAULTS" 4 "REBOOT" 5 "ENTER_BL" 6 "GET_STATUS" 16 "READ_PARAM" 17 "WRITE_PARAM" 32 "BULK_START" 33 "BULK_END" 34 "BULK_READ" ;
 

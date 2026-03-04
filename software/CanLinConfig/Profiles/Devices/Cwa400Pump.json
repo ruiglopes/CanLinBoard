@@ -1,0 +1,40 @@
+{
+  "name": "Pierburg CWA400 LIN Coolant Pump",
+  "id": "cwa400-pump",
+  "version": "1.0",
+  "description": "Pierburg CWA400 LIN-controlled electric coolant pump. Master mode at 19200 baud.",
+  "lin_config": {
+    "mode": "master",
+    "baudrate": 19200
+  },
+  "schedule_table": [
+    {
+      "id": 44,
+      "direction": "publish",
+      "dlc": 2,
+      "interval_ms": 50
+    },
+    {
+      "id": 45,
+      "direction": "subscribe",
+      "dlc": 4,
+      "interval_ms": 50
+    }
+  ],
+  "can_control": {
+    "can_id": 642,
+    "mappings": [
+      { "src_byte": 0, "dst_byte": 0, "mask": 255 },
+      { "src_byte": 1, "dst_byte": 1, "mask": 255 }
+    ]
+  },
+  "can_status": {
+    "can_id": 643,
+    "mappings": [
+      { "src_byte": 0, "dst_byte": 0, "mask": 255 },
+      { "src_byte": 1, "dst_byte": 1, "mask": 255 },
+      { "src_byte": 2, "dst_byte": 2, "mask": 255 },
+      { "src_byte": 3, "dst_byte": 3, "mask": 255 }
+    ]
+  }
+}

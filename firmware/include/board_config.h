@@ -93,6 +93,7 @@
 #define CONFIG_CAN_CMD_ID       0x600U
 #define CONFIG_CAN_RESP_ID      0x601U
 #define CONFIG_CAN_DATA_ID      0x602U
+#define CONFIG_CAN_BULK_RESP_ID 0x603U
 
 /* ---- Bootloader CAN IDs ---- */
 #define BL_CAN_CMD_ID           0x700U
