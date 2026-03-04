@@ -49,6 +49,7 @@
 #include "config/config_handler.h"
 #include "config/config_protocol.h"
 #include "util/crc32.h"
+#include "hal/hal_flash_secondary.h"
 
 #include <string.h>
 
@@ -183,6 +184,19 @@ static void report_crash_data(void)
 static void run_auto_tests(void)
 {
     s_total = 0; s_passed = 0; s_failed = 0;
+
+    /* T5.0: Secondary flash JEDEC ID — verify CS1 W25Q128 is present */
+    {
+        uint8_t mfr = 0, type = 0, cap = 0;
+        uint32_t irq = sec_flash_acquire_bus();
+        sec_flash_read_jedec_id(&mfr, &type, &cap);
+        sec_flash_release_bus(irq);
+
+        /* W25Q128: mfr=0xEF (Winbond), type=0x40, cap=0x18 (128Mbit) */
+        bool ok = (mfr == 0xEF) && (cap == 0x18);
+        uint8_t extra[3] = { mfr, type, cap };
+        report_test(0, ok ? RESULT_PASS : RESULT_FAIL, extra, 3);
+    }
 
     /* NVM was erased in main() before CAN started, so no bus disruption. */
 

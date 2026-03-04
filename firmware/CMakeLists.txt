@@ -72,6 +72,7 @@ add_executable(${PROJECT_NAME}
     src/hal/hal_gpio.c
     src/hal/hal_spi.c
     src/hal/hal_flash_nvm.c
+    src/hal/hal_flash_secondary.c
     src/hal/hal_clock.c
     # Phase 2: CAN
     src/can/can_manager.c
@@ -104,6 +105,7 @@ target_link_libraries(${PROJECT_NAME}
     hardware_timer
     hardware_clocks
     hardware_adc
+    hardware_xip_cache
     can2040
     FreeRTOS-Kernel
     FreeRTOS-Kernel-Heap4
@@ -134,6 +136,7 @@ set(COMMON_SOURCES
     src/hal/hal_gpio.c
     src/hal/hal_spi.c
     src/hal/hal_flash_nvm.c
+    src/hal/hal_flash_secondary.c
     src/hal/hal_clock.c
     src/can/can_manager.c
     src/lin/sja1124_driver.c
@@ -161,6 +164,7 @@ set(COMMON_LIBS
     hardware_timer
     hardware_clocks
     hardware_adc
+    hardware_xip_cache
     can2040
     FreeRTOS-Kernel
     FreeRTOS-Kernel-Heap4

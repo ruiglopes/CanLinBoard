@@ -61,21 +61,23 @@
 #define APP_HEADER_SIZE         256U
 #define APP_CODE_BASE           (APP_BASE + APP_HEADER_SIZE)     /* 0x10008100 */
 
-/* ---- NVM Storage (tail of primary flash) ---- */
+/* ---- Secondary Flash (CS1) ---- */
+#define FLASH_CS1_GPIO          0
+#define SECONDARY_FLASH_SIZE    (16U * 1024U * 1024U) /* 16 MB W25Q128 */
+
+/* ---- NVM Storage (secondary flash, CS1) ---- */
 /*
- * Uses the last 12 KB of the 2 MB primary flash (CS0).
- * CS1 secondary flash requires QMI init not yet implemented.
+ * NVM occupies the first 12 KB of the secondary flash (CS1, GPIO0).
+ * Accessed via QMI direct-mode SPI through hal_flash_secondary driver.
  *
- *   0x101FD000  Slot A  (4 KB)
- *   0x101FE000  Slot B  (4 KB)
- *   0x101FF000  Meta    (4 KB)
- *   0x10200000  End of 2 MB flash
+ *   CS1 0x000000  Slot A  (4 KB)
+ *   CS1 0x001000  Slot B  (4 KB)
+ *   CS1 0x002000  Meta    (4 KB)
  */
 #define PRIMARY_FLASH_SIZE      (2U * 1024U * 1024U)  /* 2 MB */
 #define NVM_SECTOR_SIZE         4096U
 #define NVM_PAGE_SIZE           256U
 #define NVM_SECTOR_COUNT        3U  /* Slot A + Slot B + Meta */
-#define NVM_FLASH_OFFSET        (PRIMARY_FLASH_SIZE - (NVM_SECTOR_COUNT * NVM_SECTOR_SIZE))  /* 0x1FD000 */
 #define NVM_SLOT_A_OFFSET       0U
 #define NVM_SLOT_B_OFFSET       NVM_SECTOR_SIZE
 #define NVM_META_OFFSET         (2U * NVM_SECTOR_SIZE)
