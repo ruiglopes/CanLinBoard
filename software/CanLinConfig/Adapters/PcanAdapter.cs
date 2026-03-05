@@ -105,13 +105,10 @@ public class PcanAdapter : ICanAdapter
         if (!_connected) return false;
         try
         {
-            var msg = new PcanMessage
-            {
-                ID = frame.Id,
-                DLC = frame.Dlc,
-                MsgType = frame.IsExtended ? MessageType.Extended : MessageType.Standard,
-            };
-            Array.Copy(frame.Data, msg.Data, Math.Min((int)frame.Dlc, 8));
+            var msgType = frame.IsExtended ? MessageType.Extended : MessageType.Standard;
+            var data = new byte[8];
+            Array.Copy(frame.Data, data, Math.Min((int)frame.Dlc, 8));
+            var msg = new PcanMessage(frame.Id, msgType, frame.Dlc, data, false);
 
             var result = Api.Write(_channel, msg);
             return result == PcanStatus.OK;

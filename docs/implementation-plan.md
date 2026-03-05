@@ -59,7 +59,7 @@ can_task also filters config CAN IDs → [config_rx_queue (8)] → config_task
 
 ## 2. Implementation Phases
 
-### Phase 0: Project Scaffold
+### Phase 0: Project Scaffold ✅
 
 **Goal:** CMake project compiles, links with FreeRTOS, boots via 2350Bootloader.
 
@@ -103,7 +103,7 @@ CanLinBoard/
 
 ---
 
-### Phase 1: Hardware Abstraction Layer (HAL)
+### Phase 1: Hardware Abstraction Layer (HAL) ✅
 
 **Depends on:** Phase 0
 
@@ -150,7 +150,7 @@ src/hal/
 
 ---
 
-### Phase 2: CAN Subsystem
+### Phase 2: CAN Subsystem ✅
 
 **Depends on:** Phase 0, Phase 1 (GPIO)
 
@@ -195,7 +195,7 @@ src/can/
 
 ---
 
-### Phase 3: LIN Subsystem
+### Phase 3: LIN Subsystem ✅
 
 **Depends on:** Phase 1 (SPI, GPIO, clock)
 
@@ -251,7 +251,7 @@ src/lin/
 
 ---
 
-### Phase 4: Gateway Engine
+### Phase 4: Gateway Engine ✅
 
 **Depends on:** Phase 2, Phase 3
 
@@ -301,7 +301,7 @@ src/gateway/
 
 ---
 
-### Phase 5: Configuration System
+### Phase 5: Configuration System ✅
 
 **Depends on:** Phase 1 (NVM), Phase 2 (CAN transport)
 
@@ -366,7 +366,7 @@ src/config/
 
 ---
 
-### Phase 6: Diagnostics
+### Phase 6: Diagnostics ✅
 
 **Depends on:** Phase 2, Phase 3, Phase 5
 
@@ -419,59 +419,26 @@ Byte 6-7: Gateway frames routed (16-bit rolling counter)
 
 ---
 
-### Phase 7: Device Profiles
+### Phase 7: Device Profiles — SKIPPED (moved to Config Tool)
 
-**Depends on:** Phase 3, Phase 4, Phase 5
-
-**Files to create:**
-```
-src/profiles/
-  profile_engine.h / profile_engine.c   # Profile interface (init/update/set_param/get_param/stop)
-  wda_wiper.h / wda_wiper.c            # Bosch WDA wiper motor LIN schedule + params
-  cwa400_pump.h / cwa400_pump.c        # Pierburg CWA400 pump LIN schedule + params
-```
-
-**Profile engine:** When enabled, a profile takes ownership of a LIN channel, installs a master schedule table, and maps parameters (e.g. wiper mode, pump duty) to LIN frame data bytes. Optionally installs CAN→profile routing rules for CAN-based device control.
-
-**Note:** Exact WDA/CWA400 LIN frame IDs and data layout must be obtained from OEM datasheets. Code will be structured with configurable constants.
-
-**Milestones:**
-- [ ] M7.1: Profile engine interface defined and compiles
-- [ ] M7.2: WDA wiper profile installs a master schedule table on the assigned LIN channel
-- [ ] M7.3: WDA parameter changes (mode, speed) update LIN frame data bytes in real-time
-- [ ] M7.4: CWA400 pump profile installs schedule and responds to duty cycle commands
-- [ ] M7.5: CAN-to-profile routing works (CAN frame controls device parameter)
-- [ ] M7.6: Profile enable/disable at runtime without crash or bus corruption
-- [ ] M7.7: Profile configuration persists in NVM and restores on boot
-
-**Test Plan:**
-| Test ID | Test | Method | Pass Criteria |
-|---------|------|--------|---------------|
-| T7.1 | WDA profile init | Enable WDA on LIN1, observe bus | Schedule table active, header frames visible on scope/analyzer |
-| T7.2 | WDA mode change | Set WDA_PARAM_MODE=2 (Fast) | LIN frame data byte for mode updated to Fast value |
-| T7.3 | WDA with real motor | Connect WDA motor, set mode=Slow | Motor runs at slow speed (if hardware available) |
-| T7.4 | WDA stop | Disable WDA profile | LIN1 schedule stops, bus goes idle |
-| T7.5 | CWA400 profile init | Enable CWA400 on LIN2 | Schedule active on LIN2 |
-| T7.6 | CWA400 duty cycle | Set CWA400_PARAM_DUTY_CYCLE=50 | LIN frame data reflects 50% duty |
-| T7.7 | CAN-to-WDA routing | Configure CAN1 ID 0x300 byte 0 → WDA mode | Send 0x300 on CAN1 with byte 0=1 → WDA switches to Slow |
-| T7.8 | Profile persistence | Enable WDA, save config, power cycle | WDA profile active after reboot |
-| T7.9 | Profile channel conflict | Try to enable WDA and CWA400 on same LIN channel | Error returned, second profile rejected |
-| T7.10 | Profile hot-swap | Disable WDA, enable CWA400 on same channel | No crash, CWA400 schedule replaces WDA schedule |
+**Decision:** Device profiles are implemented in the Windows Config Tool (Phase 8) instead of firmware. The firmware already provides all generic primitives needed (LIN master scheduling, byte-level routing rules, NVM config persistence). Profiles are predefined combinations of LIN schedule tables + routing rules that the config tool pushes to the board. This makes it easier to add new devices without firmware updates.
 
 ---
 
 ### Phase 8: Windows Config Tool (WPF)
 
-**Depends on:** Phase 5 (protocol definition). Can develop in parallel from Phase 6 onwards.
+**Depends on:** Phase 5 (protocol definition). Firmware is complete as of Phase 6.
 
 **Project structure:**
 ```
-ConfigTool/
-  ConfigTool.sln
-  ConfigTool/
+software/
+  CanLinConfig.sln
+  CanLinConfig/
     Adapters/       ICanAdapter.cs, PcanAdapter.cs, SlcanAdapter.cs
     Protocol/       ConfigProtocol.cs, ProtocolConstants.cs, BulkTransfer.cs
     Models/         DeviceConfig.cs, CanBusConfig.cs, LinChannelConfig.cs, RoutingRule.cs
+    Profiles/       ProfileDefinition.cs, ProfileLibrary.cs
+    Profiles/Devices/  WdaWiper.json, Cwa400Pump.json
     ViewModels/     MainViewModel.cs + per-tab view models (MVVM)
     Views/          ConnectionView, CanConfigView, LinConfigView, RoutingView,
                     ProfilesView, DiagnosticsView (all .xaml)
@@ -483,10 +450,77 @@ ConfigTool/
 1. **CAN Config** — baud rate, termination, enable per bus
 2. **LIN Config** — master/slave, baud, schedule table editor per channel
 3. **Gateway Routing** — DataGrid rules editor with byte mapping sub-editor
-4. **Device Profiles** — WDA/CWA400 enable + test controls
+4. **Device Profiles** — profile library browser, one-click apply, parameter controls
 5. **Diagnostics** — live bus health, error counters, CAN frame monitor
 
 **Bottom bar:** Read All / Write All / Save / Load Defaults / Enter Bootloader
+
+#### Profile Library
+
+Device profiles are JSON files that define the complete configuration for a specific LIN device. The config tool translates user-friendly device parameters into generic firmware config (LIN schedules + routing rules + byte mappings) and pushes them via the existing config protocol.
+
+**Profile JSON structure:**
+```json
+{
+  "name": "Bosch WDA Wiper Motor",
+  "id": "wda_wiper",
+  "version": 1,
+  "lin_config": {
+    "mode": "master",
+    "baudrate": 19200
+  },
+  "schedule_table": [
+    { "id": "0x20", "direction": "publish", "dlc": 4, "interval_ms": 20 },
+    { "id": "0x21", "direction": "subscribe", "dlc": 4, "interval_ms": 20 }
+  ],
+  "parameters": [
+    {
+      "name": "Wiper Mode",
+      "type": "enum",
+      "options": ["Off", "Slow", "Fast", "Interval"],
+      "frame_id": "0x20",
+      "byte": 0,
+      "mask": "0x07"
+    },
+    {
+      "name": "Interval Time",
+      "type": "uint8",
+      "min": 0, "max": 255,
+      "frame_id": "0x20",
+      "byte": 1,
+      "mask": "0xFF"
+    }
+  ],
+  "can_control": {
+    "rx_id": "0x300",
+    "mappings": [
+      { "can_byte": 0, "param": "Wiper Mode" },
+      { "can_byte": 1, "param": "Interval Time" }
+    ]
+  },
+  "can_status": {
+    "tx_id": "0x301",
+    "mappings": [
+      { "lin_frame": "0x21", "lin_byte": 0, "can_byte": 0 },
+      { "lin_frame": "0x21", "lin_byte": 1, "can_byte": 1 }
+    ]
+  }
+}
+```
+
+**Profile apply flow:**
+1. User selects a profile (e.g., "Bosch WDA Wiper") and assigns it to a LIN channel
+2. Config tool generates: LIN channel config (master, 19200 baud) + schedule table entries + routing rules (CAN→LIN control, LIN→CAN status) with byte mappings
+3. Config tool pushes all generated config to firmware via WRITE_PARAM + BULK_START/DATA/END
+4. User clicks Save → firmware persists to NVM
+5. Device operates autonomously from that point — no PC needed
+
+**Profile UI features:**
+- Profile browser with device name, description, required LIN channels
+- Channel assignment dropdown (LIN1-4)
+- Live parameter controls (sliders, dropdowns) that send config updates in real-time
+- Optional CAN control ID assignment for headless operation
+- Import/export custom profiles (JSON files)
 
 **Milestones:**
 - [ ] M8.1: WPF project builds, main window with tab layout renders
@@ -500,6 +534,10 @@ ConfigTool/
 - [ ] M8.9: LIN schedule table editor works for all 4 channels
 - [ ] M8.10: Diagnostics tab shows live-updating bus health and frame monitor
 - [ ] M8.11: Enter Bootloader button triggers bootloader mode on device
+- [ ] M8.12: Profile library loads JSON profile definitions
+- [ ] M8.13: Applying a profile generates correct LIN config + schedule + routing rules
+- [ ] M8.14: Profile parameter controls update device config in real-time
+- [ ] M8.15: Profile import/export works (custom JSON files)
 
 **Test Plan:**
 | Test ID | Test | Method | Pass Criteria |
@@ -514,13 +552,20 @@ ConfigTool/
 | T8.8 | Add routing rule | Add CAN1→CAN2 passthrough rule via UI, Write+Save | Frames route correctly on hardware |
 | T8.9 | Delete routing rule | Delete the rule from T8.8, Write+Save | Routing stops |
 | T8.10 | Byte mapping editor | Open byte mapping sub-editor, add 2 mappings, save | Mappings applied correctly in gateway |
-| T8.11 | WDA profile enable | Enable WDA on LIN1, set channel, Write+Save | WDA schedule active on device |
-| T8.12 | Diagnostics display | Open Diagnostics tab with active buses | Bus health updates in real-time (~1 Hz) |
-| T8.13 | CAN frame monitor | Open monitor, send frames on bus | Frames appear in log with timestamp, ID, data |
-| T8.14 | Load Defaults | Click Load Defaults | All fields reset to factory values |
-| T8.15 | Enter Bootloader | Click Enter Bootloader | Device enters bootloader, tool shows disconnected |
-| T8.16 | Disconnect handling | Unplug CAN adapter during session | UI shows "Disconnected", no crash |
-| T8.17 | Timeout handling | Send command, device unpowered | Timeout error displayed after 500ms, no hang |
+| T8.11 | WDA profile apply | Select WDA profile, assign LIN1, apply + save | LIN1 master schedule active, correct frames on bus |
+| T8.12 | WDA parameter control | Change Wiper Mode to "Fast" via profile UI | LIN frame data byte updated on device |
+| T8.13 | CWA400 profile apply | Select CWA400, assign LIN2, apply + save | LIN2 schedule active with pump frames |
+| T8.14 | Profile CAN control | Configure CAN control ID, send CAN frame | Device parameter changes via CAN→LIN routing |
+| T8.15 | Profile persistence | Apply profile, save, power cycle device | Profile config survives reboot |
+| T8.16 | Profile channel conflict | Apply two profiles to same LIN channel | UI prevents or warns about conflict |
+| T8.17 | Profile hot-swap | Remove WDA from LIN1, apply CWA400 to LIN1 | Clean switch, no leftover schedule entries |
+| T8.18 | Custom profile import | Import a user-created JSON profile | Profile appears in library, can be applied |
+| T8.19 | Diagnostics display | Open Diagnostics tab with active buses | Bus health updates in real-time (~1 Hz) |
+| T8.20 | CAN frame monitor | Open monitor, send frames on bus | Frames appear in log with timestamp, ID, data |
+| T8.21 | Load Defaults | Click Load Defaults | All fields reset to factory values |
+| T8.22 | Enter Bootloader | Click Enter Bootloader | Device enters bootloader, tool shows disconnected |
+| T8.23 | Disconnect handling | Unplug CAN adapter during session | UI shows "Disconnected", no crash |
+| T8.24 | Timeout handling | Send command, device unpowered | Timeout error displayed after 500ms, no hang |
 
 ---
 
@@ -541,8 +586,8 @@ ConfigTool/
 ## 4. Implementation Order
 
 ```
-Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7
-                                                      ↘ Phase 8 (parallel from here)
+Phase 0 ✅ → Phase 1 ✅ → Phase 2 ✅ → Phase 3 ✅ → Phase 4 ✅ → Phase 4.5 ✅ → Phase 5 ✅ → Phase 6 ✅ → Phase 8
+                                                                                               (Phase 7 SKIPPED — profiles moved to config tool)
 ```
 
-Start with scaffold + HAL + CAN (testable with PCAN immediately), then LIN (requires SJA1124 hardware), then gateway + config + diagnostics + profiles. Config tool can begin once the protocol is defined (Phase 5).
+**Firmware complete** (Phases 0–6, all tested on-target). Next: Phase 8 Windows Config Tool with integrated profile library.

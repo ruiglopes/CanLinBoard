@@ -49,7 +49,11 @@ static void send_response(uint8_t cmd, uint8_t status,
         uint8_t n = payload_len > 6 ? 6 : payload_len;
         memcpy(&frame.data[2], payload, n);
     }
-    can_manager_transmit(CAN_BUS_1, &frame);
+    /* Retry if TX buffer is busy (e.g., diagnostic heartbeat in flight) */
+    for (int i = 0; i < 5; i++) {
+        if (can_manager_transmit(CAN_BUS_1, &frame)) return;
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
 }
 
 /* ---- Runtime Apply ---- */
