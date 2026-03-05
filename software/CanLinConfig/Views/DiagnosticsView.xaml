@@ -126,7 +126,7 @@
                     <TextBox Text="{Binding IdFilter, UpdateSourceTrigger=PropertyChanged}" Width="80" />
                 </StackPanel>
 
-                <DataGrid Grid.Row="1" ItemsSource="{Binding FrameLog}" AutoGenerateColumns="False"
+                <DataGrid Grid.Row="1" ItemsSource="{Binding FilteredFrameLog}" AutoGenerateColumns="False"
                           CanUserAddRows="False" IsReadOnly="True" Margin="5">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="100" />

@@ -261,32 +261,46 @@ public class ConfigProtocol : IDisposable
 
     public async Task<byte[]?> BulkReadAsync(byte section, byte sub)
     {
+        // Step 1: BULK_READ — request metadata (size + CRC), firmware prepares data
+        var resp = await SendCommandAsync(ProtocolConstants.CmdBulkRead, [section, sub], _defaultTimeout);
+        if (resp == null || resp.Data[1] != ProtocolConstants.StatusOk)
+            return null;
+
+        // Parse header: [cmd] [status] [size_lo] [size_hi] [crc_b0..b3]
+        int size = resp.Data[2] | (resp.Data[3] << 8);
+        uint crc = (uint)(resp.Data[4] | (resp.Data[5] << 8) |
+                          (resp.Data[6] << 16) | (resp.Data[7] << 24));
+
+        if (size == 0)
+            return [];
+
+        // Step 2: BULK_READ_DATA — allocate buffer, then tell firmware to stream
         await _cmdLock.WaitAsync();
         try
         {
-            // Set up bulk read state
-            _bulkReadTcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-            _bulkReadBuffer = null;
+            _bulkReadBuffer = new byte[size];
+            _bulkReadExpectedSize = size;
+            _bulkReadExpectedCrc = crc;
             _bulkReadReceived = 0;
             _bulkReadSeq = 0;
+            _bulkReadTcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            // Send BULK_READ command
-            _expectedCmd = ProtocolConstants.CmdBulkRead;
+            _expectedCmd = ProtocolConstants.CmdBulkReadData;
             _pendingResponse = new TaskCompletionSource<CanFrame>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            var cmdFrame = MakeCmd(ProtocolConstants.CmdBulkRead, section, sub);
+            var cmdFrame = MakeCmd(ProtocolConstants.CmdBulkReadData);
             if (!_adapter.Send(cmdFrame))
                 return null;
 
-            // Wait for response header
             using var cts = new CancellationTokenSource(_longTimeout);
             cts.Token.Register(() => _pendingResponse.TrySetCanceled());
             cts.Token.Register(() => _bulkReadTcs.TrySetCanceled());
 
-            CanFrame resp;
+            // Wait for ACK response
+            CanFrame ackResp;
             try
             {
-                resp = await _pendingResponse.Task;
+                ackResp = await _pendingResponse.Task;
             }
             catch (TaskCanceledException)
             {
@@ -297,20 +311,10 @@ public class ConfigProtocol : IDisposable
                 _pendingResponse = null;
             }
 
-            if (resp.Data[1] != ProtocolConstants.StatusOk)
+            if (ackResp.Data[1] != ProtocolConstants.StatusOk)
                 return null;
 
-            // Parse header: [cmd] [status] [size_lo] [size_hi] [crc_b0..b3]
-            _bulkReadExpectedSize = resp.Data[2] | (resp.Data[3] << 8);
-            _bulkReadExpectedCrc = (uint)(resp.Data[4] | (resp.Data[5] << 8) |
-                                          (resp.Data[6] << 16) | (resp.Data[7] << 24));
-
-            if (_bulkReadExpectedSize == 0)
-                return [];
-
-            _bulkReadBuffer = new byte[_bulkReadExpectedSize];
-
-            // Wait for all data frames
+            // Wait for all data frames on 0x603
             try
             {
                 return await _bulkReadTcs.Task;

@@ -529,7 +529,10 @@ static void handle_bulk_end(const uint8_t *data, uint8_t dlc)
     send_response(CFG_CMD_BULK_END, CFG_STATUS_OK, NULL, 0);
 }
 
-/* ---- Bulk Read ---- */
+/* ---- Bulk Read (two-step handshake) ---- */
+
+/* Prepared size for BULK_READ_DATA to stream */
+static uint16_t s_bulk_read_size;
 
 static void handle_bulk_read(const uint8_t *data, uint8_t dlc)
 {
@@ -565,6 +568,9 @@ static void handle_bulk_read(const uint8_t *data, uint8_t dlc)
         return;
     }
 
+    /* Stash size for BULK_READ_DATA; data stays in s_bulk_buffer */
+    s_bulk_read_size = size;
+
     /* Compute CRC32 over serialized data */
     uint32_t crc = crc32_compute(s_bulk_buffer, size);
 
@@ -577,8 +583,19 @@ static void handle_bulk_read(const uint8_t *data, uint8_t dlc)
     payload[4] = (uint8_t)(crc >> 16);
     payload[5] = (uint8_t)(crc >> 24);
     send_response(CFG_CMD_BULK_READ, CFG_STATUS_OK, payload, 6);
+}
 
-    /* Send data frames on BULK_RESP_ID */
+static void handle_bulk_read_data(void)
+{
+    uint16_t size = s_bulk_read_size;
+    if (size == 0) {
+        send_response(CFG_CMD_BULK_READ_DATA, CFG_STATUS_OK, NULL, 0);
+        return;
+    }
+
+    send_response(CFG_CMD_BULK_READ_DATA, CFG_STATUS_OK, NULL, 0);
+
+    /* Stream data frames on BULK_RESP_ID */
     uint16_t offset = 0;
     uint8_t  seq    = 0;
     while (offset < size) {
@@ -597,6 +614,8 @@ static void handle_bulk_read(const uint8_t *data, uint8_t dlc)
             vTaskDelay(pdMS_TO_TICKS(1));
         }
     }
+
+    s_bulk_read_size = 0;
 }
 
 /* ---- Command Dispatch ---- */
@@ -628,6 +647,7 @@ static void dispatch_command(const gateway_frame_t *gf)
     case CFG_CMD_BULK_START:        handle_bulk_start(data, dlc); break;
     case CFG_CMD_BULK_END:          handle_bulk_end(data, dlc); break;
     case CFG_CMD_BULK_READ:         handle_bulk_read(data, dlc); break;
+    case CFG_CMD_BULK_READ_DATA:    handle_bulk_read_data(); break;
     default:
         send_response(cmd, CFG_STATUS_UNKNOWN_CMD, NULL, 0);
         break;

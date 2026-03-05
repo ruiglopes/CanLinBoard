@@ -33,6 +33,7 @@ public static class ProtocolConstants
     public const byte CmdBulkStart = 0x20;
     public const byte CmdBulkEnd = 0x21;
     public const byte CmdBulkRead = 0x22;
+    public const byte CmdBulkReadData = 0x23;
 
     // Section IDs
     public const byte SectionCan = 0x00;

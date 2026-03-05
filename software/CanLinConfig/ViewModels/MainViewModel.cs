@@ -211,7 +211,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var result = await _protocol.LoadDefaultsAsync();
         if (result.Success)
         {
-            StatusBarText = "Defaults loaded - click Read All to refresh UI";
+            await ReadAll();
+            StatusBarText = "Defaults loaded";
         }
         else
         {

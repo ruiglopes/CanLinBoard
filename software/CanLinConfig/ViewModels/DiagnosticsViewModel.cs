@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -46,6 +48,7 @@ public partial class DiagnosticsViewModel : ObservableObject
 
     // Frame Monitor
     public ObservableCollection<FrameLogEntry> FrameLog { get; } = [];
+    public ICollectionView FilteredFrameLog { get; }
     [ObservableProperty] private bool _isMonitorPaused;
     [ObservableProperty] private string _idFilter = "";
     private int _maxFrameLog = 1000;
@@ -54,6 +57,23 @@ public partial class DiagnosticsViewModel : ObservableObject
     {
         _main = main;
         _dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+        FilteredFrameLog = CollectionViewSource.GetDefaultView(FrameLog);
+        FilteredFrameLog.Filter = FilterFrame;
+    }
+
+    partial void OnIdFilterChanged(string value)
+    {
+        FilteredFrameLog.Refresh();
+    }
+
+    private bool FilterFrame(object obj)
+    {
+        if (string.IsNullOrEmpty(IdFilter) || obj is not FrameLogEntry entry)
+            return true;
+        var filterText = IdFilter.Replace("0x", "").Replace("0X", "");
+        if (uint.TryParse(filterText, System.Globalization.NumberStyles.HexNumber, null, out uint filterId))
+            return entry.RawId == filterId;
+        return true;
     }
 
     public void OnRawFrame(CanFrame frame)
@@ -152,16 +172,6 @@ public partial class DiagnosticsViewModel : ObservableObject
 
     private void AddFrameLog(CanFrame frame)
     {
-        // Apply ID filter
-        if (!string.IsNullOrEmpty(IdFilter))
-        {
-            var filterText = IdFilter.Replace("0x", "").Replace("0X", "");
-            if (uint.TryParse(filterText, System.Globalization.NumberStyles.HexNumber, null, out uint filterId))
-            {
-                if (frame.Id != filterId) return;
-            }
-        }
-
         FrameLog.Add(new FrameLogEntry(frame));
         while (FrameLog.Count > _maxFrameLog)
             FrameLog.RemoveAt(0);
@@ -183,6 +193,7 @@ public class FrameLogEntry
 {
     public string Time { get; }
     public string Id { get; }
+    public uint RawId { get; }
     public byte Dlc { get; }
     public string DataHex { get; }
 
@@ -190,6 +201,7 @@ public class FrameLogEntry
     {
         Time = frame.Timestamp.ToString("HH:mm:ss.fff");
         Id = $"0x{frame.Id:X3}";
+        RawId = frame.Id;
         Dlc = frame.Dlc;
         DataHex = string.Join(" ", frame.Data.Take(frame.Dlc).Select(b => b.ToString("X2")));
     }

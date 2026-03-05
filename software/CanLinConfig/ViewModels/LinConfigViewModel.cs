@@ -125,12 +125,9 @@ public partial class LinConfigViewModel : ObservableObject
             await proto.WriteParamAsync(ProtocolConstants.SectionLin, 2, (byte)ch,
                 [(byte)vm.Baudrate, (byte)(vm.Baudrate >> 8), (byte)(vm.Baudrate >> 16)]);
 
-            // Write schedule via bulk write
-            if (vm.IsMaster && vm.Schedule.Count > 0)
-            {
-                var scheduleData = vm.SerializeSchedule();
-                await proto.BulkWriteAsync(ProtocolConstants.SectionLin, (byte)ch, scheduleData);
-            }
+            // Write schedule via bulk write (always send, even if empty, to clear stale data)
+            var scheduleData = vm.SerializeSchedule();
+            await proto.BulkWriteAsync(ProtocolConstants.SectionLin, (byte)ch, scheduleData);
         }
     }
 }

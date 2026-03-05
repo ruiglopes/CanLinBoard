@@ -1,7 +1,12 @@
 <UserControl x:Class="CanLinConfig.Views.LinConfigView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls">
+             xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+             xmlns:views="clr-namespace:CanLinConfig.Views">
+    <UserControl.Resources>
+        <views:HexUInt32Converter x:Key="Hex2Converter" Digits="2" />
+        <ObjectDataProvider x:Key="DirectionItems" ObjectType="{x:Type views:LinDirectionItem}" MethodName="get_All" />
+    </UserControl.Resources>
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -61,16 +66,11 @@
                                     <DataGrid ItemsSource="{Binding Schedule}" AutoGenerateColumns="False"
                                               CanUserAddRows="False" CanUserDeleteRows="False" MinHeight="150">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="ID (hex)" Binding="{Binding Id, StringFormat=X2}" Width="70" />
+                                            <DataGridTextColumn Header="ID (hex)" Binding="{Binding Id, Converter={StaticResource Hex2Converter}}" Width="70" />
                                             <DataGridTextColumn Header="DLC" Binding="{Binding Dlc}" Width="50" />
-                                            <DataGridComboBoxColumn Header="Direction" SelectedValueBinding="{Binding Direction}" Width="100">
-                                                <DataGridComboBoxColumn.ItemsSource>
-                                                    <x:Array Type="{x:Type sys:Byte}" xmlns:sys="clr-namespace:System;assembly=mscorlib">
-                                                        <sys:Byte>0</sys:Byte>
-                                                        <sys:Byte>1</sys:Byte>
-                                                    </x:Array>
-                                                </DataGridComboBoxColumn.ItemsSource>
-                                            </DataGridComboBoxColumn>
+                                            <DataGridComboBoxColumn Header="Direction" SelectedValueBinding="{Binding Direction}"
+                                                                    SelectedValuePath="Value" DisplayMemberPath="Name"
+                                                                    ItemsSource="{Binding Source={StaticResource DirectionItems}}" Width="100" />
                                             <DataGridTextColumn Header="Data (hex)" Binding="{Binding DataHex}" Width="200" />
                                             <DataGridTextColumn Header="Delay (ms)" Binding="{Binding DelayMs}" Width="80" />
                                             <DataGridCheckBoxColumn Header="Classic CS" Binding="{Binding ClassicChecksum}" Width="80" />

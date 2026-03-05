@@ -93,11 +93,16 @@ public partial class ProfilesViewModel : ObservableObject
 
         var proto = _main.Protocol;
         byte ch = (byte)AssignedChannel;
+        var linVm = _main.LinConfig.Channels[ch];
 
-        // Write LIN channel config
+        // Update UI + write LIN channel config to device
         if (SelectedProfile.LinConfig != null)
         {
             byte mode = SelectedProfile.LinConfig.Mode == "master" ? (byte)1 : (byte)2;
+            linVm.Enabled = true;
+            linVm.Mode = mode;
+            linVm.Baudrate = SelectedProfile.LinConfig.Baudrate;
+
             await proto.WriteParamAsync(ProtocolConstants.SectionLin, 0, ch, [1]); // enabled
             await proto.WriteParamAsync(ProtocolConstants.SectionLin, 1, ch, [mode]);
             uint br = SelectedProfile.LinConfig.Baudrate;
@@ -105,11 +110,10 @@ public partial class ProfilesViewModel : ObservableObject
                 [(byte)br, (byte)(br >> 8), (byte)(br >> 16)]);
         }
 
-        // Write schedule table
+        // Update UI + write schedule table to device
+        linVm.Schedule.Clear();
         if (SelectedProfile.ScheduleTable != null)
         {
-            var linVm = _main.LinConfig.Channels[ch];
-            linVm.Schedule.Clear();
             foreach (var entry in SelectedProfile.ScheduleTable)
             {
                 linVm.Schedule.Add(new Models.LinScheduleEntry
@@ -120,11 +124,14 @@ public partial class ProfilesViewModel : ObservableObject
                     DelayMs = entry.IntervalMs,
                 });
             }
-            var scheduleData = linVm.SerializeSchedule();
-            await proto.BulkWriteAsync(ProtocolConstants.SectionLin, ch, scheduleData);
         }
+        var scheduleData = linVm.SerializeSchedule();
+        await proto.BulkWriteAsync(ProtocolConstants.SectionLin, ch, scheduleData);
 
-        _main.StatusBarText = $"Profile '{SelectedProfile.Name}' applied to LIN{ch + 1}. Click Save to persist.";
+        // Switch to LIN tab showing the affected channel
+        _main.LinConfig.SelectedChannelIndex = ch;
+
+        _main.StatusBarText = $"Profile '{SelectedProfile.Name}' applied to LIN{ch + 1}. Click Save NVM to persist.";
     }
 
     public async Task ReadFromDeviceAsync(ConfigProtocol proto)

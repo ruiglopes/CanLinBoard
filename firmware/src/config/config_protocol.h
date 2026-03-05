@@ -13,6 +13,7 @@
 #define CFG_CMD_BULK_START          0x20
 #define CFG_CMD_BULK_END            0x21
 #define CFG_CMD_BULK_READ           0x22
+#define CFG_CMD_BULK_READ_DATA      0x23
 
 /* ---- Section IDs (byte[1] for READ/WRITE) ---- */
 #define CFG_SECTION_CAN             0x00
