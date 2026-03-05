@@ -51,15 +51,19 @@ public partial class LinChannelViewModel : ObservableObject
         if (idx < Schedule.Count - 1) Schedule.Move(idx, idx + 1);
     }
 
+    // Firmware lin_schedule_table_t layout: count(1) + pad(1) + entries[16]*16 = 258 bytes
+    public const int ScheduleTableSize = 2 + ProtocolConstants.MaxScheduleEntries * LinScheduleEntry.PackedSize;
+    private const int EntriesOffset = 2; // entries start at offset 2 (1 byte count + 1 byte padding)
+
     public byte[] SerializeSchedule()
     {
-        // count(1) + entries(16 * 14) = 225 bytes
-        var buf = new byte[1 + ProtocolConstants.MaxScheduleEntries * LinScheduleEntry.PackedSize];
+        var buf = new byte[ScheduleTableSize];
         buf[0] = (byte)Schedule.Count;
+        // buf[1] = padding (implicit zero)
         for (int i = 0; i < Schedule.Count && i < ProtocolConstants.MaxScheduleEntries; i++)
         {
             var entry = Schedule[i].Serialize();
-            Array.Copy(entry, 0, buf, 1 + i * LinScheduleEntry.PackedSize, LinScheduleEntry.PackedSize);
+            Array.Copy(entry, 0, buf, EntriesOffset + i * LinScheduleEntry.PackedSize, LinScheduleEntry.PackedSize);
         }
         return buf;
     }
@@ -67,11 +71,11 @@ public partial class LinChannelViewModel : ObservableObject
     public void DeserializeSchedule(byte[] data)
     {
         Schedule.Clear();
-        if (data.Length < 1) return;
+        if (data.Length < EntriesOffset) return;
         int count = Math.Min((int)data[0], ProtocolConstants.MaxScheduleEntries);
         for (int i = 0; i < count; i++)
         {
-            int offset = 1 + i * LinScheduleEntry.PackedSize;
+            int offset = EntriesOffset + i * LinScheduleEntry.PackedSize;
             if (offset + LinScheduleEntry.PackedSize <= data.Length)
                 Schedule.Add(LinScheduleEntry.Deserialize(data, offset));
         }

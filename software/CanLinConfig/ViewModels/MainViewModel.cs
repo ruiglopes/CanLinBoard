@@ -134,6 +134,28 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ConnectionStatus = $"Connected - FW {FirmwareVersion}";
         StatusBarText = $"Connected to device (FW {FirmwareVersion}, config size={result.ConfigSize}, rules={result.RuleCount})";
         IsConnected = true;
+
+        // Query firmware struct sizes for validation
+        var sizes = await _protocol.QueryDeviceSizesAsync();
+        if (sizes != null)
+        {
+            Routing.FirmwareRuleSize = sizes.RoutingRuleSize;
+
+            var mismatches = new System.Collections.Generic.List<string>();
+            if (sizes.RoutingRuleSize != ProtocolConstants.ExpectedRoutingRuleSize)
+                mismatches.Add($"routing_rule_t: fw={sizes.RoutingRuleSize} expected={ProtocolConstants.ExpectedRoutingRuleSize}");
+            if (sizes.LinEntrySize != ProtocolConstants.ExpectedLinEntrySize)
+                mismatches.Add($"lin_schedule_entry_t: fw={sizes.LinEntrySize} expected={ProtocolConstants.ExpectedLinEntrySize}");
+            if (sizes.LinTableSize != ProtocolConstants.ExpectedLinTableSize)
+                mismatches.Add($"lin_schedule_table_t: fw={sizes.LinTableSize} expected={ProtocolConstants.ExpectedLinTableSize}");
+
+            if (mismatches.Count > 0)
+            {
+                var msg = "Struct size mismatch — config tool may corrupt data!\n" + string.Join("\n", mismatches);
+                MessageBox.Show(msg, "Firmware Mismatch", MessageBoxButton.OK, MessageBoxImage.Warning);
+                StatusBarText = "WARNING: struct size mismatch with firmware";
+            }
+        }
     }
 
     private void Disconnect()

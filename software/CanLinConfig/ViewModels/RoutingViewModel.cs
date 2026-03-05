@@ -13,10 +13,8 @@ public partial class RoutingViewModel : ObservableObject
     public ObservableCollection<RoutingRule> Rules { get; } = [];
     [ObservableProperty] private RoutingRule? _selectedRule;
 
-    // The serialized size of one rule on the target — must be verified with sizeof on ARM
-    // Default estimate: 4+4+4+4+4+1+1+40+1+3pad = 66 bytes
-    // This will be auto-detected from the first bulk read if possible
-    private int _ruleSize = 0;
+    // Set by MainViewModel after querying firmware, falls back to expected constant
+    public int FirmwareRuleSize { get; set; } = ProtocolConstants.ExpectedRoutingRuleSize;
 
     public RoutingViewModel(MainViewModel main) { _main = main; }
 
@@ -64,18 +62,12 @@ public partial class RoutingViewModel : ObservableObject
             return;
         }
 
-        // Auto-detect rule size: serialize one default rule and use its length
-        if (_ruleSize == 0)
-        {
-            var sample = new RoutingRule();
-            _ruleSize = sample.Serialize().Length;
-        }
-
+        int ruleSize = FirmwareRuleSize;
         Rules.Clear();
-        int count = data.Length / _ruleSize;
+        int count = data.Length / ruleSize;
         for (int i = 0; i < count; i++)
         {
-            Rules.Add(RoutingRule.Deserialize(data, i * _ruleSize, _ruleSize));
+            Rules.Add(RoutingRule.Deserialize(data, i * ruleSize, ruleSize));
         }
     }
 

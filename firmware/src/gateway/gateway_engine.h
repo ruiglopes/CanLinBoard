@@ -33,6 +33,9 @@ typedef struct {
     bool        enabled;
 } routing_rule_t;
 
+_Static_assert(sizeof(byte_mapping_t) == 5, "byte_mapping_t size changed");
+_Static_assert(sizeof(routing_rule_t) == 64, "routing_rule_t size changed");
+
 /* ---- Gateway Statistics ---- */
 typedef struct {
     uint32_t frames_routed;     /* Matched >= 1 rule */

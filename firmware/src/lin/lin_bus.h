@@ -46,6 +46,9 @@ typedef struct {
     lin_schedule_entry_t entries[MAX_SCHEDULE_ENTRIES];  /* Schedule entries */
 } lin_schedule_table_t;
 
+_Static_assert(sizeof(lin_schedule_entry_t) == 16, "lin_schedule_entry_t size changed");
+_Static_assert(sizeof(lin_schedule_table_t) == 258, "lin_schedule_table_t size changed");
+
 /* ---- LIN Channel Configuration ---- */
 typedef struct {
     bool        enabled;

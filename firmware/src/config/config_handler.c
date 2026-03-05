@@ -306,6 +306,38 @@ static void handle_read_param(const uint8_t *data, uint8_t dlc)
         }
         break;
 
+    case CFG_SECTION_DEVICE:
+        switch (param) {
+        case 0: /* sizeof(routing_rule_t) */
+        {
+            uint16_t sz = (uint16_t)sizeof(routing_rule_t);
+            payload[3] = (uint8_t)(sz);
+            payload[4] = (uint8_t)(sz >> 8);
+            plen = 5;
+            break;
+        }
+        case 1: /* sizeof(lin_schedule_entry_t) */
+        {
+            uint16_t sz = (uint16_t)sizeof(lin_schedule_entry_t);
+            payload[3] = (uint8_t)(sz);
+            payload[4] = (uint8_t)(sz >> 8);
+            plen = 5;
+            break;
+        }
+        case 2: /* sizeof(lin_schedule_table_t) */
+        {
+            uint16_t sz = (uint16_t)sizeof(lin_schedule_table_t);
+            payload[3] = (uint8_t)(sz);
+            payload[4] = (uint8_t)(sz >> 8);
+            plen = 5;
+            break;
+        }
+        default:
+            send_response(CFG_CMD_READ_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        break;
+
     default:
         send_response(CFG_CMD_READ_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
         return;

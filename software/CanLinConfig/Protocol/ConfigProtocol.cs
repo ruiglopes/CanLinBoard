@@ -332,6 +332,25 @@ public class ConfigProtocol : IDisposable
         }
     }
 
+    public record DeviceSizes(int RoutingRuleSize, int LinEntrySize, int LinTableSize);
+
+    public async Task<DeviceSizes?> QueryDeviceSizesAsync()
+    {
+        var r0 = await ReadParamAsync(ProtocolConstants.SectionDevice, ProtocolConstants.DeviceParamRoutingRuleSize, 0);
+        var r1 = await ReadParamAsync(ProtocolConstants.SectionDevice, ProtocolConstants.DeviceParamLinEntrySize, 0);
+        var r2 = await ReadParamAsync(ProtocolConstants.SectionDevice, ProtocolConstants.DeviceParamLinTableSize, 0);
+
+        if (!r0.Success || r0.Value.Length < 2 ||
+            !r1.Success || r1.Value.Length < 2 ||
+            !r2.Success || r2.Value.Length < 2)
+            return null;
+
+        return new DeviceSizes(
+            r0.Value[0] | (r0.Value[1] << 8),
+            r1.Value[0] | (r1.Value[1] << 8),
+            r2.Value[0] | (r2.Value[1] << 8));
+    }
+
     public void Dispose()
     {
         _adapter.FrameReceived -= OnFrameReceived;

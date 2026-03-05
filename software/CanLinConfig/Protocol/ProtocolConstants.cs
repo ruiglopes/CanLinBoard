@@ -59,4 +59,14 @@ public static class ProtocolConstants
     public const int MaxByteMappings = 8;
     public const int MaxScheduleEntries = 16;
     public const int LinChannelCount = 4;
+
+    // Device param indices (SectionDevice READ_PARAM)
+    public const byte DeviceParamRoutingRuleSize = 0;
+    public const byte DeviceParamLinEntrySize = 1;
+    public const byte DeviceParamLinTableSize = 2;
+
+    // Expected struct sizes (must match firmware _Static_assert values)
+    public const int ExpectedRoutingRuleSize = 64;
+    public const int ExpectedLinEntrySize = 16;
+    public const int ExpectedLinTableSize = 258;
 }
