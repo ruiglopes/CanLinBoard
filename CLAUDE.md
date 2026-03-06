@@ -4,25 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Firmware for a custom CAN/LIN gateway board based on the **RP2350 MCU**. The board bridges CAN and LIN buses, acting as a configurable gateway that can pass through, filter, or modify frames in transit. An external Windows configuration tool communicates with the board.
+Firmware and Windows configuration tool for a custom CAN/LIN gateway board based on the **RP2350 MCU**. The board bridges CAN and LIN buses, acting as a configurable gateway that can pass through, filter, or modify frames in transit. The Windows config tool communicates with the board over CAN to configure all parameters, manage device profiles, and monitor diagnostics.
 
 ## Repository Structure
 
 ```
 CanLinBoard/
-├── firmware/          ← self-contained MCU project (CMake, RP2350)
+├── firmware/              ← MCU project (CMake, RP2350, FreeRTOS)
 │   ├── CMakeLists.txt
-│   ├── src/           ← firmware source code
-│   ├── include/       ← firmware headers
-│   ├── config/        ← FreeRTOSConfig.h, app_config.h
-│   ├── lib/           ← can2040 (submodule), FreeRTOS-Kernel (cloned)
-│   ├── linker/        ← linker scripts
-│   ├── tools/         ← patch_header.py and build utilities
-│   └── tests/         ← per-phase test firmware and host scripts
-├── software/          ← future Windows configuration tool
-├── docs/              ← shared documentation (implementation-plan.md)
-├── Datasheets/        ← hardware references (SJA1124.pdf)
-├── Brief.txt          ← project specification
+│   ├── src/               ← firmware source code
+│   ├── include/           ← firmware headers
+│   ├── config/            ← FreeRTOSConfig.h, app_config.h
+│   ├── lib/               ← can2040 (submodule), FreeRTOS-Kernel (cloned)
+│   ├── linker/            ← linker scripts
+│   ├── tools/             ← patch_header.py and build utilities
+│   └── tests/             ← per-phase test firmware and host scripts
+│       └── TEST_GUIDE.md  ← firmware test guide (phases 0-6)
+├── software/              ← Windows config tool (.NET 8, WPF)
+│   ├── CanLinConfig.sln
+│   ├── TEST_GUIDE.md      ← config tool test guide
+│   └── CanLinConfig/
+│       ├── Adapters/      ← CAN adapter implementations (PCAN, Vector XL, Kvaser, SLCAN)
+│       ├── Protocol/      ← ConfigProtocol.cs, ProtocolConstants.cs
+│       ├── Models/        ← RoutingRule, LinScheduleEntry, ByteMapping
+│       ├── Profiles/Devices/  ← WdaWiper.json, Cwa400Pump.json
+│       ├── Services/      ← ConfigFileService (JSON export/import)
+│       ├── ViewModels/    ← MVVM view models (Main, CAN, LIN, Routing, Profiles, Diagnostics)
+│       ├── Views/         ← WPF XAML views
+│       └── Helpers/       ← CRC32, converters
+├── docs/                  ← implementation-plan.md, CanLinBoard.dbc
+├── Datasheets/            ← hardware references (SJA1124.pdf)
+├── Brief.txt              ← project specification
 └── CLAUDE.md
 ```
 
@@ -61,7 +73,11 @@ cmake --build build
 python tests/phase0/test_build.py
 
 # Build test firmware for a specific phase
-cmake --build build --target test_phase1   # or test_phase2, test_phase3
+cmake --build build --target test_phase1   # or test_phase2 .. test_phase6
+
+# Build config tool
+cd software
+dotnet build CanLinConfig.sln
 ```
 
 ## Architecture Constraints
@@ -77,6 +93,16 @@ cmake --build build --target test_phase1   # or test_phase2, test_phase3
 - **CAN-LIN bridge:** cross-protocol frame routing with byte-level mapping.
 - **Diagnostics:** bus health monitoring, watchdogs, and a configurable CAN diagnostics message.
 - **Native device support targets:** Bosch Motorsport WDA LIN wiper motor, Pierburg CWA400 LIN coolant pump.
+- **Config tool:** Windows WPF application for device configuration, profile management, and live diagnostics.
+
+## CAN Adapters (Config Tool)
+
+| Adapter | Status | DLL | Notes |
+|---------|--------|-----|-------|
+| PCAN | Full | PCANBasic.dll (NuGet) | Primary development adapter |
+| Vector XL | Full | vxlapi64.dll | Requires Vector XL Driver Library |
+| Kvaser | Stub | canlib32.dll | P/Invoke declarations only |
+| SLCAN | Full | System.IO.Ports | Serial ASCII protocol (CANable, USBtin) |
 
 ## Reference Projects
 

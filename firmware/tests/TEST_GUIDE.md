@@ -332,6 +332,78 @@ registers if the magic is valid.
 
 ---
 
+## Phase 5: Configuration System (On-Target + Host)
+
+**Hardware:** Board + PCAN on CAN1.
+
+Phase 5 validates the config protocol (read/write params), NVM save/load,
+bulk transfers (routing rules + LIN schedule tables), and runtime apply.
+
+### Build & Flash
+
+```bash
+cmake --build build --target test_phase5
+```
+
+Flash `build/test_phase5.bin` via bootloader.
+
+### Run
+
+```bash
+python tests/phase5/test_config_host.py --channel PCAN_USBBUS1
+```
+
+### Key Tests
+
+| Test | What it checks |
+|------|---------------|
+| CONNECT handshake | FW version, config size, rule count returned |
+| READ_PARAM / WRITE_PARAM | Per-section parameter read/write (CAN, LIN, Diag) |
+| BULK_START / DATA / END | Routing rule bulk write + CRC verification |
+| BULK_READ / BULK_READ_DATA | Routing rule bulk read with sequence counter |
+| NVM save + load | Power-cycle persistence of written config |
+| Runtime apply | Config changes take effect without reboot |
+
+**Gate:** All tests pass before proceeding to Phase 6.
+
+---
+
+## Phase 6: Diagnostics (On-Target + Host)
+
+**Hardware:** Board + PCAN on CAN1.
+
+Phase 6 validates the diagnostics module: heartbeat timing, bus watchdogs,
+system state machine, and configurable diagnostic parameters.
+
+### Build & Flash
+
+```bash
+cmake --build build --target test_phase6
+```
+
+Flash `build/test_phase6.bin` via bootloader.
+
+### Run
+
+```bash
+python tests/phase6/test_diag_host.py --channel PCAN_USBBUS1
+```
+
+### Key Tests (14 total)
+
+| Test | What it checks |
+|------|---------------|
+| Heartbeat timing | 1 Hz interval on CAN1 (0x7F0, 0x7F1, 0x7F2, 0x7F4) |
+| CAN bus watchdog | Timeout triggers WARN state + bitmask in health frame |
+| LIN bus watchdog | Same for LIN channels |
+| System state machine | OK -> WARN (low stack) -> ERROR (watchdog timeout) |
+| Diag config params | Enable/disable, CAN ID, interval, bus selection |
+| Watchdog reconfigure | Runtime ms change via WRITE_PARAM |
+
+**Gate:** All 14 tests pass. All firmware phases complete.
+
+---
+
 ## Test Firmware Build Targets
 
 | Target | CMake Command | Define |
@@ -342,3 +414,5 @@ registers if the magic is valid.
 | Phase 3 tests | `cmake --build build --target test_phase3` | `TEST_PHASE3` |
 | Phase 4 tests | `cmake --build build --target test_phase4` | `TEST_PHASE4` |
 | Phase 4.5 tests | `cmake --build build --target test_phase4_5` | `TEST_PHASE4_5` |
+| Phase 5 tests | `cmake --build build --target test_phase5` | `TEST_PHASE5` |
+| Phase 6 tests | `cmake --build build --target test_phase6` | `TEST_PHASE6` |

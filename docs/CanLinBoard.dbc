@@ -95,6 +95,21 @@ BO_ 2043 TEST_Summary: 4 Board
  SG_ FailedTests : 16|8@1+ (1,0) [0|255] "" Host
  SG_ Sentinel : 24|8@1+ (1,0) [0|255] "" Host
 
+BO_ 2044 TEST_Progress: 8 Board
+ SG_ PhaseId : 0|8@1+ (1,0) [0|255] "" Host
+ SG_ CurrentTest : 8|8@1+ (1,0) [0|255] "" Host
+ SG_ TotalInPhase : 16|8@1+ (1,0) [0|255] "" Host
+
+BO_ 2045 TEST_Diag: 8 Board
+ SG_ DiagData_0 : 0|8@1+ (1,0) [0|255] "" Host
+ SG_ DiagData_1 : 8|8@1+ (1,0) [0|255] "" Host
+ SG_ DiagData_2 : 16|8@1+ (1,0) [0|255] "" Host
+ SG_ DiagData_3 : 24|8@1+ (1,0) [0|255] "" Host
+ SG_ DiagData_4 : 32|8@1+ (1,0) [0|255] "" Host
+ SG_ DiagData_5 : 40|8@1+ (1,0) [0|255] "" Host
+ SG_ DiagData_6 : 48|8@1+ (1,0) [0|255] "" Host
+ SG_ DiagData_7 : 56|8@1+ (1,0) [0|255] "" Host
+
 
 CM_ BU_ Board "CAN/LIN gateway board (RP2350, FreeRTOS). CAN1 always on, CAN2 switchable.";
 CM_ BU_ Host "External host tool (Windows config app or PCAN test script).";
@@ -122,6 +137,8 @@ CM_ BO_ 2036 "System health indicators, sent every 1 second (15 ms after DIAG_St
 CM_ BO_ 2042 "Test result frame (test firmware only). Sent once per test case. TestID = test number within the phase. Result: 0=PASS, 1=FAIL, 2=SKIP. Bytes 2-7 may carry test-specific auxiliary data.";
 
 CM_ BO_ 2043 "Test summary frame (test firmware only). Sent once at end of a test run. Sentinel is always 0xAA.";
+CM_ BO_ 2044 "Test progress frame (test firmware only). Indicates which test is currently running within a phase.";
+CM_ BO_ 2045 "Test diagnostic frame (test firmware only). Carries auxiliary debug data during tests (crash PC/LR, measured values, etc.).";
 
 CM_ SG_ 1536 Cmd "Config command code. See config_protocol.h for values.";
 CM_ SG_ 1537 EchoCmd "Echo of the command code that generated this response.";
@@ -179,6 +196,8 @@ BA_ "GenMsgSendType" BO_ 2036 "Cyclic";
 BA_ "GenMsgCycleTime" BO_ 2036 1000;
 BA_ "GenMsgSendType" BO_ 2042 "Event";
 BA_ "GenMsgSendType" BO_ 2043 "Event";
+BA_ "GenMsgSendType" BO_ 2044 "Event";
+BA_ "GenMsgSendType" BO_ 2045 "Event";
 
 
 VAL_ 1537 Status 0 "OK" 1 "UnknownCmd" 2 "InvalidParam" 3 "CRCMismatch" 4 "NVMError" 5 "Busy" ;

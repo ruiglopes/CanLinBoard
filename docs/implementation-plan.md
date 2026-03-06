@@ -425,7 +425,7 @@ Byte 6-7: Gateway frames routed (16-bit rolling counter)
 
 ---
 
-### Phase 8: Windows Config Tool (WPF)
+### Phase 8: Windows Config Tool (WPF) ✅
 
 **Depends on:** Phase 5 (protocol definition). Firmware is complete as of Phase 6.
 
@@ -433,18 +433,32 @@ Byte 6-7: Gateway frames routed (16-bit rolling counter)
 ```
 software/
   CanLinConfig.sln
+  TEST_GUIDE.md             ← config tool test guide
+  TEST_PLAN_PROFILES.md     ← detailed profile library test plan
   CanLinConfig/
-    Adapters/       ICanAdapter.cs, PcanAdapter.cs, SlcanAdapter.cs
-    Protocol/       ConfigProtocol.cs, ProtocolConstants.cs, BulkTransfer.cs
-    Models/         DeviceConfig.cs, CanBusConfig.cs, LinChannelConfig.cs, RoutingRule.cs
-    Profiles/       ProfileDefinition.cs, ProfileLibrary.cs
+    Adapters/       ICanAdapter.cs, PcanAdapter.cs, VectorXlAdapter.cs,
+                    KvaserAdapter.cs, SlcanAdapter.cs
+    Protocol/       ConfigProtocol.cs, ProtocolConstants.cs
+    Models/         RoutingRule.cs, LinScheduleEntry.cs, ByteMapping.cs
     Profiles/Devices/  WdaWiper.json, Cwa400Pump.json
-    ViewModels/     MainViewModel.cs + per-tab view models (MVVM)
-    Views/          ConnectionView, CanConfigView, LinConfigView, RoutingView,
-                    ProfilesView, DiagnosticsView (all .xaml)
+    Services/       ConfigFileService.cs (JSON config export/import)
+    Helpers/        Crc32.cs, converters
+    ViewModels/     MainViewModel.cs, CanConfigViewModel.cs, LinConfigViewModel.cs,
+                    RoutingViewModel.cs, ProfilesViewModel.cs, DiagConfigViewModel.cs,
+                    DiagnosticsViewModel.cs (MVVM with CommunityToolkit.Mvvm)
+    Views/          MainWindow.xaml, CanConfigView.xaml, LinConfigView.xaml,
+                    RoutingView.xaml, ProfilesView.xaml, DiagConfigView.xaml,
+                    DiagnosticsView.xaml
 ```
 
-**CAN adapters:** PCAN via `Peak.Can.Basic.Net` NuGet, SLCAN via `System.IO.Ports.SerialPort` with ASCII protocol.
+**CAN adapters:**
+
+| Adapter | Implementation | Driver |
+|---------|---------------|--------|
+| PCAN | Full | Peak.PCANBasic.NET NuGet |
+| Vector XL | Full | vxlapi64.dll (Vector XL Driver Library) |
+| SLCAN | Full | System.IO.Ports (serial ASCII protocol) |
+| Kvaser | Stub | canlib32.dll (P/Invoke declarations only) |
 
 **UI tabs:**
 1. **CAN Config** — baud rate, termination, enable per bus
@@ -523,21 +537,21 @@ Device profiles are JSON files that define the complete configuration for a spec
 - Import/export custom profiles (JSON files)
 
 **Milestones:**
-- [ ] M8.1: WPF project builds, main window with tab layout renders
-- [ ] M8.2: PCAN adapter connects and sends/receives CAN frames
-- [ ] M8.3: SLCAN adapter connects via serial port and sends/receives CAN frames
-- [ ] M8.4: CONNECT handshake succeeds, firmware version displayed in UI
-- [ ] M8.5: Read All loads every parameter from the device and populates all UI tabs
-- [ ] M8.6: Write All sends modified parameters back to the device
-- [ ] M8.7: Save button persists config to device NVM
-- [ ] M8.8: Routing rules editor (add/edit/delete) works with bulk transfer
-- [ ] M8.9: LIN schedule table editor works for all 4 channels
-- [ ] M8.10: Diagnostics tab shows live-updating bus health and frame monitor
-- [ ] M8.11: Enter Bootloader button triggers bootloader mode on device
-- [ ] M8.12: Profile library loads JSON profile definitions
-- [ ] M8.13: Applying a profile generates correct LIN config + schedule + routing rules
-- [ ] M8.14: Profile parameter controls update device config in real-time
-- [ ] M8.15: Profile import/export works (custom JSON files)
+- [x] M8.1: WPF project builds, main window with tab layout renders
+- [x] M8.2: PCAN adapter connects and sends/receives CAN frames
+- [x] M8.3: SLCAN adapter connects via serial port and sends/receives CAN frames
+- [x] M8.4: CONNECT handshake succeeds, firmware version displayed in UI
+- [x] M8.5: Read All loads every parameter from the device and populates all UI tabs
+- [x] M8.6: Write All sends modified parameters back to the device
+- [x] M8.7: Save button persists config to device NVM
+- [x] M8.8: Routing rules editor (add/edit/delete) works with bulk transfer
+- [x] M8.9: LIN schedule table editor works for all 4 channels
+- [x] M8.10: Diagnostics tab shows live-updating bus health and frame monitor
+- [x] M8.11: Enter Bootloader button triggers bootloader mode on device
+- [x] M8.12: Profile library loads JSON profile definitions
+- [x] M8.13: Applying a profile generates correct LIN config + schedule + routing rules
+- [x] M8.14: Profile parameter controls update device config in real-time
+- [x] M8.15: Profile import/export works (custom JSON files)
 
 **Test Plan:**
 | Test ID | Test | Method | Pass Criteria |
@@ -586,8 +600,8 @@ Device profiles are JSON files that define the complete configuration for a spec
 ## 4. Implementation Order
 
 ```
-Phase 0 ✅ → Phase 1 ✅ → Phase 2 ✅ → Phase 3 ✅ → Phase 4 ✅ → Phase 4.5 ✅ → Phase 5 ✅ → Phase 6 ✅ → Phase 8
+Phase 0 ✅ → Phase 1 ✅ → Phase 2 ✅ → Phase 3 ✅ → Phase 4 ✅ → Phase 4.5 ✅ → Phase 5 ✅ → Phase 6 ✅ → Phase 8 ✅
                                                                                                (Phase 7 SKIPPED — profiles moved to config tool)
 ```
 
-**Firmware complete** (Phases 0–6, all tested on-target). Next: Phase 8 Windows Config Tool with integrated profile library.
+**All phases complete.** Firmware (Phases 0–6) tested on-target. Windows Config Tool (Phase 8) fully implemented with PCAN, SLCAN, Vector XL adapters, profile library, and all 15 milestones verified.

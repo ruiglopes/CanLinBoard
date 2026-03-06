@@ -1,7 +1,6 @@
-# Test Guide — Phase 8: Windows Config Tool (CanLinConfig)
+# Test Guide — Windows Config Tool (CanLinConfig)
 
-This guide covers testing the CanLinConfig WPF application and the
-firmware protocol extensions added in Phase 8a.
+This guide covers testing the CanLinConfig WPF application.
 
 ---
 
@@ -10,42 +9,22 @@ firmware protocol extensions added in Phase 8a.
 | Requirement | Detail |
 |-------------|--------|
 | **.NET 8 SDK** | `dotnet --version` must show 8.x |
-| **Firmware** | Phases 0-6 firmware **rebuilt with Phase 8a extensions** (new BULK_START format + BULK_READ) |
-| **PCAN-USB** | Connected to board CAN1 at 500 kbps. Peak driver installed |
-| **Board** | Powered, running updated firmware |
+| **Firmware** | Phases 0-6 firmware with Phase 8 protocol extensions (BULK_READ, device sizeof query) |
+| **CAN adapter** | PCAN-USB, Vector XL, or SLCAN device connected to board CAN1 at 500 kbps |
+| **Board** | Powered, running current firmware |
 
-### Optional (for additional adapter tests)
+### Adapter-Specific Requirements
 
 | Adapter | Requirement |
 |---------|-------------|
-| Kvaser | Kvaser CANlib SDK installed (`canlib32.dll` in system PATH) |
-| Vector XL | Vector XL Driver Library installed (`vxlapi64.dll`) — **TX is stubbed** |
+| PCAN | Peak driver installed, PCAN-USB connected |
+| Vector XL | Vector XL Driver Library installed (`vxlapi64.dll`) |
+| Kvaser | Kvaser CANlib SDK installed (`canlib32.dll`) — stub only |
 | SLCAN | SLCAN-compatible USB device (CANable, USBtin, etc.) |
 
 ---
 
-## Step 0: Flash Updated Firmware
-
-The config protocol changed in Phase 8a — `BULK_START` now includes a `sub`
-byte and the CRC is 24-bit. You **must** flash the new firmware before testing.
-
-```bash
-cd firmware
-cmake -B build -S . -G Ninja
-cmake --build build
-# Flash build/CanLinBoard.bin via bootloader
-```
-
-Verify the build:
-
-```bash
-python tests/phase0/test_build.py
-# Expected: 18/18 PASS
-```
-
----
-
-## Step 1: Build the Config Tool
+## Step 0: Build
 
 ```bash
 cd software
@@ -54,15 +33,9 @@ dotnet build CanLinConfig.sln
 
 **Expected:** `0 Warning(s), 0 Error(s)`
 
-For a Release build:
-
-```bash
-dotnet build CanLinConfig.sln --configuration Release
-```
-
 ---
 
-## Step 2: Launch
+## Step 1: Launch
 
 ```bash
 dotnet run --project CanLinConfig/CanLinConfig.csproj
@@ -80,10 +53,10 @@ dotnet run --project CanLinConfig/CanLinConfig.csproj
 
 ---
 
-## Step 3: PCAN Connection
+## Step 2: Connect
 
-1. Select adapter: **PCAN**
-2. Select channel: **PCAN_USBBUS1** (should auto-populate)
+1. Select adapter (PCAN, Vector XL, or SLCAN)
+2. Select channel from the dropdown (auto-populated from adapter)
 3. Bitrate: **500000**
 4. Click **Connect**
 
@@ -95,21 +68,13 @@ dotnet run --project CanLinConfig/CanLinConfig.csproj
 | Connection text | `Connected - FW v0.1.0` |
 | Status bar | `Connected to device (FW v0.1.0, config size=XXXX, rules=0)` |
 
-### Troubleshooting
-
-| Symptom | Cause / Fix |
-|---------|-------------|
-| No channels listed | Peak driver not installed, or PCAN-USB not plugged in |
-| "Connection failed" | Wrong channel selected, or adapter in use by another app |
-| "No device response" | Board not running updated firmware, or wrong bitrate |
-
 ---
 
-## Step 4: Read All Parameters
+## Step 3: Read All Parameters
 
 1. Click **Read All**
-2. Status bar should show "Read All complete"
-3. Switch through each config tab and verify default values:
+2. Status bar: "Read All complete"
+3. Verify defaults on each tab:
 
 ### CAN Tab
 
@@ -136,8 +101,6 @@ dotnet run --project CanLinConfig/CanLinConfig.csproj
 | CAN ID | 0x7F0 |
 | Interval | 1000 ms |
 | Bus | CAN1 |
-| CAN Watchdog | 0 (disabled) |
-| LIN Watchdog | 0 (disabled) |
 
 ### Routing Tab
 
@@ -145,185 +108,116 @@ dotnet run --project CanLinConfig/CanLinConfig.csproj
 
 ---
 
-## Step 5: Write + Save Round-Trip
+## Step 4: Write + Save Round-Trip
 
-Test that parameter changes persist across power cycles.
-
-### Procedure
-
-1. **CAN tab:** Set CAN2 Enabled = ON, CAN2 Termination = ON
-2. **Diag tab:** Set Interval = 2000 ms
-3. Click **Write All** — status bar: "Write All complete"
-4. Click **Save NVM** — status bar: "Saved to NVM"
-5. Click **Read All** — verify CAN2 enabled + termination, interval = 2000
-6. **Power-cycle the board** (unplug/replug)
-7. Click **Connect** again
-8. Click **Read All** — verify settings persisted
-
-### Pass Criteria
-
-All changed values match after power cycle.
+1. Set CAN2 Enabled = ON, CAN2 Termination = ON
+2. Set Diagnostics Interval = 2000 ms
+3. Click **Write All** then **Save NVM**
+4. Click **Read All** — verify changes persisted
+5. Power-cycle the board, reconnect, Read All — verify settings survived
 
 ---
 
-## Step 6: Live Diagnostics
+## Step 5: Live Diagnostics
 
 1. Go to **Live Diagnostics** tab
-2. Wait 2-3 seconds for heartbeat frames to arrive
-
-### Dashboard Checks
+2. Wait 2-3 seconds
 
 | Panel | Expected |
 |-------|----------|
 | System State | OK |
 | Uptime | Counting up |
-| MCU Temp | 20-50 C (room temp range) |
-| Reset Reason | Power On |
-| CAN1 RX | Incrementing (from diag heartbeat) |
-| Heap Free | > 0 KB |
-| Min Stack | > 0 words |
-| WDT Mask | 0x00 (no timeouts) |
-| Crash Report | None |
-
-### Frame Monitor Checks
-
-1. Verify scrolling CAN frames visible (0x7F0, 0x7F1, 0x7F2, 0x7F4)
-2. Type `7F0` in the ID filter field — only 0x7F0 frames shown
-3. Click **Pause** — frames stop scrolling
-4. Click **Resume** — frames resume
-5. Click **Clear** — log emptied
+| MCU Temp | 20-50 C |
+| CAN1 RX | Incrementing |
+| Frame Monitor | Scrolling frames (0x7F0, 0x7F1, 0x7F2, 0x7F4) |
 
 ---
 
-## Step 7: Config File Export / Import
+## Step 6: Config File Export / Import
 
 1. Click **Export File** — save as `test_config.json`
-2. Open the file in a text editor — verify JSON structure:
-   - `can[]`, `lin[]`, `diag`, `routing[]` sections
-   - `fw_version`, `export_time` metadata
-3. Change a setting in the UI (e.g., CAN2 termination OFF → ON)
-4. Click **Import File** — load the saved JSON
-5. Verify the UI reverted to the exported values
-
-### Pass Criteria
-
-Settings round-trip through JSON file correctly. File is human-readable.
+2. Verify JSON structure: `can[]`, `lin[]`, `diag`, `routing[]` sections
+3. Change a setting, click **Import File** — verify revert
+4. Routing rules with `ProfileTag` should include `profile_tag` in JSON
 
 ---
 
-## Step 8: Routing Rules (Bulk Transfer)
+## Step 7: Routing Rules (Bulk Transfer)
 
-### Write Rules
-
-1. Go to **Routing** tab
-2. Click **Add Rule**
-3. Configure:
-   - Enabled: checked
-   - Src Bus: 0 (CAN1)
-   - Src ID: `100` (type in hex)
-   - Src Mask: `7FF`
-   - Dst Bus: 0 (CAN1)
-   - Dst ID: `200`
-4. Click **Add Rule** again for a second rule:
-   - Src Bus: 0, Src ID: `101`, Dst Bus: 1 (CAN2), Dst ID: `301`
-5. Click **Write All** — status bar: "Write All complete"
-
-### Read Back
-
-6. Click **Read All**
-7. Verify both rules appear in the grid with correct values
-
-### Byte Mapping Sub-Editor
-
-8. Select a rule, click **Add Mapping**
-9. Set: Src Byte=0, Dst Byte=0, Mask=FF, Shift=0, Offset=0
-10. Click **Write All** then **Read All** — mapping should persist
-
-### Important Note
-
-Routing rule bulk serialization depends on `sizeof(routing_rule_t)` matching
-between the config tool and the ARM target. If rules don't round-trip:
-
-```c
-// Add to any test firmware main():
-printf("sizeof(routing_rule_t) = %u\n", sizeof(routing_rule_t));
-// Or report via CAN test frame
-```
-
-Then update `RoutingRule.cs:Serialize()` to match the actual size.
+1. **Routing** tab > Add Rule: Src Bus=CAN1, Src ID=100, Dst Bus=CAN1, Dst ID=200
+2. Add byte mapping: Src Byte=0, Dst Byte=0, Mask=FF
+3. Click **Write All** then **Read All** — verify round-trip
+4. Profile column shows ProfileTag for profile-generated rules
 
 ---
 
-## Step 9: LIN Schedule (Bulk Transfer)
+## Step 8: LIN Schedule (Bulk Transfer)
 
-1. Go to **LIN** tab, select **LIN1**
-2. Set Mode: **Master**, Enabled: **ON**
-3. Click **Add** to add schedule entries:
-   - Entry 1: ID=21 (hex), DLC=2, Direction=1 (Publish), Delay=20ms
-   - Entry 2: ID=22 (hex), DLC=4, Direction=0 (Subscribe), Delay=20ms
-4. Click **Write All** — schedule sent via BULK_WRITE to device
-5. Click **Read All** — schedule entries should re-appear in the grid
-6. Verify entry count, IDs, DLC, and delays match
+1. **LIN** tab > LIN1 > Mode: Master, Enabled: ON
+2. Add schedule entries (ID, DLC, Direction, Delay)
+3. Click **Write All** then **Read All** — verify round-trip
 
 ---
 
-## Step 10: Profiles
+## Step 9: Profiles
 
-1. Go to **Profiles** tab
-2. Two placeholder profiles should be listed:
-   - "Bosch WDA LIN Wiper Motor"
-   - "Pierburg CWA400 LIN Coolant Pump"
-3. Select a profile — detail panel shows description, LIN mode, baudrate
-4. Set "Assign to LIN Channel" dropdown to LIN1
-5. Click **Apply Profile**
-6. Go to **LIN** tab — verify LIN1 is now Master, 19200 baud, with schedule entries
-7. Click **Save NVM** to persist
+### Apply Profile
+
+1. **Profiles** tab — two profiles listed: WDA Wiper, CWA400 Pump
+2. Select WDA, assign to LIN1, click **Apply Profile**
+3. Status bar: "Profile 'Bosch WDA LIN Wiper Motor' applied to LIN1 with 2 routing rules"
+4. **Routing** tab: 2 rules with ProfileTag "wda-wiper:0"
+5. **LIN** tab: LIN1 = Master, 19200 baud, schedule entries populated
+
+### Parameter Controls
+
+1. After apply: "Device Parameters" section visible
+2. WDA: "Wiper Mode" dropdown (Off/Slow/Fast/Interval), "Interval Time" slider (0-255)
+3. Click **Send Control Frame** — status bar shows sent CAN frame
+
+### Import / Export Profile
+
+1. Click **Export** — saves selected profile as JSON
+2. Click **Import** — loads external profile JSON, validates `name`/`id` fields
+3. Duplicate detection prompts for replacement
+
+### Re-apply / Multi-profile
+
+- Re-applying to different channel removes old rules, adds new ones
+- Two profiles on different channels coexist (4 rules total)
+
+---
+
+## Step 10: Adapter Tests
+
+### PCAN
+Standard adapter — all tests above apply.
+
+### Vector XL
+1. Select **Vector XL** adapter — channels show real hardware names
+2. Connect, Read All, Write All — same behavior as PCAN
+3. Disconnect + reconnect works cleanly
+4. Without Vector driver installed: no crash, empty channel list
+
+### SLCAN
+1. Select **SLCAN**, choose COM port
+2. Connect at 500 kbps — verify Read All works
 
 ---
 
 ## Step 11: Disconnect / Reconnect
 
-1. Click **Disconnect**
-2. Verify: green LED → gray, status = "Disconnected"
-3. Verify: all buttons except Connect grayed out
-4. Click **Connect** again — should reconnect normally
+1. Click **Disconnect** — status = "Disconnected"
+2. Click **Connect** — should reconnect normally
 
 ---
 
 ## Step 12: Enter Bootloader (Destructive)
 
-**Warning:** This reboots the board into bootloader mode. You will need to
-re-flash firmware to continue testing.
+**Warning:** Reboots board into bootloader mode. Re-flash firmware to continue.
 
-1. Click **Enter Bootloader**
-2. Confirm the dialog
-3. Expected: status = "Device rebooting to bootloader", auto-disconnect
-4. Board should now respond to bootloader CAN commands (0x700/0x701)
-
----
-
-## Additional Adapter Tests (Optional)
-
-### SLCAN
-
-1. Connect a SLCAN device (e.g., CANable) to USB
-2. Select adapter: **SLCAN**
-3. Select channel: **COMx@115200** (matching your device)
-4. Set bitrate: **500000**, click **Connect**
-5. Click **Read All** — verify parameters read correctly
-
-### Kvaser
-
-1. Install Kvaser CANlib SDK
-2. Select adapter: **Kvaser**
-3. Select channel: **Kvaser_CH0**
-4. Click **Connect** — verify connection
-
-### Vector XL
-
-Vector XL adapter has a **stub TX implementation** — it can connect and receive
-but cannot send frames. Full implementation requires proper `xl_can_msg_t`
-struct marshaling.
+1. Click **Enter Bootloader**, confirm dialog
+2. Status: "Device rebooting to bootloader", auto-disconnect
 
 ---
 
@@ -331,19 +225,21 @@ struct marshaling.
 
 | # | Test | Status |
 |---|------|--------|
-| 0 | Firmware build (18/18 Phase 0) | |
-| 1 | Config tool builds (0 warnings, 0 errors) | |
-| 2 | App launches with correct UI layout | |
-| 3 | PCAN connect + FW handshake | |
-| 4 | Read All — default values correct | |
-| 5 | Write All + Save NVM + power-cycle persistence | |
-| 6 | Live Diagnostics dashboard + frame monitor | |
-| 7 | Config file export/import round-trip | |
-| 8 | Routing rules bulk write + read back | |
-| 9 | LIN schedule bulk write + read back | |
-| 10 | Profile apply → LIN config populated | |
-| 11 | Disconnect / reconnect | |
-| 12 | Enter Bootloader (destructive) | |
+| 0 | Config tool builds (0 warnings, 0 errors) | |
+| 1 | App launches with correct UI layout | |
+| 2 | CAN adapter connect + FW handshake | |
+| 3 | Read All — default values correct | |
+| 4 | Write All + Save NVM + power-cycle persistence | |
+| 5 | Live Diagnostics dashboard + frame monitor | |
+| 6 | Config file export/import round-trip | |
+| 7 | Routing rules bulk write + read back | |
+| 8 | LIN schedule bulk write + read back | |
+| 9 | Profile apply — LIN config + routing rules generated | |
+| 10 | Profile parameter controls + Send Control Frame | |
+| 11 | Profile import/export | |
+| 12 | Vector XL adapter — connect, TX, RX, reconnect | |
+| 13 | Disconnect / reconnect | |
+| 14 | Enter Bootloader (destructive) | |
 
 ---
 
@@ -351,8 +247,7 @@ struct marshaling.
 
 | Item | Detail |
 |------|--------|
-| **sizeof(routing_rule_t)** | Must be verified on ARM target. If mismatch, bulk read/write of routing rules will corrupt data. Print `sizeof` and update `RoutingRule.cs` |
-| **Vector XL adapter** | TX stubbed — `Send()` returns false. Needs full struct marshaling for `xlCanTransmit` |
-| **Profile JSON** | Placeholder LIN IDs/data — fill in real values from device datasheets |
-| **Dirty tracking** | Not yet implemented — no unsaved-changes warning on close |
-| **BULK_START CRC** | Now 24-bit (lower 3 bytes of CRC32). Previous firmware (pre-8a) used 32-bit CRC at different byte offsets — incompatible |
+| **Kvaser adapter** | Stub only — P/Invoke declarations present but not implemented |
+| **Dirty tracking** | No unsaved-changes warning on close |
+| **Profile JSON** | LIN IDs and data are placeholder values — fill in from real device datasheets |
+| **BULK_START CRC** | 24-bit (lower 3 bytes of CRC32). Incompatible with pre-Phase 8 firmware |
