@@ -36,5 +36,23 @@
       { "src_byte": 2, "dst_byte": 2, "mask": 255 },
       { "src_byte": 3, "dst_byte": 3, "mask": 255 }
     ]
-  }
+  },
+  "parameters": [
+    {
+      "name": "Wiper Mode",
+      "type": "enum",
+      "options": ["Off", "Slow", "Fast", "Interval"],
+      "can_control_byte": 0,
+      "mask": 255
+    },
+    {
+      "name": "Interval Time",
+      "type": "numeric",
+      "min": 0,
+      "max": 255,
+      "unit": "x100ms",
+      "can_control_byte": 1,
+      "mask": 255
+    }
+  ]
 }

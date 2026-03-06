@@ -62,6 +62,9 @@ public class RoutingRuleFileData
     [JsonPropertyName("dst_id")] public uint DstId { get; set; }
     [JsonPropertyName("dst_dlc")] public byte DstDlc { get; set; }
     [JsonPropertyName("mappings")] public ByteMappingFileData[] Mappings { get; set; } = [];
+    [JsonPropertyName("profile_tag")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string ProfileTag { get; set; } = "";
 }
 
 public class ByteMappingFileData
@@ -125,6 +128,7 @@ public static class ConfigFileService
         {
             Enabled = r.Enabled, SrcBus = r.SrcBus, SrcId = r.SrcId, SrcMask = r.SrcMask,
             DstBus = r.DstBus, DstId = r.DstId, DstDlc = r.DstDlc,
+            ProfileTag = r.ProfileTag,
             Mappings = r.Mappings.Select(m => new ByteMappingFileData
             {
                 SrcByte = m.SrcByte, DstByte = m.DstByte, Mask = m.Mask, Shift = m.Shift, Offset = m.Offset,
@@ -178,6 +182,7 @@ public static class ConfigFileService
             {
                 Enabled = r.Enabled, SrcBus = r.SrcBus, SrcId = r.SrcId, SrcMask = r.SrcMask,
                 DstBus = r.DstBus, DstId = r.DstId, DstDlc = r.DstDlc,
+                ProfileTag = r.ProfileTag ?? "",
             };
             foreach (var m in r.Mappings)
                 rule.Mappings.Add(new Models.ByteMapping

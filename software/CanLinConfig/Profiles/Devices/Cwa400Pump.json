@@ -36,5 +36,23 @@
       { "src_byte": 2, "dst_byte": 2, "mask": 255 },
       { "src_byte": 3, "dst_byte": 3, "mask": 255 }
     ]
-  }
+  },
+  "parameters": [
+    {
+      "name": "Pump Speed",
+      "type": "numeric",
+      "min": 0,
+      "max": 255,
+      "unit": "%",
+      "can_control_byte": 0,
+      "mask": 255
+    },
+    {
+      "name": "Enable",
+      "type": "enum",
+      "options": ["Off", "On"],
+      "can_control_byte": 1,
+      "mask": 255
+    }
+  ]
 }

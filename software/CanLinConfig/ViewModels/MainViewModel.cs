@@ -277,6 +277,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
             StatusBarText = "Config loaded from file - click Write All to push to device";
     }
 
+    public bool SendRawFrame(CanFrame frame)
+    {
+        return _adapter?.Send(frame) ?? false;
+    }
+
     private static ICanAdapter? CreateAdapter(string name) => name switch
     {
         "PCAN" => new PcanAdapter(),

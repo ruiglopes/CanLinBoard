@@ -10,8 +10,14 @@
 
         <!-- Profile List -->
         <GroupBox Grid.Column="0" Header="Device Profiles" Margin="0,0,10,0">
-            <ListBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"
-                     DisplayMemberPath="Name" />
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,5,0,0">
+                    <Button Content="Import" Command="{Binding ImportProfileCommand}" Width="70" Margin="0,0,5,0" />
+                    <Button Content="Export" Command="{Binding ExportProfileCommand}" Width="70" />
+                </StackPanel>
+                <ListBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"
+                         DisplayMemberPath="Name" />
+            </DockPanel>
         </GroupBox>
 
         <!-- Profile Detail -->
@@ -48,6 +54,41 @@
 
                     <Button Content="Apply Profile" Command="{Binding ApplyProfileCommand}"
                             Width="120" HorizontalAlignment="Left" />
+
+                    <!-- Parameter Controls (visible after profile is applied) -->
+                    <StackPanel Margin="0,15,0,0"
+                                Visibility="{Binding ProfileApplied, Converter={StaticResource BoolToVisConverter}}">
+                        <Separator Margin="0,0,0,10" />
+                        <TextBlock Text="Device Parameters" FontSize="14" FontWeight="Bold" Margin="0,0,0,10" />
+
+                        <ItemsControl ItemsSource="{Binding ActiveParameterValues}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,8">
+                                        <TextBlock Text="{Binding Definition.Name}" FontWeight="SemiBold" Margin="0,0,0,3" />
+                                        <!-- Enum: ComboBox -->
+                                        <ComboBox ItemsSource="{Binding Definition.Options}"
+                                                  SelectedIndex="{Binding SelectedOptionIndex}"
+                                                  Width="150" HorizontalAlignment="Left"
+                                                  Visibility="{Binding IsEnum, Converter={StaticResource BoolToVisConverter}}" />
+                                        <!-- Numeric: Slider + value -->
+                                        <StackPanel Orientation="Horizontal"
+                                                    Visibility="{Binding IsNumeric, Converter={StaticResource BoolToVisConverter}}">
+                                            <Slider Minimum="{Binding Definition.Min}" Maximum="{Binding Definition.Max}"
+                                                    Value="{Binding Value}" Width="200"
+                                                    TickFrequency="1" IsSnapToTickEnabled="True" />
+                                            <TextBlock Text="{Binding Value}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding Definition.Unit}" Margin="4,0,0,0" VerticalAlignment="Center"
+                                                       Foreground="Gray" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Button Content="Send Control Frame" Command="{Binding SendControlFrameCommand}"
+                                Width="150" HorizontalAlignment="Left" Margin="0,5,0,0" />
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </GroupBox>

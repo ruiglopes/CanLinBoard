@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CanLinConfig.Protocol;
 
@@ -15,6 +16,9 @@ public partial class RoutingRule : ObservableObject
     [ObservableProperty] private byte _dstDlc; // 0=auto
     [ObservableProperty] private bool _enabled = true;
     public ObservableCollection<ByteMapping> Mappings { get; } = [];
+
+    // Software-only tag for profile-generated rules (not serialized to firmware)
+    [JsonIgnore] public string ProfileTag { get; set; } = "";
 
     public string SrcBusName => BusName(SrcBus);
     public string DstBusName => BusName(DstBus);

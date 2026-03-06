@@ -67,7 +67,7 @@ public class ConfigProtocol : IDisposable
             Array.Copy(frame.Data, 1, _bulkReadBuffer, _bulkReadReceived, payloadLen);
             _bulkReadReceived += payloadLen;
         }
-        _bulkReadSeq++;
+        _bulkReadSeq = (_bulkReadSeq + 1) & 0xFF;
 
         if (_bulkReadReceived >= _bulkReadExpectedSize)
         {

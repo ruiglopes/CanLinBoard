@@ -41,6 +41,7 @@
                 <DataGridTextColumn Header="Dst ID" Binding="{Binding DstId, Converter={StaticResource Hex3Converter}}" Width="90" />
                 <DataGridTextColumn Header="DLC" Binding="{Binding DstDlc}" Width="50" />
                 <DataGridTextColumn Header="Maps" Binding="{Binding Mappings.Count}" Width="50" IsReadOnly="True" />
+                <DataGridTextColumn Header="Profile" Binding="{Binding ProfileTag}" Width="110" IsReadOnly="True" />
             </DataGrid.Columns>
         </DataGrid>
 

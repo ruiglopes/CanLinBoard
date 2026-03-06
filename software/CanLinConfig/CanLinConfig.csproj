@@ -9,6 +9,7 @@
     <ApplicationIcon />
     <AssemblyName>CanLinConfig</AssemblyName>
     <RootNamespace>CanLinConfig</RootNamespace>
+
   </PropertyGroup>
 
   <ItemGroup>
