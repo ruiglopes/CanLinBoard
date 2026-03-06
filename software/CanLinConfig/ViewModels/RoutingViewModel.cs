@@ -53,6 +53,22 @@ public partial class RoutingViewModel : ObservableObject
             SelectedRule.Mappings.Remove(mapping);
     }
 
+    [ObservableProperty] private BitMapping? _selectedBitMapping;
+
+    [RelayCommand]
+    private void AddBitMapping()
+    {
+        if (SelectedRule != null)
+            SelectedRule.BitMappings.Add(new BitMapping());
+    }
+
+    [RelayCommand]
+    private void RemoveBitMapping()
+    {
+        if (SelectedRule != null && SelectedBitMapping != null)
+            SelectedRule.BitMappings.Remove(SelectedBitMapping);
+    }
+
     public async Task ReadFromDeviceAsync(ConfigProtocol proto)
     {
         var data = await proto.BulkReadAsync(ProtocolConstants.SectionRouting, 0);
@@ -77,6 +93,19 @@ public partial class RoutingViewModel : ObservableObject
         {
             await proto.BulkWriteAsync(ProtocolConstants.SectionRouting, 0, []);
             return;
+        }
+
+        // Convert bit mappings to byte mappings for rules in bit mode
+        foreach (var rule in Rules)
+        {
+            if (rule.BitMode && rule.BitMappings.Count > 0)
+            {
+                rule.Mappings.Clear();
+                foreach (var bm in rule.BitMappings)
+                    foreach (var byteMap in bm.ToByteMapppings())
+                        if (rule.Mappings.Count < ProtocolConstants.MaxByteMappings)
+                            rule.Mappings.Add(byteMap);
+            }
         }
 
         using var ms = new MemoryStream();

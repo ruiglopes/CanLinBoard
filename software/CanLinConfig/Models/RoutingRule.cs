@@ -17,8 +17,10 @@ public partial class RoutingRule : ObservableObject
     [ObservableProperty] private bool _enabled = true;
     public ObservableCollection<ByteMapping> Mappings { get; } = [];
 
-    // Software-only tag for profile-generated rules (not serialized to firmware)
+    // Software-only fields (not serialized to firmware)
     [JsonIgnore] public string ProfileTag { get; set; } = "";
+    [ObservableProperty] private bool _bitMode;
+    public ObservableCollection<BitMapping> BitMappings { get; } = [];
 
     public string SrcBusName => BusName(SrcBus);
     public string DstBusName => BusName(DstBus);

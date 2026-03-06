@@ -6,6 +6,8 @@
     <UserControl.Resources>
         <views:HexUInt32Converter x:Key="Hex3Converter" Digits="3" />
         <views:HexUInt32Converter x:Key="Hex2Converter" Digits="2" />
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <views:InverseBoolToVisConverter x:Key="InverseBoolToVis" />
         <ObjectDataProvider x:Key="BusItems" ObjectType="{x:Type views:BusItem}" MethodName="get_All" />
     </UserControl.Resources>
 
@@ -40,34 +42,61 @@
                                         ItemsSource="{Binding Source={StaticResource BusItems}}" Width="80" />
                 <DataGridTextColumn Header="Dst ID" Binding="{Binding DstId, Converter={StaticResource Hex3Converter}}" Width="90" />
                 <DataGridTextColumn Header="DLC" Binding="{Binding DstDlc}" Width="50" />
+                <DataGridCheckBoxColumn Header="Bit Mode" Binding="{Binding BitMode}" Width="70" />
                 <DataGridTextColumn Header="Maps" Binding="{Binding Mappings.Count}" Width="50" IsReadOnly="True" />
                 <DataGridTextColumn Header="Profile" Binding="{Binding ProfileTag}" Width="110" IsReadOnly="True" />
             </DataGrid.Columns>
         </DataGrid>
 
-        <!-- Byte Mapping Section -->
-        <TextBlock Grid.Row="2" Text="Byte Mappings (selected rule)" Margin="0,10,0,5" FontWeight="SemiBold" />
+        <!-- Mapping Section (selected rule) -->
+        <TextBlock Grid.Row="2" Text="Mappings (selected rule)" Margin="0,10,0,5" FontWeight="SemiBold" />
         <Grid Grid.Row="3">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+            <!-- Byte Mapping mode -->
+            <Grid Visibility="{Binding SelectedRule.BitMode, Converter={StaticResource InverseBoolToVis}, FallbackValue=Visible}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,3">
-                <Button Content="Add Mapping" Command="{Binding AddMappingCommand}" Width="100" Margin="0,0,5,0" />
-                <Button Content="Remove" Command="{Binding RemoveMappingCommand}" Width="70" />
-            </StackPanel>
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,3">
+                    <Button Content="Add Mapping" Command="{Binding AddMappingCommand}" Width="100" Margin="0,0,5,0" />
+                    <Button Content="Remove" Command="{Binding RemoveMappingCommand}" Width="70" />
+                </StackPanel>
 
-            <DataGrid Grid.Row="1" ItemsSource="{Binding SelectedRule.Mappings}"
-                      AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Src Byte" Binding="{Binding SrcByte}" Width="80" />
-                    <DataGridTextColumn Header="Dst Byte" Binding="{Binding DstByte}" Width="80" />
-                    <DataGridTextColumn Header="Mask" Binding="{Binding Mask, Converter={StaticResource Hex2Converter}}" Width="70" />
-                    <DataGridTextColumn Header="Shift" Binding="{Binding Shift}" Width="60" />
-                    <DataGridTextColumn Header="Offset" Binding="{Binding Offset}" Width="60" />
-                </DataGrid.Columns>
-            </DataGrid>
+                <DataGrid Grid.Row="1" ItemsSource="{Binding SelectedRule.Mappings}"
+                          AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Src Byte" Binding="{Binding SrcByte}" Width="80" />
+                        <DataGridTextColumn Header="Dst Byte" Binding="{Binding DstByte}" Width="80" />
+                        <DataGridTextColumn Header="Mask" Binding="{Binding Mask, Converter={StaticResource Hex2Converter}}" Width="70" />
+                        <DataGridTextColumn Header="Shift" Binding="{Binding Shift}" Width="60" />
+                        <DataGridTextColumn Header="Offset" Binding="{Binding Offset}" Width="60" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+
+            <!-- Bit Mapping mode -->
+            <Grid Visibility="{Binding SelectedRule.BitMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,3">
+                    <Button Content="Add Bit Map" Command="{Binding AddBitMappingCommand}" Width="100" Margin="0,0,5,0" />
+                    <Button Content="Remove" Command="{Binding RemoveBitMappingCommand}" Width="70" />
+                </StackPanel>
+
+                <DataGrid Grid.Row="1" ItemsSource="{Binding SelectedRule.BitMappings}"
+                          SelectedItem="{Binding SelectedBitMapping}"
+                          AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Src Start Bit" Binding="{Binding SrcStartBit}" Width="100" />
+                        <DataGridTextColumn Header="Bit Length" Binding="{Binding BitLength}" Width="80" />
+                        <DataGridTextColumn Header="Dst Start Bit" Binding="{Binding DstStartBit}" Width="100" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
         </Grid>
     </Grid>
 </UserControl>
