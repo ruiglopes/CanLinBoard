@@ -4,6 +4,7 @@
 #include "hal/hal_clock.h"
 #include "hal/hal_gpio.h"
 #include "diag/bus_watchdog.h"
+#include "config/config_handler.h"
 #include "board_config.h"
 
 #include "FreeRTOS.h"
@@ -193,6 +194,9 @@ bool lin_manager_start_channel(uint8_t ch, const lin_channel_config_t *config)
 {
     if (ch >= LIN_CHANNEL_COUNT) return false;
 
+    /* Stop schedule first to prevent race with schedule_tick() in LIN task */
+    s_schedule_state[ch].active = false;
+
     s_channel_config[ch] = *config;
     s_channel_stats[ch].state = LIN_STATE_INIT;
 
@@ -204,12 +208,15 @@ bool lin_manager_start_channel(uint8_t ch, const lin_channel_config_t *config)
 
     s_channel_stats[ch].state = LIN_STATE_ACTIVE;
 
-    /* Start master scheduling if applicable */
+    /* Start master scheduling if applicable.
+     * Use critical section to ensure schedule_tick() sees consistent state. */
     if (config->mode == LIN_MODE_MASTER && config->schedule.count > 0) {
-        s_schedule_state[ch].active = true;
+        taskENTER_CRITICAL();
         s_schedule_state[ch].current_index = 0;
         s_schedule_state[ch].next_tick = xTaskGetTickCount() +
             pdMS_TO_TICKS(config->schedule.entries[0].delay_ms);
+        s_schedule_state[ch].active = true;
+        taskEXIT_CRITICAL();
     }
 
     return true;
@@ -279,6 +286,23 @@ void lin_task_entry(void *params)
      * which requires task context. */
     sja1124_init(&s_sja_ctx, &s_spi_ctx);
 
+    /* Apply LIN config from NVM (must happen after sja1124_init) */
+    {
+        const nvm_config_t *cfg = config_handler_get_config();
+        for (int ch = 0; ch < LIN_CHANNEL_COUNT; ch++) {
+            if (cfg->lin[ch].enabled) {
+                lin_channel_config_t lc;
+                lc.enabled  = true;
+                lc.mode     = (lin_mode_t)cfg->lin[ch].mode;
+                lc.baudrate = cfg->lin[ch].baudrate;
+                memcpy(&lc.schedule, &cfg->lin[ch].schedule,
+                       sizeof(lin_schedule_table_t));
+                lin_manager_start_channel(ch, &lc);
+                bus_watchdog_set_enabled((bus_id_t)(BUS_LIN1 + ch), true);
+            }
+        }
+    }
+
     for (;;) {
         /* Wait for INTN interrupt notification or 5 ms timeout */
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(5));
@@ -291,16 +315,41 @@ void lin_task_entry(void *params)
         /* Process outbound LIN TX queue */
         gateway_frame_t tx_gf;
         while (xQueueReceive(s_lin_tx_queue, &tx_gf, 0) == pdTRUE) {
-            /* Determine target LIN channel from source_bus field */
-            if (tx_gf.source_bus >= BUS_LIN1 && tx_gf.source_bus <= BUS_LIN4) {
-                uint8_t ch = tx_gf.source_bus - BUS_LIN1;
-                lin_frame_t frame;
-                frame.id = tx_gf.frame.id & 0x3F;
-                frame.dlc = tx_gf.frame.dlc;
-                frame.classic_cs = false;
-                memcpy(frame.data, tx_gf.frame.data, frame.dlc);
-                lin_manager_transmit(ch, &frame);
+            if (tx_gf.source_bus < BUS_LIN1 || tx_gf.source_bus > BUS_LIN4)
+                continue;
+
+            uint8_t ch = tx_gf.source_bus - BUS_LIN1;
+            uint8_t lin_id = tx_gf.frame.id & 0x3F;
+
+            /* If channel is master with an active schedule, update the
+             * matching publish entry's data instead of transmitting directly.
+             * The scheduler will send the latest data at its scheduled time. */
+            if (s_channel_config[ch].mode == LIN_MODE_MASTER &&
+                s_schedule_state[ch].active) {
+                /* Update matching publish entry's data; the scheduler
+                 * sends it at the right time. No match = silently drop,
+                 * the scheduler owns bus timing on master channels. */
+                for (uint8_t i = 0; i < s_channel_config[ch].schedule.count; i++) {
+                    lin_schedule_entry_t *entry =
+                        &s_channel_config[ch].schedule.entries[i];
+                    if (entry->id == lin_id && entry->dir == 1) {
+                        uint8_t dlc = tx_gf.frame.dlc;
+                        if (dlc > 8) dlc = 8;
+                        memcpy(entry->data, tx_gf.frame.data, dlc);
+                        entry->dlc = dlc;
+                        break;
+                    }
+                }
+                continue;
             }
+
+            /* Slave or disabled channel: transmit directly */
+            lin_frame_t frame;
+            frame.id = lin_id;
+            frame.dlc = tx_gf.frame.dlc;
+            frame.classic_cs = false;
+            memcpy(frame.data, tx_gf.frame.data, frame.dlc);
+            lin_manager_transmit(ch, &frame);
         }
 
         /* Run master scheduling engine */

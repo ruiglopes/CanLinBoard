@@ -19,6 +19,9 @@
 #include "diag/fault_handler.h"
 #include "diag/diagnostics.h"
 #include "config/config_handler.h"
+#include "config/nvm_config.h"
+
+#include <string.h>
 
 /* ---- FreeRTOS Queue Handles (global) ---- */
 QueueHandle_t g_gateway_input_queue;
@@ -36,6 +39,17 @@ static void gateway_task(void *params)
 {
     (void)params;
     gateway_engine_init(g_can_tx_queue, g_lin_tx_queue);
+
+    /* Apply routing rules from NVM config */
+    {
+        const nvm_config_t *cfg = config_handler_get_config();
+        for (int i = 0; i < cfg->routing_rule_count && i < MAX_ROUTING_RULES; i++) {
+            routing_rule_t rule;
+            memcpy(&rule, &cfg->routing_rules[i], sizeof(routing_rule_t));
+            gateway_engine_add_rule(&rule);
+        }
+    }
+
     for (;;) {
         gateway_frame_t gf;
         if (xQueueReceive(g_gateway_input_queue, &gf, portMAX_DELAY) == pdTRUE) {

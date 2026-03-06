@@ -73,7 +73,11 @@ static void apply_config(const nvm_config_t *cfg)
         bus_watchdog_set_enabled(BUS_CAN2, false);
     }
 
-    /* LIN channels */
+    /* LIN channels — stop first, then restart enabled ones */
+    for (int ch = 0; ch < LIN_CHANNEL_COUNT; ch++) {
+        lin_manager_stop_channel(ch);
+        bus_watchdog_set_enabled((bus_id_t)(BUS_LIN1 + ch), false);
+    }
     for (int ch = 0; ch < LIN_CHANNEL_COUNT; ch++) {
         if (cfg->lin[ch].enabled) {
             lin_channel_config_t lc;
@@ -83,19 +87,11 @@ static void apply_config(const nvm_config_t *cfg)
             memcpy(&lc.schedule, &cfg->lin[ch].schedule, sizeof(lin_schedule_table_t));
             lin_manager_start_channel(ch, &lc);
             bus_watchdog_set_enabled((bus_id_t)(BUS_LIN1 + ch), true);
-        } else {
-            lin_manager_stop_channel(ch);
-            bus_watchdog_set_enabled((bus_id_t)(BUS_LIN1 + ch), false);
         }
     }
 
-    /* Gateway routing rules */
-    gateway_engine_clear_rules();
-    for (int i = 0; i < cfg->routing_rule_count && i < MAX_ROUTING_RULES; i++) {
-        routing_rule_t rule;
-        memcpy(&rule, &cfg->routing_rules[i], sizeof(routing_rule_t));
-        gateway_engine_add_rule(&rule);
-    }
+    /* Gateway routing rules (atomic swap — safe across tasks) */
+    gateway_engine_replace_rules(cfg->routing_rules, cfg->routing_rule_count);
 
     /* Diagnostics reconfigure (interval, bus, watchdog timeouts) */
     diagnostics_reconfigure();
@@ -549,6 +545,9 @@ static void handle_bulk_end(const uint8_t *data, uint8_t dlc)
             send_response(CFG_CMD_BULK_END, CFG_STATUS_INVALID_PARAM, NULL, 0);
             return;
         }
+        /* Zero first to clear stale entries from previous config */
+        memset(&s_working_config.lin[s_bulk_sub].schedule, 0,
+               sizeof(lin_schedule_table_t));
         memcpy(&s_working_config.lin[s_bulk_sub].schedule, s_bulk_buffer,
                s_bulk_received);
         break;

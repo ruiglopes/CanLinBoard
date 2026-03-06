@@ -1,4 +1,6 @@
 #include "gateway/gateway_engine.h"
+#include "FreeRTOS.h"
+#include "task.h"
 #include <string.h>
 
 /* ---- Module State ---- */
@@ -143,6 +145,21 @@ void gateway_engine_clear_rules(void)
 {
     memset(s_rules, 0, sizeof(s_rules));
     s_rule_count = 0;
+}
+
+void gateway_engine_replace_rules(const void *rules, uint8_t count)
+{
+    if (count > MAX_ROUTING_RULES) count = MAX_ROUTING_RULES;
+
+    /* Atomic swap: critical section prevents gateway_engine_process() from
+     * seeing a half-cleared/half-loaded rule table. */
+    taskENTER_CRITICAL();
+    memset(s_rules, 0, sizeof(s_rules));
+    if (count > 0) {
+        memcpy(s_rules, rules, count * sizeof(routing_rule_t));
+    }
+    s_rule_count = count;
+    taskEXIT_CRITICAL();
 }
 
 void gateway_engine_process(const gateway_frame_t *frame)

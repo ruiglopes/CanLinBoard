@@ -83,6 +83,13 @@ uint8_t gateway_engine_get_rule_count(void);
 void gateway_engine_clear_rules(void);
 
 /**
+ * Atomically replace all routing rules (critical section protected).
+ * Safe to call from a different task than gateway_engine_process().
+ * Accepts void* to avoid packed-member alignment warnings from NVM config.
+ */
+void gateway_engine_replace_rules(const void *rules, uint8_t count);
+
+/**
  * Process a single inbound frame through all routing rules.
  * Matched frames are dispatched to the appropriate TX queue.
  * Multiple rules may match (fan-out).
