@@ -101,7 +101,7 @@ dotnet build CanLinConfig.sln
 |---------|--------|-----|-------|
 | PCAN | Full | PCANBasic.dll (NuGet) | Primary development adapter |
 | Vector XL | Full | vxlapi64.dll | Requires Vector XL Driver Library |
-| Kvaser | Stub | canlib32.dll | P/Invoke declarations only |
+| Kvaser | Untested | canlib32.dll | Full implementation skeleton, requires Kvaser CANlib SDK |
 | SLCAN | Full | System.IO.Ports | Serial ASCII protocol (CANable, USBtin) |
 
 ## Reference Projects

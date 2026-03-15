@@ -1,0 +1,915 @@
+/****************************************************************************************/
+/*                                                                                      */
+/* Description: LIN Description file created using Vector's LIN File Editor             */
+/* Created:     14.11.2019                                                              */
+/* Author:      nminoiu1, Aj                                                             */
+/* Version:     3.6                                                                    	*/
+/* Project:     IHSW                                                                    */
+/* Change Log:  Ver1.0 - Initial Release.                                               */
+/*              Ver1.1 - Added the slave nodes BLWR_CTRL1 and BLWR_CTRL2                */
+/*              Ver1.2 - Corrected the signal details for EAC module.                   */
+/*              Ver1.3 - Diagnostics Frames are added to implement the FBH Sleep Request*/
+/*              Ver1.4 - Updated the frame delay specified in the schedule table to     */
+/*              fix the issue of processor task overloading.                            */
+/*              Ver1.5 - Updated the LDF with details for the new LIN modules added for */
+/*              Ver1.6 - Moved the FBH_RESP frame within the schedule table to fix the  */
+/*              issue reported in JIRA task 1313.                                       */
+/*              Ver1.7 - Following 3 updates have been done as per JIRA ticket 1587     */
+/*                1) Correct the frame size of the HVCH_REQ from 8 to 4 bytes.         */
+/*                2) Split the schedule tables into 2.                                  */
+/*                        a) One for non-BEV programs.                                  */
+/*                        b) One for BEV program.                                       */
+/*                3) Update the delay time for the EXV2 and SOV valves to match the     */
+/*                   sample time of the application module.                             */
+/*                4) Updated the packaging info for the signals HVCH_FailHwProtection  */
+/*                   and HVCH_WarnOverheat according to the latest LDF from Webasto    */
+/*              Ver1.8 - 1) Details for the Webasto FBH and TELESTART module have been  */
+/*                       added.                                                         */
+/*                       2) Updated the frame delay time and re-arranged the REQ and    */
+/*                          RESP frames													*/
+/*				Ver1.9 - Following 4 updates have been done as per JIRA ticket 1851		*/
+/*						1) The frame timing and message order is changed in				*/
+/*							NonBEVProgramsEberFBH Schedule table as it is in 			*/
+/*							LINC LDF v1.7												*/
+/*						2) TELESTART_01_REQ, TELESTART_01_RESP, TELESTART_02_REQ, 		*/
+/*							TELESTART_02_RESP added at the end.							*/
+/*						3) The delay time between FBH_REQ and FBH_RESP is 230 ms.		*/
+/*						4) The delay time between the FBH_RESP and next FBH_REQ 		*/
+/*							is 240 ms.  												*/
+/*				Ver2.0 - Following 2 updates have been made:							*/
+/*						1) NonBEVProgramsEberFBH schedule table renamed to 				*/
+/*							NonBEVPrograms												*/
+/*						2) Removed (commented out) NonBEVProgramsWebastoFBH schedule 	*/
+/*							tabe to have a common table for both burners	 			*/	
+/*              Ver2.1 - Following updates have been made:                              */
+/*                      1) Split into 2 schedule table NonBEVProgramsEberFBH and        */
+/*                         NonBEVProgramsWebastoFBH again due to compiler tool issue    */
+/*                      2) Removed webasto signals. Eberspacher signals shall be used	*/
+/*						   for webasto													*/	
+/*						3) Both schedule table shall use different names for FBH request*/
+/*						   and response 												*/
+/*				Ver2.2 - Following updates have been made:								*/
+/*                      1) Remove desired power from HVCH as webasto does not support it*/
+/*                      2) Added new signal HVCH_TrgtClntTempRes,HVCH_OverheatUnlock, */
+/*						   HVCH_TxReserved1, HVCH_OvrheatCnt, HVCH_OutletClntTempRes,*/
+/*                         HVCH_CurConsm, HVCH_InletClntTempRes, HVCH_RxReserved1	*/
+/*                         HVCH_RxReserved2                                            */
+/*                      3) Repackaged transmitted and received HVCH frames             */
+/*              Ver2.3 - Following updates have been made:								*/
+/*                      1) Repackaged HVCH_REQ frame. 									*/
+/*							Moved: 														*/
+/*								   HVCH_AmbientTemp to bit 16							*/
+/*								   HVCH_OverheatUnlock to bit 24						*/
+/*								   HVCH_HeaterEnable to bit 27							*/
+/*								   HVCH_TrgtClntTempRes to bit 28						*/
+/*               Ver2.4 - Following updates have been made:                             */
+/*                      1) Added additional EAC REQ and RESP frame in non-BEV Webasto   */
+/*                         schedule table                                               */
+/*               Ver2.5 - Updated NonBEVProgramsWebastoFBH schedule table to include    */
+/*                        additional HVCH frame and replace 30ms delays with 20ms to 	*/
+/*                        reduce overall time.                                          */
+/*               Ver3.0 - Removed all Shutoff and EXV2 Valves [Moved to COOLING LINBus  */
+/*                        Redefined EXV1 Frames/Signal to Comply to Mahle EXV Spec 2.0  */
+/*                        Updated Schedule Table                                        */
+/*				 Ver3.1 - Updated Length of LIN Frames Transmitted to and Received      */
+/*                        to 8  														*/
+/*				 Ver3.2 - Renamed BlwrCtrl1ResUnused1 to BlwrCtrl1Type to support new   */
+/*						  blower (JLRHVAC-5715)											*/
+/*                      - Renamed BlwrCtrl2ResUnused1 to BlwrCtrl2Type to support new   */
+/*						  blower (JLRHVAC-5715)                                         */
+/*               Ver3.3 - Added new signals HVCH_StatusExt and HVCH_Type to             */
+/*						  HVCH_RESP1   												    */
+/*               Ver3.4 - Replaced HVCH Signal Names                                    */
+/*               Ver3.6 - Added a new schedule table for a specific programme which     */
+/*                        requires different rear blower encoding						*/
+/*                                                                                      */
+/****************************************************************************************/
+
+// Global Definitions
+LIN_description_file;
+LIN_protocol_version = "2.0";
+LIN_language_version = "2.0";
+LIN_speed = 9.600 kbps; // baudrate (1.0-20.0)
+// End of Global Definitions
+
+Nodes // Nodes Definition
+{
+	Master:
+		HVAC,           // master node name
+		5.000 ms,       // time base (real)
+		1.500 ms;       // jitter (real)
+			
+	Slaves:
+		FBH,            // Fuel Burning Heater (AHCM) - Eberspecher 
+        EAC,            // Electric A/C Compressor
+        BLWR_CTRL1,     // Blower Controller 1 - Could be either Front Blower (if Pin2 is Open) or Rear Blower (if Pin 2 is GND)
+        BLWR_CTRL2,     // Blower Controller 2 - Could be either Front Blower (if Pin2 is GND) or Rear Blower (if Pin 2 is Open) 
+		R_BLWR,			// Rear Blower Controller - MLA Aux Blower
+        HVCH,           // High Voltage Coolant Heater #1
+        EXV1,           // Chiller Refrigerant Control Expansion Valve
+        FBH_WEBASTO,    // Fuel Burning Heater (AHCM) - Webasto
+        TELESTART;      // Telestart module for the Webasto FBH
+} // End of Nodes Definition
+
+
+Signals // Signals Definition
+{
+	// Signals Transmitted by HVAC to Eberspacher FBH
+    FBH_CmdRegByte1:            8,  0x02, HVAC, FBH;  
+    FBH_CmdRegByte2:		    8,  0x00, HVAC, FBH;	
+    FBH_CmdRegByte3:		    8,  0x00, HVAC,	FBH;    
+    FBH_CmdRegByte4: 		    8,	0x00, HVAC,	FBH; 
+    FBH_CmdRegByte5:       	    8, 	0x00, HVAC, FBH; 
+    FBH_CmdRegByte6:       	    8,  0x00, HVAC,	FBH; 
+    FBH_CmdRegByte7:    		8,  0x00, HVAC,	FBH;
+    FBH_CmdRegByte8:            8,	0x00, HVAC,	FBH;
+    
+    // Signals Transmitted by HVAC to EAC
+    EAC_TargetSpeed:            8,	0xFF, HVAC, EAC;
+    EAC_DriveRequest:           2,	0x3,  HVAC, EAC;
+    EAC_TxReserved1:            6,	0x3F, HVAC, EAC;
+    EAC_PowerLim:               8,	0xFF, HVAC, EAC;
+    EAC_DschgPressure:          16,	0xFFFF, HVAC, EAC;
+    EAC_TxReserved2:            8,	0xFF, HVAC, EAC;
+    EAC_TxReserved3:            8,	0xFF, HVAC, EAC;
+    EAC_TxReserved4:            8,	0xFF, HVAC, EAC;
+
+	// Signals Transmitted by HVAC to Blower Controller 1 (Front Blower or Rear Blower)
+    BlwrCtrl1RxFreq:            12, 1896, HVAC, BLWR_CTRL1;
+    BlwrCtrl1ReqUnused1:        4,	15,   HVAC, BLWR_CTRL1;
+    BlwrCtrl1Select:            2,	0,    HVAC, BLWR_CTRL1;
+    BlwrCtrl1ImaxMax:           6,	0,    HVAC, BLWR_CTRL1;
+    BlwrCtrl1ImaxMin:           5,	0,    HVAC, BLWR_CTRL1;
+    BlwrCtrl1KneeU:             3,	7,    HVAC, BLWR_CTRL1;
+    BlwrCtrl1SftyRunThres:      4,	15,   HVAC, BLWR_CTRL1;
+    BlwrCtrl1Ramp:              4,	15,   HVAC, BLWR_CTRL1;
+    BlwrCtrl1Speed:             8,	0,    HVAC, BLWR_CTRL1;
+    BlwrCtrl1SftyRunSpeed:      8,  0,    HVAC, BLWR_CTRL1;
+    BlwrCtrl1ReqUnused2:        8,	255,  HVAC, BLWR_CTRL1;
+
+	// Signals Transmitted by HVAC to Blower Controller 2 (Front Blower or Rear Blower)
+    BlwrCtrl2RxFreq:            12, 1896, HVAC, BLWR_CTRL2;
+    BlwrCtrl2ReqUnused1:        4,	15,   HVAC, BLWR_CTRL2;
+    BlwrCtrl2Select:            2,	0,    HVAC, BLWR_CTRL2;
+    BlwrCtrl2ImaxMax:           6,	0,    HVAC, BLWR_CTRL2;
+    BlwrCtrl2ImaxMin:           5,	0,    HVAC, BLWR_CTRL2;
+    BlwrCtrl2KneeU:             3,	7,    HVAC, BLWR_CTRL2;
+    BlwrCtrl2SftyRunThres:      4,	15,   HVAC, BLWR_CTRL2;
+    BlwrCtrl2Ramp:              4,	15,   HVAC, BLWR_CTRL2;
+    BlwrCtrl2Speed:             8,	0,    HVAC, BLWR_CTRL2;
+    BlwrCtrl2SftyRunSpeed:      8,  0,    HVAC, BLWR_CTRL2;
+    BlwrCtrl2ReqUnused2:        8,	255,  HVAC, BLWR_CTRL2;
+	
+	// Signals Transmitted by HVAC to Rear Blower Controller
+	R_BLWRReqUnused6:	 		12,	0xFFF,		HVAC, R_BLWR;
+    R_BLWRReqUnused1:	        4,	0x0F,		HVAC, R_BLWR;
+    R_BLWRReqUnused2:	        8,	0xFF,    	HVAC, R_BLWR;
+    R_BLWRReqUnused3:	        8,	0xFF,   	HVAC, R_BLWR;
+    R_BLWRReqUnused4:	        4,	0x0F,		HVAC, R_BLWR;
+    R_BLWRRamp:	                4,	0x07,		HVAC, R_BLWR;
+    R_BLWRSpeed:	            8,	0x00,		HVAC, R_BLWR;
+    R_BLWRSftyRunSpeed:	        8,  0x00,		HVAC, R_BLWR;
+    R_BLWRReqUnused5: 	        8,	0xFF,		HVAC, R_BLWR;	
+
+  	// Signals Transmitted by HVAC to High Voltage Coolant Heater
+    HVCH_MaxPower:              8,  255,  HVAC, HVCH;
+    HVCH_TrgtClntTemp:    		8,	255,  HVAC, HVCH;
+    HVCH_AmbientTemp:           8,	255,  HVAC, HVCH;
+    HVCH_HeaterEnable:          1,	0,    HVAC, HVCH;
+	HVCH_TrgtClntTempRes:		4,	1,	  HVAC,	HVCH;
+	HVCH_OverheatUnlock:		1,	0,	  HVAC,	HVCH;
+	HVCH_TxReserved1: 			2,	0,	  HVAC,	HVCH;
+
+    // Signals Transmitted by HVAC to Chiller Refrigerant Control Expansion Valve (EXV#1)
+    EXV1_CmdSetReq:				16, 0,    HVAC, EXV1;
+	EXV1_TxReserved1:           1,	0,    HVAC, EXV1;
+    EXV1_CmdMovEnbl:            1,  0,    HVAC, EXV1;
+    EXV1_TxReserved2:           5,	0,    HVAC, EXV1; 
+    EXV1_TxReserved3:           5,	0,    HVAC, EXV1;
+	EXV1_CmdStallEnbl:			1,	0,    HVAC, EXV1;
+	EXV1_CmdInitReq:			3,	0,    HVAC, EXV1;
+	EXV1_TxReserved4:           8,	0,    HVAC, EXV1;
+	EXV1_TxReserved5:           8,	0,    HVAC, EXV1;
+	EXV1_TxReserved6:           8,	0,    HVAC, EXV1;
+	EXV1_TxReserved7:           8,	0,    HVAC, EXV1;
+
+    // Signals Transmitted by HVAC to Webasto FBH
+    FBH_WEBASTO_CmdRegByte1:    8,  0x02, HVAC, FBH_WEBASTO;  
+    FBH_WEBASTO_CmdRegByte2:    8,  0x00, HVAC, FBH_WEBASTO;	
+    FBH_WEBASTO_CmdRegByte3:    8,  0x00, HVAC,	FBH_WEBASTO;    
+    FBH_WEBASTO_CmdRegByte4:    8,	0x00, HVAC,	FBH_WEBASTO; 
+    FBH_WEBASTO_CmdRegByte5:    8, 	0x00, HVAC, FBH_WEBASTO; 
+    FBH_WEBASTO_CmdRegByte6:    8,  0x00, HVAC,	FBH_WEBASTO; 
+    FBH_WEBASTO_CmdRegByte7: 	8,  0x00, HVAC,	FBH_WEBASTO;
+    FBH_WEBASTO_CmdRegByte8:    8,	0x00, HVAC,	FBH_WEBASTO;
+
+    // Signals Transmitted by HVAC to Telestart module
+    TELE_HvacInitStats:             1,  1,          HVAC, TELESTART;
+    TELE_SetTeleStrtMode:           3,  0,          HVAC, TELESTART;
+    TELE_TeleStrtRmtCtrlIdBarCode:  24, {0, 0, 0},  HVAC, TELESTART;
+    TELE_TeleStrtRmtCtrlIdReq:      3,  0,          HVAC, TELESTART;
+    TELE_SetRmtCtrlIdByBarcode:     1,  0,          HVAC, TELESTART;
+    TELE_SetRmtCtrlIdByRadio:       1,  0,          HVAC, TELESTART;
+    TELE_HvacParkVentStats:         1,  0,          HVAC, TELESTART;
+    TELE_HvacParkHeatStats:         1,  0,          HVAC, TELESTART;
+    TELE_SetTeleStrtHeatDurtn:      6,  0,          HVAC, TELESTART;
+    TELE_TxReserved1:               15, 0,          HVAC, TELESTART;
+    TELE_TxReserved2:               5,  0,          HVAC, TELESTART;
+    TELE_TxReserved3:               16, 0,          HVAC, TELESTART;
+    TELE_TxReserved4:               7,  0,          HVAC, TELESTART;
+    TELE_TxReserved5:               2,  0,          HVAC, TELESTART;
+    TELE_TxReserved6:               7,  0,          HVAC, TELESTART;
+    
+ 	// Response Signals from Eberspacher FBH
+    FBH_StatsRegByte1:          8,	0x00, FBH, HVAC;
+    FBH_StatsRegByte2:          8,	0x00, FBH, HVAC;
+    FBH_StatsRegByte3:          8,	0x00, FBH, HVAC;
+    FBH_StatsRegByte4:          8,	0x00, FBH, HVAC;
+    FBH_StatsRegByte5:          8,	0x00, FBH, HVAC;
+    FBH_StatsRegByte6:          8,	0x00, FBH, HVAC;
+    FBH_StatsRegByte7:          8,	0x00, FBH, HVAC;
+    FBH_StatsRegByte8:          8,	0x00, FBH, HVAC;
+
+    // Response Signals from EAC
+	EAC_STAT_REG_1: 			8, 	0xFF, EAC, HVAC;
+	EAC_STAT_REG_2: 			8, 	0x03, EAC, HVAC;
+	EAC_STAT_REG_3: 			8, 	0xFF, EAC, HVAC;
+	EAC_STAT_REG_4: 			8, 	0xFF, EAC, HVAC;
+	EAC_STAT_REG_5: 			8, 	0xFF, EAC, HVAC;
+	EAC_STAT_REG_6: 			8, 	0xFF, EAC, HVAC;
+	EAC_STAT_REG_7: 			8, 	0x00, EAC, HVAC;
+	EAC_STAT_REG_8: 			7, 	0x00, EAC, HVAC;
+	EAC_RESPError:				1, 	0x00, EAC, HVAC;
+    
+    // Response Signals from Blower Controller 1 (Front Blower or Rear Blower)
+    BlwrCtrl1IntnlErr:          1,	0,      BLWR_CTRL1, HVAC;
+    BlwrCtrl1SCOrMtrBlockFault: 1,	0,      BLWR_CTRL1, HVAC;
+    BlwrCtrl1OverTempFault:     1,	0,      BLWR_CTRL1, HVAC;
+    BlwrCtrl1BrokenLineFault:   1,	0,      BLWR_CTRL1, HVAC;
+    BlwrCtrl1HighUFault:        1,	0,      BLWR_CTRL1, HVAC;
+    BlwrCtrl1LowUFault:         1,	0,      BLWR_CTRL1, HVAC;
+    BlwrCtrl1LINCommFault:      1,	0,      BLWR_CTRL1, HVAC;
+    BlwrCtrl1Status1Valid:      1,	0,      BLWR_CTRL1, HVAC;
+    BlwrCtrl1CurrentLimitStatus:1,  0,      BLWR_CTRL1, HVAC;
+    BlwrCtrl1SetPointReached:   1,  0,      BLWR_CTRL1, HVAC;
+    BlwrCtrl1SftyRunStatus:     1,  0,      BLWR_CTRL1, HVAC;
+    BlwrCtrl1Status2Valid:      1,  0,      BLWR_CTRL1, HVAC;
+    BlwrCtrl1Type:      		4,  0xF,    BLWR_CTRL1, HVAC;
+    BlwrCtrl1IBATT:             8,  0xFE,   BLWR_CTRL1, HVAC;
+    BlwrCtrl1UMotor:            8,  0xFE,   BLWR_CTRL1, HVAC;
+    BlwrCtrl1Temperature:       8,  0xFE,   BLWR_CTRL1, HVAC;
+    BlwrCtrl1UBATT:             8,  0xFE,   BLWR_CTRL1, HVAC;
+    BlwrCtrl1Supplier:          8,  0x00,   BLWR_CTRL1, HVAC;
+    BlwrCtrl1SW:                4,  0x00,   BLWR_CTRL1, HVAC;
+    BlwrCtrl1HW:                4,  0x00,   BLWR_CTRL1, HVAC;
+
+    // Response Signals from Blower Controller 2 (Front Blower or Rear Blower)
+    BlwrCtrl2IntnlErr:          1,	0,      BLWR_CTRL2, HVAC;
+    BlwrCtrl2SCOrMtrBlockFault: 1,	0,      BLWR_CTRL2, HVAC;
+    BlwrCtrl2OverTempFault:     1,	0,      BLWR_CTRL2, HVAC;
+    BlwrCtrl2BrokenLineFault:   1,	0,      BLWR_CTRL2, HVAC;
+    BlwrCtrl2HighUFault:        1,	0,      BLWR_CTRL2, HVAC;
+    BlwrCtrl2LowUFault:         1,	0,      BLWR_CTRL2, HVAC;
+    BlwrCtrl2LINCommFault:      1,	0,      BLWR_CTRL2, HVAC;
+    BlwrCtrl2Status1Valid:      1,	0,      BLWR_CTRL2, HVAC;
+    BlwrCtrl2CurrentLimitStatus:1,  0,      BLWR_CTRL2, HVAC;
+    BlwrCtrl2SetPointReached:   1,  0,      BLWR_CTRL2, HVAC;
+    BlwrCtrl2SftyRunStatus:     1,  0,      BLWR_CTRL2, HVAC;
+    BlwrCtrl2Status2Valid:      1,  0,      BLWR_CTRL2, HVAC;
+    BlwrCtrl2Type:        		4,  0xF,    BLWR_CTRL2, HVAC;
+    BlwrCtrl2IBATT:             8,  0xFE,   BLWR_CTRL2, HVAC;
+    BlwrCtrl2UMotor:            8,  0xFE,   BLWR_CTRL2, HVAC;
+    BlwrCtrl2Temperature:       8,  0xFE,   BLWR_CTRL2, HVAC;
+    BlwrCtrl2UBATT:             8,  0xFE,   BLWR_CTRL2, HVAC;
+    BlwrCtrl2Supplier:          8,  0x00,   BLWR_CTRL2, HVAC;
+    BlwrCtrl2SW:                4,  0x00,   BLWR_CTRL2, HVAC;
+    BlwrCtrl2HW:                4,  0x00,   BLWR_CTRL2, HVAC;
+	
+	// Response Signals from Rear Blower Controller
+    R_BLWRMtrStatus:	       3,	0x00,      	R_BLWR, HVAC;
+    R_BLWRDiag1:			   4,	0x00,      	R_BLWR, HVAC;
+    R_BLWRRespErr:			   1,	0x00,      	R_BLWR, HVAC;
+    R_BLWRDiag2:			   8,	0x00,      	R_BLWR, HVAC;
+	R_BLWRIBATT:	           8,   0xFE,   	R_BLWR, HVAC;
+    R_BLWRRotatSpd:	           8,	0xFE,   	R_BLWR, HVAC;
+	R_BLWRTemperature:	       8,   0xFE,   	R_BLWR, HVAC;
+	R_BLWRUBATT:	           8,   0xFE,   	R_BLWR, HVAC;
+    R_BLWRSupplier: 	       8,   0x00,   	R_BLWR, HVAC;
+	R_BLWRSW:  				   4,   0x00,		R_BLWR,	HVAC;
+	R_BLWRHW:				   4,	0x00,		R_BLWR,	HVAC;
+
+    // Response Signals from High Voltage Coolant Heater
+    HVCH_Status:                3,	0,      HVCH, HVAC;
+	HVCH_StatusExt: 			3, 	0, 		HVCH, HVAC;
+	HVCH_Type: 				    2, 	0, 		HVCH, HVAC;
+    HVCH_InletClntTemp:         8,	255,    HVCH, HVAC;
+    HVCH_OutletClntTemp:        8,	255,    HVCH, HVAC;
+    HVCH_HVVoltage:             10,	1023,   HVCH, HVAC;
+    HVCH_ActualPower:           10,	1023,   HVCH, HVAC;
+    HVCH_RespErr:               1,  0,      HVCH, HVAC;
+    HVCH_WarnFltInCom:          2,  3,      HVCH, HVAC;
+    HVCH_WarnHiUOutOfRng:       2,  3,      HVCH, HVAC;
+    HVCH_WarnLoUOutOfRng:       2,  3,      HVCH, HVAC;
+    HVCH_WarnClntTempOutOfRng:  2,  3,      HVCH, HVAC;
+    HVCH_FailHwProtection:      2,  3,      HVCH, HVAC;
+    HVCH_WarnOverheat:          2,  3,      HVCH, HVAC;
+    HVCH_FailInletClntTempSns:  2,  3,      HVCH, HVAC;
+    HVCH_FailOutletClntTempSns: 2,  3,      HVCH, HVAC;
+    HVCH_FailHeatCoreTempSns:   2,  3,      HVCH, HVAC;
+    HVCH_FailHiUDriver:         2,  3,      HVCH, HVAC;
+    HVCH_FailHiUCurrentConsump: 2,  3,      HVCH, HVAC;
+    HVCH_FailMemory:            2,  3,      HVCH, HVAC;
+    HVCH_FailDCDCConverter:     2,  3,      HVCH, HVAC;
+	HVCH_OvrheatCnt:			4,	0,		HVCH, HVAC;
+	HVCH_OutletClntTempRes: 	4,	1,		HVCH, HVAC;
+	HVCH_CurConsm:				8,	255,	HVCH, HVAC;
+	HVCH_InletClntTempRes: 	    4,	1,		HVCH, HVAC;
+	HVCH_RxReserved1:			5,	0,		HVCH, HVAC;
+	HVCH_RxReserved2:			5,	0,		HVCH, HVAC;
+
+    // Response Signals from Chiller Refrigerant Control Expansion Valve (EXV#1)
+    EXV1_CommError:             1,	0,      EXV1, HVAC;
+	EXV1_FaltStats:				4,	0, 		EXV1, HVAC;
+	EXV1_RunStats:				1,	0, 	    EXV1, HVAC;
+	EXV1_StallEnblStats:		1,	0, 	    EXV1, HVAC;
+    EXV1_InitStats:             2,	0,      EXV1, HVAC;
+	EXV1_VoltStats:				2,	0,	    EXV1, HVAC;
+	EXV1_OvrTeStats:			2,	0,	    EXV1, HVAC;
+    EXV1_SlavePosRprt:          16,	0,      EXV1, HVAC;
+    EXV1_RxReserved1:           1,	0,      EXV1, HVAC;
+	EXV1_RxReserved2:			2,	0,	    EXV1, HVAC;
+	EXV1_RxReserved3:			8,	0,	    EXV1, HVAC;
+	EXV1_RxReserved4:			8,	0,	    EXV1, HVAC;
+	EXV1_RxReserved5:			8,	0,	    EXV1, HVAC;
+	EXV1_RxReserved6:			8,	0,	    EXV1, HVAC;
+ 
+
+    // Response Signals from Webasto FBH
+    FBH_WEBASTO_StatsRegByte1:  8,	0x00,   FBH_WEBASTO, HVAC;
+    FBH_WEBASTO_StatsRegByte2:  8,	0x00,   FBH_WEBASTO, HVAC;
+    FBH_WEBASTO_StatsRegByte3:  8,	0x00,   FBH_WEBASTO, HVAC;
+    FBH_WEBASTO_StatsRegByte4:  8,	0x00,   FBH_WEBASTO, HVAC;
+    FBH_WEBASTO_StatsRegByte5:  8,	0x00,   FBH_WEBASTO, HVAC;
+    FBH_WEBASTO_StatsRegByte6:  8,	0x00,   FBH_WEBASTO, HVAC;
+    FBH_WEBASTO_StatsRegByte7:  8,	0x00,   FBH_WEBASTO, HVAC;
+    FBH_WEBASTO_StatsRegByte8:  8,	0x00,   FBH_WEBASTO, HVAC;
+
+    // Response Signals from TELESTART module
+    TELE_SigStrength:           8,	254,        TELESTART, HVAC;
+    TELE_HwDefectStatus:        1,	0,          TELESTART, HVAC;
+    TELE_ResponseError:         1,	0,          TELESTART, HVAC;
+    TELE_InitStatus:            1,	0,          TELESTART, HVAC;
+    TELE_OnButtonStatus:        1,	0,          TELESTART, HVAC;
+    TELE_OffButtonStatus:       1,	0,          TELESTART, HVAC;
+    TELE_DisabledMode:          1,	0,          TELESTART, HVAC;
+    TELE_TransportMode:         1,	0,          TELESTART, HVAC;
+    TELE_LearnModeActive:       1,	0,          TELESTART, HVAC;
+    TELE_LearnProcsStatus:      1,	0,          TELESTART, HVAC;
+    TELE_RemoteCtrlId:          24,	{0, 0, 0},  TELESTART, HVAC;
+    TELE_HeatDuration:          6 ,	0,          TELESTART, HVAC;
+    TELE_RxReserved1:           16,	0,        	TELESTART, HVAC;
+	TELE_RxReserved2:           4,	0,        	TELESTART, HVAC;
+    TELE_RxReserved3:           2,	0,        	TELESTART, HVAC;
+	TELE_RxReserved4:           2,	0,        	TELESTART, HVAC;
+	TELE_RxReserved5:           8,	0,        	TELESTART, HVAC;
+	TELE_RxReserved6:           1,	0,        	TELESTART, HVAC;
+	TELE_RxReserved7:           8,	0,        	TELESTART, HVAC;
+	TELE_RxReserved8:           16,	0,        	TELESTART, HVAC;
+	TELE_RxReserved9:           16,	0,        	TELESTART, HVAC;
+	TELE_RxReserved10:          8,	0,        	TELESTART, HVAC;
+	
+} // End of Signals Definition
+
+
+
+Frames // Unconditional Frames Definition
+{
+	FBH_REQ: 0x36, HVAC, 8 
+		{
+		    FBH_CmdRegByte1,    0;
+		    FBH_CmdRegByte2,    8;
+		    FBH_CmdRegByte3,    16;
+		    FBH_CmdRegByte4,    24;
+            FBH_CmdRegByte5,    32;
+            FBH_CmdRegByte6,    40;
+            FBH_CmdRegByte7,    48;
+            FBH_CmdRegByte8,    56;
+		}
+
+    EAC_REQ: 0x0E, HVAC, 8 
+		{
+   		    EAC_TargetSpeed,    0;
+		    EAC_DriveRequest,   8;
+            EAC_TxReserved1,    10;
+		    EAC_PowerLim,       16;
+		    EAC_DschgPressure,  24;
+            EAC_TxReserved2,    40;
+            EAC_TxReserved3,    48;
+            EAC_TxReserved4,    56;
+		}
+    
+    BLWR_CTRL1_REQ: 0x27, HVAC, 8 
+		{
+  		    BlwrCtrl1RxFreq,        0;
+            BlwrCtrl1ReqUnused1,    12;
+		    BlwrCtrl1Select,        16;
+		    BlwrCtrl1ImaxMax,       18;
+		    BlwrCtrl1ImaxMin,       24;
+            BlwrCtrl1KneeU,         29;
+            BlwrCtrl1SftyRunThres,  32;
+            BlwrCtrl1Ramp,          36;
+            BlwrCtrl1Speed,         40;
+            BlwrCtrl1SftyRunSpeed,  48;
+            BlwrCtrl1ReqUnused2,    56;
+		}
+
+    BLWR_CTRL2_REQ: 0x3A, HVAC, 8 
+		{
+  		    BlwrCtrl2RxFreq,        0;
+            BlwrCtrl2ReqUnused1,    12;
+		    BlwrCtrl2Select,        16;
+		    BlwrCtrl2ImaxMax,       18;
+		    BlwrCtrl2ImaxMin,       24;
+            BlwrCtrl2KneeU,         29;
+            BlwrCtrl2SftyRunThres,  32;
+            BlwrCtrl2Ramp,          36;
+            BlwrCtrl2Speed,         40;
+            BlwrCtrl2SftyRunSpeed,  48;
+            BlwrCtrl2ReqUnused2,    56;
+		}
+		
+	R_BLWR_REQ: 0x3A, HVAC, 8 
+		{
+			R_BLWRReqUnused6,	 	0;      
+			R_BLWRReqUnused1,	 	12; 
+			R_BLWRReqUnused2,	 	16;
+			R_BLWRReqUnused3,	 	24; 
+			R_BLWRReqUnused4,	 	32; 
+			R_BLWRRamp,			 	36;     
+			R_BLWRSpeed,		 	40;    
+			R_BLWRSftyRunSpeed,	 	48;
+			R_BLWRReqUnused5,	 	56;
+		}
+
+    HVCH_REQ: 0x15, HVAC, 4 
+		{			
+			HVCH_MaxPower, 0 ;
+			HVCH_TrgtClntTemp, 8 ;
+			HVCH_AmbientTemp, 16 ;
+			HVCH_OverheatUnlock, 24 ;
+			HVCH_HeaterEnable, 27 ;
+			HVCH_TrgtClntTempRes, 28;	
+		}
+
+    EXV1_REQ: 0x34, HVAC, 8 
+		{
+			EXV1_CmdSetReq,			0;
+			EXV1_CmdMovEnbl,		16;
+			EXV1_TxReserved1,		17;
+			EXV1_CmdStallEnbl,		18;
+			EXV1_TxReserved2,		19;
+			EXV1_CmdInitReq,		24;
+			EXV1_TxReserved3,		27;
+			EXV1_TxReserved4,		32;
+			EXV1_TxReserved5,		40;
+			EXV1_TxReserved6,		48;
+			EXV1_TxReserved7,		56;
+		}
+
+	FBH_WEBASTO_REQ: 0x36, HVAC, 8 
+		{
+		    FBH_WEBASTO_CmdRegByte1,    0;
+		    FBH_WEBASTO_CmdRegByte2,    8;
+		    FBH_WEBASTO_CmdRegByte3,    16;
+		    FBH_WEBASTO_CmdRegByte4,    24;
+            FBH_WEBASTO_CmdRegByte5,    32;
+            FBH_WEBASTO_CmdRegByte6,    40;
+            FBH_WEBASTO_CmdRegByte7,    48;
+            FBH_WEBASTO_CmdRegByte8,    56;
+		}
+
+    TELESTART_01_REQ: 0x11, HVAC, 8 
+		{
+            TELE_HvacInitStats,             0;
+            TELE_TxReserved1,               1;
+            TELE_TxReserved2,               16;
+            TELE_SetTeleStrtMode,           21;
+            TELE_TxReserved3,               24;
+            TELE_TxReserved4,               40;
+            TELE_HvacParkVentStats,         47;
+            TELE_SetTeleStrtHeatDurtn,      48;
+            TELE_TxReserved5,               54;
+            TELE_HvacParkHeatStats,         56;
+            TELE_TxReserved6,               57;
+		}
+
+    TELESTART_02_REQ: 0x12, HVAC, 8 
+		{
+            TELE_TeleStrtRmtCtrlIdBarCode,  0;
+            TELE_TeleStrtRmtCtrlIdReq,      32;
+            TELE_SetRmtCtrlIdByRadio,       35;
+            TELE_SetRmtCtrlIdByBarcode,     36;
+		}
+
+    FBH_RESP: 0x37, FBH, 8 
+		{
+            FBH_StatsRegByte1,      0;
+            FBH_StatsRegByte2,      8;
+            FBH_StatsRegByte3,      16;
+            FBH_StatsRegByte4,      24;
+            FBH_StatsRegByte5,      32;
+            FBH_StatsRegByte6,      40;
+            FBH_StatsRegByte7,      48;
+            FBH_StatsRegByte8,      56;
+		}
+    
+    EAC_RESP: 0x0F, EAC, 8 
+		{
+  			EAC_STAT_REG_1, 		0;
+			EAC_STAT_REG_2, 		8;
+			EAC_STAT_REG_3, 		16;
+			EAC_STAT_REG_4, 		24;
+			EAC_STAT_REG_5, 		32;
+			EAC_STAT_REG_6, 		40;
+			EAC_STAT_REG_7, 		48;
+			EAC_STAT_REG_8, 		56;
+	    	EAC_RESPError, 			63;
+		}
+        
+    BLWR_CTRL1_RESP: 0x32, BLWR_CTRL1, 8 
+		{
+   		    BlwrCtrl1IntnlErr,           0;
+		    BlwrCtrl1SCOrMtrBlockFault,  1;
+            BlwrCtrl1OverTempFault,      2;
+            BlwrCtrl1BrokenLineFault,    3;
+            BlwrCtrl1HighUFault,         4;
+            BlwrCtrl1LowUFault,          5;
+            BlwrCtrl1LINCommFault,       6;
+            BlwrCtrl1Status1Valid,       7;
+            BlwrCtrl1CurrentLimitStatus, 8;
+            BlwrCtrl1SetPointReached,    9;
+            BlwrCtrl1SftyRunStatus,      10;
+            BlwrCtrl1Status2Valid,       11;
+            BlwrCtrl1Type,				 12; 
+            BlwrCtrl1IBATT,              16;
+            BlwrCtrl1UMotor,             24;
+            BlwrCtrl1Temperature,        32;
+            BlwrCtrl1UBATT,              40;
+            BlwrCtrl1Supplier,           48;
+            BlwrCtrl1SW,                 56;
+            BlwrCtrl1HW,                 60;
+  		}
+
+    BLWR_CTRL2_RESP: 0x3B, BLWR_CTRL2, 8 
+		{
+   		    BlwrCtrl2IntnlErr,           0;
+		    BlwrCtrl2SCOrMtrBlockFault,  1;
+            BlwrCtrl2OverTempFault,      2;
+            BlwrCtrl2BrokenLineFault,    3;
+            BlwrCtrl2HighUFault,         4;
+            BlwrCtrl2LowUFault,          5;
+            BlwrCtrl2LINCommFault,       6;
+            BlwrCtrl2Status1Valid,       7;
+            BlwrCtrl2CurrentLimitStatus, 8;
+            BlwrCtrl2SetPointReached,    9;
+            BlwrCtrl2SftyRunStatus,      10;
+            BlwrCtrl2Status2Valid,       11;
+            BlwrCtrl2Type,				 12; 
+            BlwrCtrl2IBATT,              16;
+            BlwrCtrl2UMotor,             24;
+            BlwrCtrl2Temperature,        32;
+            BlwrCtrl2UBATT,              40;
+            BlwrCtrl2Supplier,           48;
+            BlwrCtrl2SW,                 56;
+            BlwrCtrl2HW,                 60;
+  		}
+		
+	R_BLWR_RESP: 0x3B, R_BLWR, 8 
+		{
+			R_BLWRMtrStatus,	 	0;
+			R_BLWRDiag1,		 	3;
+			R_BLWRRespErr,		 	7;
+			R_BLWRDiag2,		 	8;
+			R_BLWRIBATT,		 	16;
+			R_BLWRRotatSpd,		 	24;
+			R_BLWRTemperature,	 	32;
+			R_BLWRUBATT,		 	40;
+			R_BLWRSupplier,		 	48;
+			R_BLWRSW,			 	56;
+			R_BLWRHW,			 	60;
+  		}
+	
+   HVCH_RESP1: 0x16, HVCH, 8 
+		{
+   		    HVCH_Status,                 0;
+			HVCH_StatusExt,			     3;
+			HVCH_Type,					 6;
+		    HVCH_InletClntTemp,          8;
+            HVCH_OutletClntTemp,         16;
+			HVCH_CurConsm,				 24;
+            HVCH_HVVoltage,              32;
+            HVCH_ActualPower,            42;
+			HVCH_OvrheatCnt,			 52;
+			HVCH_InletClntTempRes,		 56;
+			HVCH_OutletClntTempRes,	     60;			
+  		}
+    HVCH_RESP2: 0x17, HVCH, 4 
+		{
+   		    HVCH_RespErr,                0;
+		    HVCH_WarnFltInCom,           1;
+            HVCH_WarnHiUOutOfRng,        3;
+            HVCH_WarnLoUOutOfRng,        5;
+            HVCH_WarnClntTempOutOfRng,   7;
+			HVCH_RxReserved2,			 9;
+            HVCH_WarnOverheat,           14;
+            HVCH_FailHwProtection,       16;
+            HVCH_FailInletClntTempSns,   18;
+            HVCH_FailOutletClntTempSns,  20;
+            HVCH_FailHeatCoreTempSns,    22;
+            HVCH_FailHiUDriver,          24;
+            HVCH_FailHiUCurrentConsump,  26;
+            HVCH_FailMemory,             28; 
+            HVCH_FailDCDCConverter,      30;
+  		}
+     
+    EXV1_RESP: 0x35, EXV1, 8 
+		{
+   		    EXV1_CommError,              0;
+			EXV1_RxReserved1,			 1;
+			EXV1_InitStats,				 2;
+			EXV1_RunStats,				 4;
+			EXV1_StallEnblStats,		 5;
+			EXV1_RxReserved2,			 6;
+			EXV1_FaltStats,				 8;
+			EXV1_VoltStats,				 12;
+			EXV1_OvrTeStats,			 14;
+			EXV1_SlavePosRprt,		 	 16;
+			EXV1_RxReserved3,			 32;
+			EXV1_RxReserved4,			 40;
+			EXV1_RxReserved5,			 48;
+			EXV1_RxReserved6,			 56;
+  		}
+          
+    FBH_WEBASTO_RESP: 0x37, FBH_WEBASTO, 8 
+		{
+			FBH_WEBASTO_StatsRegByte1,      0;
+			FBH_WEBASTO_StatsRegByte2,      8;
+            FBH_WEBASTO_StatsRegByte3,      16;
+            FBH_WEBASTO_StatsRegByte4,      24;
+            FBH_WEBASTO_StatsRegByte5,      32;
+            FBH_WEBASTO_StatsRegByte6,      40;
+            FBH_WEBASTO_StatsRegByte7,      48;
+            FBH_WEBASTO_StatsRegByte8,      56;
+		}
+    
+    TELESTART_01_RESP: 0x13, TELESTART, 8 
+		{
+            TELE_SigStrength,            0;
+            TELE_RxReserved1,            8;
+            TELE_RxReserved2,            24;
+            TELE_HwDefectStatus,         28;
+            TELE_RxReserved3,            29;
+            TELE_ResponseError,          31;
+            TELE_RxReserved4,            32;
+            TELE_HeatDuration,           34;
+            TELE_RxReserved5,            40;
+            TELE_InitStatus,             48;
+            TELE_OnButtonStatus,         49;
+            TELE_OffButtonStatus,        50;
+            TELE_DisabledMode,           51;
+            TELE_TransportMode,          52;
+            TELE_LearnModeActive,        53;
+            TELE_LearnProcsStatus,       54;
+            TELE_RxReserved6,            55;
+            TELE_RxReserved7,            56;
+  		}
+
+    TELESTART_02_RESP: 0x14, TELESTART, 8 
+		{
+            TELE_RemoteCtrlId,           0;
+            TELE_RxReserved8,            24;
+            TELE_RxReserved9,            40;
+            TELE_RxReserved10,           56;
+  		}
+ } // End of Unconditional Frames Definition
+
+ Diagnostic_frames {
+    MasterReq: 0x3C {
+        MasterReqB0,        0;
+        MasterReqB1,        8;
+        MasterReqB2,        16;
+        MasterReqB3,        24;
+        MasterReqB4,        32;
+        MasterReqB5,        40;
+        MasterReqB6,        48;
+        MasterReqB7,        56;
+    }
+    SlaveResp: 0x3D {
+        SlaveRespB0,        0;
+        SlaveRespB1,        8;
+        SlaveRespB2,        16;
+        SlaveRespB3,        24;
+        SlaveRespB4,        32;
+        SlaveRespB5,        40;
+        SlaveRespB6,        48;
+        SlaveRespB7,        56;
+    }
+}
+
+Node_attributes {
+    FBH{
+        LIN_protocol = 1.3;
+        configured_NAD = 0x55;
+        //  product_id = 0x1, 0xFFFE, 1;
+        //  P2_min = 200 ms;
+        //  ST_min = 20 ms;
+    }
+
+    EAC{
+        LIN_protocol = 2.0;
+        configured_NAD = 0x62;
+        //  product_id = 0x1, 0xFFFE, 1;
+		response_error = EAC_RESPError;
+        //  P2_min = 200 ms;
+        //  ST_min = 20 ms;
+    }
+
+    BLWR_CTRL1{
+        LIN_protocol = 2.0;
+        configured_NAD = 0x60;
+        //  product_id = 0x1, 0xFFFE, 1;
+        //  P2_min = 200 ms;
+        //  ST_min = 20 ms;
+    }
+
+    BLWR_CTRL2{
+        LIN_protocol = 2.0;
+        configured_NAD = 0x61;
+        //  product_id = 0x1, 0xFFFE, 1;
+        //  P2_min = 200 ms;
+        //  ST_min = 20 ms;
+    }
+	
+    R_BLWR{
+        LIN_protocol = 2.0;
+        configured_NAD = 0x65;
+//      product_id = 0x6A, 0x0001;
+//		response_error = R_BLWRRespErr;
+//      P2_min = 150 ms;
+//      ST_min = 50 ms;
+		configurable_frames 
+		{
+			R_BLWR_REQ = 0x3A;
+			R_BLWR_RESP = 0x3B;
+		}
+    }
+   
+   HVCH{
+        LIN_protocol = 2.0;
+        configured_NAD = 0x7A;
+        product_id = 0x8E, 0x8081, 130;
+        response_error = HVCH_RespErr;
+//      P2_min = 50 ms;
+//      ST_min = 0 ms;
+        configurable_frames {
+            HVCH_REQ = 0x15;
+            HVCH_RESP1 = 0x16;
+            HVCH_RESP2 = 0x17;
+        }
+    }
+
+    EXV1{
+        LIN_protocol = 2.0;
+        configured_NAD = 0x63;
+        product_id = 0x124, 0x1, 11;
+        response_error = EXV1_CommError;
+//      P2_min = 50 ms;
+//      ST_min = 0 ms;
+        configurable_frames {
+            EXV1_REQ = 0x34;
+            EXV1_RESP = 0x35;
+        }
+    } 
+  
+    FBH_WEBASTO {
+        LIN_protocol = 2.0;
+        configured_NAD = 0x56;
+		product_id=0x0000, 0x0000, 0x00;
+//		P2_min = 10 ms;
+//		ST_min = 10 ms;
+		configurable_frames {
+			FBH_WEBASTO_REQ = 0x36;
+			FBH_WEBASTO_RESP = 0x37;
+		}
+    }
+
+    TELESTART{
+        LIN_protocol = "2.0";
+        configured_NAD = 0x57;
+//      initial_NAD = 0x54 ;
+        product_id = 0x0, 0x0, 0;
+//      response_error = TELESTART_ResponseError ;
+//      P2_min = 10 ms ;
+//      ST_min = 10 ms ;
+        configurable_frames {
+          TELESTART_01_REQ = 0x11;
+          TELESTART_02_REQ = 0x12;
+          TELESTART_01_RESP = 0x13;
+          TELESTART_02_RESP = 0x14;
+     }
+  }
+}
+
+Schedule_tables // Schedule Table Definition
+{
+
+	NonBEVProgramsEberFBH { // Fitted with Eberspacher FBH - CCF HybridType != 7 and RmtRcvrType_Z_Pt == 0
+		FBH_REQ             delay   30.000  ms;
+		EAC_REQ             delay   30.000  ms;
+		EAC_RESP            delay   30.000  ms;
+		BLWR_CTRL1_REQ      delay   30.000  ms;
+		BLWR_CTRL1_RESP     delay   30.000  ms;
+		BLWR_CTRL2_REQ      delay   30.000  ms;
+		BLWR_CTRL2_RESP     delay   30.000  ms;
+		FBH_RESP            delay   50.000  ms;
+		HVCH_REQ           delay    30.000  ms;
+		HVCH_RESP1         delay    30.000  ms;
+		HVCH_RESP2         delay    30.000  ms;
+		TELESTART_01_REQ    delay   30.000  ms;
+		TELESTART_01_RESP   delay   30.000  ms;
+		TELESTART_02_REQ    delay   30.000  ms;
+		TELESTART_02_RESP   delay   30.000  ms;
+   	}
+	
+	NonBEVProgramsWebastoFBH { // Fitted with Webasto FBH - CCF HbridType != 7 and RmtRcvrType_Z_Pt == 1
+		FBH_WEBASTO_REQ     delay   20.000	ms;
+		EAC_REQ             delay   20.000	ms;
+		EAC_RESP  			delay 	20.000	ms;
+		HVCH_REQ  			delay	20.000	ms;
+		BLWR_CTRL1_REQ		delay	20.000	ms;
+		HVCH_RESP1			delay	20.000	ms;
+		HVCH_RESP2			delay	20.000	ms;
+		BLWR_CTRL1_RESP		delay	20.000	ms;
+		BLWR_CTRL2_REQ		delay	20.000	ms;
+		FBH_WEBASTO_RESP	delay	20.000	ms;
+		BLWR_CTRL2_RESP		delay	20.000	ms;
+		EAC_REQ				delay	20.000	ms;
+		EAC_RESP			delay	20.000	ms;
+		HVCH_REQ			delay	20.000	ms;
+		HVCH_RESP1			delay	20.000	ms;
+		HVCH_RESP2			delay	20.000	ms;
+		TELESTART_01_REQ	delay	20.000	ms;
+		TELESTART_01_RESP	delay	20.000	ms;
+		TELESTART_02_REQ	delay	20.000	ms;
+		TELESTART_02_RESP	delay	20.000	ms;
+	}
+
+    BEVProgram {                // CCF HbridType == 7	        
+        EAC_REQ             delay   20.000  ms;
+		EAC_RESP            delay   20.000  ms;
+		HVCH_REQ           delay    20.000  ms;
+        BLWR_CTRL1_REQ      delay   20.000  ms;
+		HVCH_RESP1         delay    20.000  ms;
+	    HVCH_RESP2         delay    20.000  ms;
+		BLWR_CTRL1_RESP     delay   20.000  ms;
+		BLWR_CTRL2_REQ      delay   20.000  ms;
+		EAC_REQ             delay   20.000  ms;
+		EAC_RESP            delay   20.000  ms;
+		BLWR_CTRL2_RESP     delay   20.000  ms;
+	    HVCH_REQ           delay    20.000  ms;
+	    EXV1_REQ            delay   20.000  ms;    
+	    HVCH_RESP1         delay    20.000  ms;
+	    HVCH_RESP2         delay    20.000  ms;
+        EXV1_RESP           delay   20.000  ms;
+  	}
+	
+	L663AuxBlwrWebastoFBH { // Fitted with Webasto FBH - CCF HbridType != 7, RmtRcvrType_Z_Pt == 1 & Programme == L663 & CCF ClimtCtrlUnit == 11 
+		FBH_WEBASTO_REQ     delay   20.000	ms;
+		EAC_REQ             delay   20.000	ms;
+		EAC_RESP  			delay 	20.000	ms;
+		HVCH_REQ  			delay	20.000	ms;
+		BLWR_CTRL1_REQ		delay	20.000	ms;
+		HVCH_RESP1			delay	20.000	ms;
+		HVCH_RESP2			delay	20.000	ms;
+		BLWR_CTRL1_RESP		delay	20.000	ms;
+		R_BLWR_REQ			delay	20.000	ms;
+		FBH_WEBASTO_RESP	delay	20.000	ms;
+		R_BLWR_RESP			delay	20.000	ms;
+		EAC_REQ				delay	20.000	ms;
+		EAC_RESP			delay	20.000	ms;
+		HVCH_REQ			delay	20.000	ms;
+		HVCH_RESP1			delay	20.000	ms;
+		HVCH_RESP2			delay	20.000	ms;
+		TELESTART_01_REQ	delay	20.000	ms;
+		TELESTART_01_RESP	delay	20.000	ms;
+		TELESTART_02_REQ	delay	20.000	ms;
+		TELESTART_02_RESP	delay	20.000	ms;
+	}	
+    
+    Diag_TxRx_Frames {
+		MasterReq           delay   20.000 ms;
+		SlaveResp           delay   20.000 ms;
+    }
+
+} // End of Schedule Table Definition
+

@@ -19,7 +19,7 @@ This guide covers testing the CanLinConfig WPF application.
 |---------|-------------|
 | PCAN | Peak driver installed, PCAN-USB connected |
 | Vector XL | Vector XL Driver Library installed (`vxlapi64.dll`) |
-| Kvaser | Kvaser CANlib SDK installed (`canlib32.dll`) — stub only |
+| Kvaser | Kvaser CANlib SDK installed (`canlib32.dll`) — untested |
 | SLCAN | SLCAN-compatible USB device (CANable, USBtin, etc.) |
 
 ---
@@ -247,7 +247,7 @@ Standard adapter — all tests above apply.
 
 | Item | Detail |
 |------|--------|
-| **Kvaser adapter** | Stub only — P/Invoke declarations present but not implemented |
+| **Kvaser adapter** | Full implementation skeleton but untested — requires Kvaser CANlib SDK |
 | **Dirty tracking** | No unsaved-changes warning on close |
 | **Profile JSON** | LIN IDs and data are placeholder values — fill in from real device datasheets |
 | **BULK_START CRC** | 24-bit (lower 3 bytes of CRC32). Incompatible with pre-Phase 8 firmware |

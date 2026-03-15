@@ -50,6 +50,36 @@ BO_ 1792 BL_RebootCmd: 6 Host
  SG_ Mode : 8|8@1+ (1,0) [0|255] "" Board
  SG_ UnlockKey : 16|32@1+ (1,0) [0|0] "" Board
 
+BO_ 1793 BL_Response: 8 Board
+ SG_ BL_RespData_0 : 0|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_RespData_1 : 8|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_RespData_2 : 16|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_RespData_3 : 24|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_RespData_4 : 32|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_RespData_5 : 40|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_RespData_6 : 48|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_RespData_7 : 56|8@1+ (1,0) [0|255] "" Host
+
+BO_ 1794 BL_Data: 8 Host
+ SG_ BL_DataPayload_0 : 0|8@1+ (1,0) [0|255] "" Board
+ SG_ BL_DataPayload_1 : 8|8@1+ (1,0) [0|255] "" Board
+ SG_ BL_DataPayload_2 : 16|8@1+ (1,0) [0|255] "" Board
+ SG_ BL_DataPayload_3 : 24|8@1+ (1,0) [0|255] "" Board
+ SG_ BL_DataPayload_4 : 32|8@1+ (1,0) [0|255] "" Board
+ SG_ BL_DataPayload_5 : 40|8@1+ (1,0) [0|255] "" Board
+ SG_ BL_DataPayload_6 : 48|8@1+ (1,0) [0|255] "" Board
+ SG_ BL_DataPayload_7 : 56|8@1+ (1,0) [0|255] "" Board
+
+BO_ 2047 BL_Debug: 8 Board
+ SG_ BL_DebugData_0 : 0|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_DebugData_1 : 8|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_DebugData_2 : 16|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_DebugData_3 : 24|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_DebugData_4 : 32|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_DebugData_5 : 40|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_DebugData_6 : 48|8@1+ (1,0) [0|255] "" Host
+ SG_ BL_DebugData_7 : 56|8@1+ (1,0) [0|255] "" Host
+
 BO_ 2032 DIAG_Status: 8 Board
  SG_ Uptime_s : 7|32@0+ (1,0) [0|0] "s" Host
  SG_ SysState : 32|8@1+ (1,0) [0|3] "" Host
@@ -124,7 +154,13 @@ CM_ BO_ 1539 "Bulk data response frames during bulk read transfer (board to host
 
 CM_ BO_ 1792 "Bootloader reboot trigger handled by application firmware. Cmd must be 0x05 (CMD_RESET), Mode must be 0x01 (RESET_MODE_BOOTLOADER). UnlockKey = 0xB007CAFE (little-endian). Board writes SRAM magic and reboots immediately (no response sent). Other 0x700 commands are handled by the bootloader only.";
 
-CM_ BO_ 2032 "Diagnostic heartbeat, sent every 1 second on CAN1.\n\nNote: A one-shot boot frame (DLC=6) is sent once at startup with a different format:\n  bytes 0-2: FW version major/minor/patch\n  byte 3: 0xAA sentinel\n  bytes 4-5: app CRC32 bits [15:0] (big-endian)";
+CM_ BO_ 1793 "Bootloader command response and heartbeat. Used by the bootloader (not application firmware). In bootloader mode: byte 0 echoes the command, byte 1 = status. In idle: periodic heartbeat (1 Hz). See bootloader documentation for signal layout.";
+
+CM_ BO_ 1794 "Bootloader firmware data frames. Used during CAN flash programming (host sends firmware chunks to the board). Payload layout depends on the active bootloader command. See bootloader documentation.";
+
+CM_ BO_ 2047 "Bootloader debug output. Free-form diagnostic data emitted by the bootloader during flash operations or error conditions. Not used by application firmware. See bootloader documentation.";
+
+CM_ BO_ 2032 "Diagnostic heartbeat, sent every 1 second (configurable) on configured CAN bus.\n\nNote: At boot, a one-shot version frame is sent ONCE on this same CAN ID with a DIFFERENT layout (DLC=6):\n  bytes 0-2: FW version major/minor/patch\n  byte 3: 0xAA sentinel (distinguishes from periodic heartbeat)\n  bytes 4-5: app CRC32 bits [15:0] (big-endian)\nThe periodic heartbeat (DLC=8) starts after the version frame.";
 
 CM_ BO_ 2033 "CAN bus and gateway statistics, sent every 1 second (5 ms after DIAG_Status). All counters are lower 16 or 8 bits, wrapping.";
 
@@ -185,6 +221,9 @@ BA_ "GenMsgSendType" BO_ 1537 "NoMsgSendType";
 BA_ "GenMsgSendType" BO_ 1538 "NoMsgSendType";
 BA_ "GenMsgSendType" BO_ 1539 "NoMsgSendType";
 BA_ "GenMsgSendType" BO_ 1792 "NoMsgSendType";
+BA_ "GenMsgSendType" BO_ 1793 "NoMsgSendType";
+BA_ "GenMsgSendType" BO_ 1794 "NoMsgSendType";
+BA_ "GenMsgSendType" BO_ 2047 "NoMsgSendType";
 BA_ "GenMsgSendType" BO_ 2032 "Cyclic";
 BA_ "GenMsgCycleTime" BO_ 2032 1000;
 BA_ "GenMsgSendType" BO_ 2033 "Cyclic";

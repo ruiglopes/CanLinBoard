@@ -22,9 +22,50 @@ public class ProfileDefinition
     [JsonPropertyName("description")] public string Description { get; set; } = "";
     [JsonPropertyName("lin_config")] public ProfileLinConfig? LinConfig { get; set; }
     [JsonPropertyName("schedule_table")] public ProfileScheduleEntry[]? ScheduleTable { get; set; }
-    [JsonPropertyName("can_control")] public ProfileCanMapping? CanControl { get; set; }
-    [JsonPropertyName("can_status")] public ProfileCanMapping? CanStatus { get; set; }
+
+    // New: array of CAN↔LIN mappings (each links a CAN ID to a LIN frame)
+    [JsonPropertyName("can_mappings")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProfileCanMapping[]? CanMappings { get; set; }
+
+    // Legacy: single control/status (kept for backward compat, not written by new profiles)
+    [JsonPropertyName("can_control")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProfileCanMapping? CanControl { get; set; }
+    [JsonPropertyName("can_status")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProfileCanMapping? CanStatus { get; set; }
+
     [JsonPropertyName("parameters")] public ProfileParameter[]? Parameters { get; set; }
+
+    /// <summary>
+    /// Get all CAN mappings, converting legacy can_control/can_status if needed.
+    /// </summary>
+    public List<ProfileCanMapping> GetAllMappings()
+    {
+        if (CanMappings != null) return [.. CanMappings];
+
+        // Convert legacy format
+        var list = new List<ProfileCanMapping>();
+        if (CanControl != null)
+        {
+            CanControl.Direction ??= "control";
+            CanControl.Name = string.IsNullOrEmpty(CanControl.Name) ? "Control" : CanControl.Name;
+            // Find first publish LIN frame ID
+            var pub = ScheduleTable?.FirstOrDefault(e => e.Direction == "publish");
+            if (pub != null && CanControl.LinFrameId == 0) CanControl.LinFrameId = pub.Id;
+            list.Add(CanControl);
+        }
+        if (CanStatus != null)
+        {
+            CanStatus.Direction ??= "status";
+            CanStatus.Name = string.IsNullOrEmpty(CanStatus.Name) ? "Status" : CanStatus.Name;
+            var sub = ScheduleTable?.FirstOrDefault(e => e.Direction == "subscribe");
+            if (sub != null && CanStatus.LinFrameId == 0) CanStatus.LinFrameId = sub.Id;
+            list.Add(CanStatus);
+        }
+        return list;
+    }
 }
 
 public class ProfileLinConfig
@@ -43,8 +84,104 @@ public class ProfileScheduleEntry
 
 public class ProfileCanMapping
 {
+    [JsonPropertyName("name")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; set; }
+    [JsonPropertyName("direction")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Direction { get; set; } // "control" (CAN→LIN) or "status" (LIN→CAN)
+    [JsonPropertyName("lin_frame_id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public byte LinFrameId { get; set; }
     [JsonPropertyName("can_id")] public uint CanId { get; set; }
+    [JsonPropertyName("mapping_mode")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? MappingMode { get; set; } // "byte" or "signal", null defaults to "byte"
     [JsonPropertyName("mappings")] public ProfileByteMap[]? Mappings { get; set; }
+    [JsonPropertyName("signals")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProfileSignal[]? Signals { get; set; }
+
+    public bool IsSignalMode => MappingMode == "signal";
+
+    /// <summary>
+    /// Generate byte-level mappings from signal definitions.
+    /// For signals that fit within full bytes, creates direct byte mappings.
+    /// For partial-byte signals, uses mask to select the relevant bits.
+    /// </summary>
+    public List<ProfileByteMap> GenerateByteMapsFromSignals()
+    {
+        if (Signals == null) return [];
+        var maps = new List<ProfileByteMap>();
+
+        foreach (var sig in Signals)
+        {
+            if (sig.ByteOrder == "big_endian")
+            {
+                // Motorola byte order: complex bit layout, just map affected bytes
+                AddMotorolaMaps(maps, sig);
+            }
+            else
+            {
+                // Intel (little-endian): sequential bit layout
+                AddIntelMaps(maps, sig);
+            }
+        }
+
+        return maps;
+    }
+
+    private static void AddIntelMaps(List<ProfileByteMap> maps, ProfileSignal sig)
+    {
+        int startBit = sig.StartBit;
+        int remaining = sig.BitLength;
+
+        while (remaining > 0)
+        {
+            int byteIdx = startBit / 8;
+            int bitInByte = startBit % 8;
+            int bitsThisByte = Math.Min(remaining, 8 - bitInByte);
+
+            byte mask = (byte)(((1 << bitsThisByte) - 1) << bitInByte);
+
+            // Check for duplicate byte mapping (merge masks)
+            var existing = maps.FirstOrDefault(m => m.SrcByte == byteIdx && m.DstByte == byteIdx);
+            if (existing != null)
+                existing.Mask |= mask;
+            else
+                maps.Add(new ProfileByteMap { SrcByte = (byte)byteIdx, DstByte = (byte)byteIdx, Mask = mask });
+
+            startBit += bitsThisByte;
+            remaining -= bitsThisByte;
+        }
+    }
+
+    private static void AddMotorolaMaps(List<ProfileByteMap> maps, ProfileSignal sig)
+    {
+        // Motorola: start_bit is MSB position. Bits go right-to-left within byte, then next row.
+        int bitPos = sig.StartBit;
+        int remaining = sig.BitLength;
+
+        while (remaining > 0)
+        {
+            int byteIdx = bitPos / 8;
+            int bitInByte = bitPos % 8;
+            int bitsThisByte = Math.Min(remaining, bitInByte + 1);
+
+            int lowBit = bitInByte - bitsThisByte + 1;
+            byte mask = (byte)(((1 << bitsThisByte) - 1) << lowBit);
+
+            var existing = maps.FirstOrDefault(m => m.SrcByte == byteIdx && m.DstByte == byteIdx);
+            if (existing != null)
+                existing.Mask |= mask;
+            else
+                maps.Add(new ProfileByteMap { SrcByte = (byte)byteIdx, DstByte = (byte)byteIdx, Mask = mask });
+
+            remaining -= bitsThisByte;
+            // Next byte in Motorola: go to bit 7 of next row
+            bitPos = (byteIdx + 1) * 8 + 7;
+        }
+    }
 }
 
 public class ProfileByteMap
@@ -52,6 +189,23 @@ public class ProfileByteMap
     [JsonPropertyName("src_byte")] public byte SrcByte { get; set; }
     [JsonPropertyName("dst_byte")] public byte DstByte { get; set; }
     [JsonPropertyName("mask")] public byte Mask { get; set; } = 0xFF;
+}
+
+public class ProfileSignal
+{
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("start_bit")] public int StartBit { get; set; }
+    [JsonPropertyName("bit_length")] public int BitLength { get; set; }
+    [JsonPropertyName("byte_order")] public string ByteOrder { get; set; } = "little_endian";
+    [JsonPropertyName("is_signed")] public bool IsSigned { get; set; }
+    [JsonPropertyName("factor")] public double Factor { get; set; } = 1.0;
+    [JsonPropertyName("offset")] public double Offset { get; set; }
+    [JsonPropertyName("min")] public double MinValue { get; set; }
+    [JsonPropertyName("max")] public double MaxValue { get; set; }
+    [JsonPropertyName("unit")] public string Unit { get; set; } = "";
+    [JsonPropertyName("value_descriptions")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? ValueDescriptions { get; set; }
 }
 
 public class ProfileParameter
@@ -64,6 +218,41 @@ public class ProfileParameter
     [JsonPropertyName("unit")] public string Unit { get; set; } = "";
     [JsonPropertyName("can_control_byte")] public byte CanControlByte { get; set; }
     [JsonPropertyName("mask")] public byte Mask { get; set; } = 0xFF;
+
+    // Bit-level fields (optional, for signal-mode profiles)
+    [JsonPropertyName("start_bit")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? StartBit { get; set; }
+
+    [JsonPropertyName("bit_length")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? BitLength { get; set; }
+
+    [JsonPropertyName("byte_order")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ByteOrder { get; set; }
+
+    [JsonPropertyName("is_signed")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IsSigned { get; set; }
+
+    [JsonPropertyName("factor")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Factor { get; set; }
+
+    [JsonPropertyName("offset")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Offset { get; set; }
+
+    [JsonPropertyName("frame")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Frame { get; set; } // "control" or "status"
+
+    [JsonPropertyName("value_descriptions")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? ValueDescriptions { get; set; }
+
+    public bool IsBitLevel => StartBit.HasValue;
 }
 
 // --- Runtime parameter state ---
@@ -148,63 +337,59 @@ public partial class ProfilesViewModel : ObservableObject
         byte linBus = (byte)(2 + linChannel); // LIN1=2, LIN2=3, LIN3=4, LIN4=5
         string tag = $"{profile.Id}:{linChannel}";
 
-        // Find the publish entry ID (for can_control -> LIN) and subscribe entry ID (for LIN -> can_status)
-        byte? publishId = null;
-        byte? subscribeId = null;
-        if (profile.ScheduleTable != null)
+        foreach (var mapping in profile.GetAllMappings())
         {
-            foreach (var entry in profile.ScheduleTable)
+            if (mapping.Direction == "control")
             {
-                if (entry.Direction == "publish" && publishId == null) publishId = entry.Id;
-                if (entry.Direction == "subscribe" && subscribeId == null) subscribeId = entry.Id;
+                // CAN → LIN: CAN frame is source, LIN frame is destination
+                var rule = new RoutingRule
+                {
+                    Enabled = true,
+                    SrcBus = 0, // CAN1
+                    SrcId = mapping.CanId,
+                    SrcMask = 0x7FF,
+                    DstBus = linBus,
+                    DstId = mapping.LinFrameId,
+                    DstDlc = 0, // auto
+                    ProfileTag = tag,
+                };
+                AddByteMappings(rule, mapping);
+                rules.Add(rule);
             }
-        }
-
-        // can_control: CAN1 -> LIN (publish frame)
-        if (profile.CanControl != null && publishId != null)
-        {
-            var rule = new RoutingRule
+            else // "status"
             {
-                Enabled = true,
-                SrcBus = 0, // CAN1
-                SrcId = profile.CanControl.CanId,
-                SrcMask = 0x7FF,
-                DstBus = linBus,
-                DstId = publishId.Value,
-                DstDlc = 0, // auto
-                ProfileTag = tag,
-            };
-            if (profile.CanControl.Mappings != null)
-            {
-                foreach (var m in profile.CanControl.Mappings)
-                    rule.Mappings.Add(new ByteMapping { SrcByte = m.SrcByte, DstByte = m.DstByte, Mask = m.Mask });
+                // LIN → CAN: LIN frame is source, CAN frame is destination
+                var rule = new RoutingRule
+                {
+                    Enabled = true,
+                    SrcBus = linBus,
+                    SrcId = mapping.LinFrameId,
+                    SrcMask = 0x3F, // LIN ID mask (6-bit)
+                    DstBus = 0, // CAN1
+                    DstId = mapping.CanId,
+                    DstDlc = 0, // auto
+                    ProfileTag = tag,
+                };
+                AddByteMappings(rule, mapping);
+                rules.Add(rule);
             }
-            rules.Add(rule);
-        }
-
-        // can_status: LIN -> CAN1 (subscribe frame)
-        if (profile.CanStatus != null && subscribeId != null)
-        {
-            var rule = new RoutingRule
-            {
-                Enabled = true,
-                SrcBus = linBus,
-                SrcId = subscribeId.Value,
-                SrcMask = 0x3F, // LIN ID mask (6-bit)
-                DstBus = 0, // CAN1
-                DstId = profile.CanStatus.CanId,
-                DstDlc = 0, // auto
-                ProfileTag = tag,
-            };
-            if (profile.CanStatus.Mappings != null)
-            {
-                foreach (var m in profile.CanStatus.Mappings)
-                    rule.Mappings.Add(new ByteMapping { SrcByte = m.SrcByte, DstByte = m.DstByte, Mask = m.Mask });
-            }
-            rules.Add(rule);
         }
 
         return rules;
+    }
+
+    private static void AddByteMappings(RoutingRule rule, ProfileCanMapping mapping)
+    {
+        List<ProfileByteMap> maps;
+        if (mapping.IsSignalMode && mapping.Signals != null)
+            maps = mapping.GenerateByteMapsFromSignals();
+        else if (mapping.Mappings != null)
+            maps = [.. mapping.Mappings];
+        else
+            return;
+
+        foreach (var m in maps)
+            rule.Mappings.Add(new ByteMapping { SrcByte = m.SrcByte, DstByte = m.DstByte, Mask = m.Mask });
     }
 
     [RelayCommand]
@@ -293,7 +478,88 @@ public partial class ProfilesViewModel : ObservableObject
         _main.StatusBarText = $"Profile '{SelectedProfile.Name}' applied to LIN{ch + 1} with {newRules.Count} routing rules. Click Save NVM to persist.";
     }
 
-    // --- Step 2: Import/Export ---
+    // --- New / Edit / Delete ---
+
+    [RelayCommand]
+    private void NewProfile()
+    {
+        var profile = new ProfileDefinition
+        {
+            Name = "New Profile",
+            Id = $"new-{DateTime.Now:yyyyMMddHHmmss}",
+            Version = "1.0",
+            Description = "",
+            LinConfig = new ProfileLinConfig(),
+            ScheduleTable = [],
+            CanMappings = [],
+            Parameters = [],
+        };
+
+        var editor = new Views.ProfileEditorWindow(profile, isNew: true);
+        editor.Owner = Application.Current.MainWindow;
+        if (editor.ShowDialog() == true)
+        {
+            SaveProfileToFile(editor.Profile);
+            Profiles.Add(editor.Profile);
+            SelectedProfile = editor.Profile;
+            _main.StatusBarText = $"Created profile: {editor.Profile.Name}";
+        }
+    }
+
+    [RelayCommand]
+    private void EditProfile()
+    {
+        if (SelectedProfile == null) return;
+
+        // Deep clone via JSON round-trip so edits can be cancelled
+        var json = JsonSerializer.Serialize(SelectedProfile);
+        var clone = JsonSerializer.Deserialize<ProfileDefinition>(json)!;
+
+        var editor = new Views.ProfileEditorWindow(clone, isNew: false);
+        editor.Owner = Application.Current.MainWindow;
+        if (editor.ShowDialog() == true)
+        {
+            // Replace in list
+            int idx = Profiles.IndexOf(SelectedProfile);
+            Profiles[idx] = editor.Profile;
+            SelectedProfile = editor.Profile;
+            SaveProfileToFile(editor.Profile);
+            _main.StatusBarText = $"Updated profile: {editor.Profile.Name}";
+        }
+    }
+
+    [RelayCommand]
+    private void DeleteProfile()
+    {
+        if (SelectedProfile == null) return;
+
+        var result = MessageBox.Show(
+            $"Delete profile '{SelectedProfile.Name}'?",
+            "Delete Profile", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (result != MessageBoxResult.Yes) return;
+
+        // Remove file
+        var devicesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Profiles", "Devices");
+        var filePath = Path.Combine(devicesDir, $"{SelectedProfile.Id}.json");
+        if (File.Exists(filePath))
+            File.Delete(filePath);
+
+        var name = SelectedProfile.Name;
+        Profiles.Remove(SelectedProfile);
+        SelectedProfile = null;
+        _main.StatusBarText = $"Deleted profile: {name}";
+    }
+
+    private static void SaveProfileToFile(ProfileDefinition profile)
+    {
+        var devicesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Profiles", "Devices");
+        Directory.CreateDirectory(devicesDir);
+        var filePath = Path.Combine(devicesDir, $"{profile.Id}.json");
+        var json = JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(filePath, json);
+    }
+
+    // --- Import/Export ---
 
     [RelayCommand]
     private void ImportProfile()
@@ -377,7 +643,10 @@ public partial class ProfilesViewModel : ObservableObject
     [RelayCommand]
     private void SendControlFrame()
     {
-        if (SelectedProfile?.CanControl == null || !ProfileApplied || ActiveParameterValues.Count == 0) return;
+        if (SelectedProfile == null || !ProfileApplied || ActiveParameterValues.Count == 0) return;
+
+        var controlMapping = SelectedProfile.GetAllMappings().FirstOrDefault(m => m.Direction == "control");
+        if (controlMapping == null) return;
 
         var data = new byte[8];
         foreach (var pv in ActiveParameterValues)
@@ -390,7 +659,7 @@ public partial class ProfilesViewModel : ObservableObject
             }
         }
 
-        var frame = new CanFrame(SelectedProfile.CanControl.CanId, data, (byte)data.Length);
+        var frame = new CanFrame(controlMapping.CanId, data, (byte)data.Length);
         _main.SendRawFrame(frame);
         _main.StatusBarText = $"Sent control frame 0x{frame.Id:X3}: {frame}";
     }

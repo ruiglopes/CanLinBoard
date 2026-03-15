@@ -1,0 +1,252 @@
+LIN_description_file;
+LIN_protocol_version = "2.0";
+LIN_language_version = "2.0";
+LIN_speed =   19.200 kbps;
+
+Nodes {
+	Master: DME1,    5.000 ms,    0.100 ms;
+	Slaves: ZEWP;
+}
+
+Signals {
+	AVL_VL_RPM_AUWP_LIN: 8, 255, ZEWP, DME1;
+	COMM_ERR_AUWP_LIN: 1, 0, ZEWP, DME1;
+	CTR_EMMOD_FN_AUWP_LIN: 2, 3, DME1, ZEWP;
+	ERR_ST_BLK_AUWP_LIN: 2, 3, ZEWP, DME1;
+	ERR_ST_DRYR_AUWP_LIN: 2, 3, ZEWP, DME1;
+	ERR_ST_OCU_AUWP_LIN: 2, 3, ZEWP, DME1;
+	ERR_ST_OTMP_AUWP_LIN: 2, 3, ZEWP, DME1;
+	ERR_ST_U_AUWP_LIN: 2, 3, ZEWP, DME1;
+	I_AUWP_LIN: 8, 255, ZEWP, DME1;
+	NOD_ERR_AUWP_LIN: 2, 3, ZEWP, DME1;
+	FS_PRM_AUWP_LIN: 3, 7, DME1, ZEWP;
+	ST_OVSPH_END_WAP_LIN: 2, 3, ZEWP, DME1;
+	ST_EMMOD_FN_AUWP_LIN: 2, 3, ZEWP, DME1;
+	ST_EMMOD_IN_AUWP_LIN: 2, 3, ZEWP, DME1;
+	ST_PRM_AUWP_LIN: 3, 7, ZEWP, DME1;
+	ST_RPM_MONI_AUWP_LIN: 2, 3, ZEWP, DME1;
+	ST_TARVL_RPM_AUWP_LIN: 8, 255, ZEWP, DME1;
+	TARVL_RPM_AUWP_LIN: 8, 255, DME1, ZEWP;
+	TEMP_AUWP_LIN: 8, 255, ZEWP, DME1;
+	U_AUWP_LIN: 8, 255, ZEWP, DME1;
+	VRS_AUWP_LIN: 8, 0, ZEWP, DME1;
+
+
+}
+
+Diagnostic_signals {
+	MasterReqB0:8,0;
+	MasterReqB1:8,0;
+	MasterReqB2:8,0;
+	MasterReqB3:8,0;
+	MasterReqB4:8,0;
+	MasterReqB5:8,0;
+	MasterReqB6:8,0;
+	MasterReqB7:8,0;
+	SlaveRespB0:8,0;
+	SlaveRespB1:8,0;
+	SlaveRespB2:8,0;
+	SlaveRespB3:8,0;
+	SlaveRespB4:8,0;
+	SlaveRespB5:8,0;
+	SlaveRespB6:8,0;
+	SlaveRespB7:8,0;
+}
+Frames {
+	CTR_AUWP_LIN : 38, DME1, 2	{
+		TARVL_RPM_AUWP_LIN, 0;
+		CTR_EMMOD_FN_AUWP_LIN, 8;
+		FS_PRM_AUWP_LIN, 12;
+	}
+	ST_AUWP_LIN : 37, ZEWP, 8	{
+		ST_TARVL_RPM_AUWP_LIN, 0;
+		AVL_VL_RPM_AUWP_LIN, 8;
+		U_AUWP_LIN, 16;
+		TEMP_AUWP_LIN, 24;
+		I_AUWP_LIN, 32;
+		ST_OVSPH_END_WAP_LIN, 40;
+		ST_RPM_MONI_AUWP_LIN, 42;
+		ST_EMMOD_IN_AUWP_LIN, 44;
+		ERR_ST_OTMP_AUWP_LIN, 46;
+		ERR_ST_OCU_AUWP_LIN, 48;
+		ERR_ST_DRYR_AUWP_LIN, 50;
+		ERR_ST_U_AUWP_LIN, 52;
+		ERR_ST_BLK_AUWP_LIN, 54;
+		ST_EMMOD_FN_AUWP_LIN, 56;
+		NOD_ERR_AUWP_LIN, 58;
+		ST_PRM_AUWP_LIN, 60;
+		COMM_ERR_AUWP_LIN, 63;
+	}
+	VRS_AUWP_LIN : 39, ZEWP, 2	{
+		VRS_AUWP_LIN, 0;
+	}
+}
+
+Diagnostic_frames	{
+	MasterReq: 60	{	//pub: Master
+		MasterReqB0, 0;
+		MasterReqB1, 8;
+		MasterReqB2, 16;
+		MasterReqB3, 24;
+		MasterReqB4, 32;
+		MasterReqB5, 40;
+		MasterReqB6, 48;
+		MasterReqB7, 56;
+		}
+	SlaveResp: 61	{	//pub: any slave
+		SlaveRespB0, 0;
+		SlaveRespB1, 8;
+		SlaveRespB2, 16;
+		SlaveRespB3, 24;
+		SlaveRespB4, 32;
+		SlaveRespB5, 40;
+		SlaveRespB6, 48;
+		SlaveRespB7, 56;
+		}
+	}
+
+Node_attributes{
+	ZEWP {
+               LIN_protocol = "2.0";
+               configured_NAD = 0x09;
+               product_id = 0x0048,
+		           0x1900,
+			  0x12;
+              response_error = COMM_ERR_AUWP_LIN;
+              P2_min = 20 ms;
+              ST_min = 20 ms;
+              configurable_frames {
+                         ST_AUWP_LIN     = 0x1900;      // ID 37
+                         CTR_AUWP_LIN    = 0x1901;      // ID 38
+                         VRS_AUWP_LIN    = 0x1902;      // ID 39
+             }
+	}
+}
+Schedule_tables {
+	CWA400g3 {
+		CTR_AUWP_LIN	delay   10.000 ms;
+		VRS_AUWP_LIN	delay   10.000 ms;
+		ST_AUWP_LIN	delay   70.000 ms;
+	}
+         T_MasterReq {
+                 MasterReq         delay 20.000 ms;
+                 SlaveResp         delay 20.000 ms;
+         }
+}
+
+Signal_encoding_types {
+	AVL_VL_RPM_AUWP_SigEncod {
+		physical_value, 0, 250, 1, 0, "Speed";
+		logical_value, 255, "Signal invalid";
+	}
+	COMM_ERR_SigEncod {
+		logical_value, 0, "No error";
+		logical_value, 1, "Error active";
+	}
+	CTR_EMMOD_FN_AUWP_SigEncod {
+		logical_value, 0, "Emergency mode function deactivated";
+		logical_value, 1, "Emergency mode function activated";
+		logical_value, 3, "Signal invalid";
+	}
+	FS_BLK_AUWP_SigEncod {
+		logical_value, 0, "Deblocking not active";
+		logical_value, 1, "Deblocking active";
+		logical_value, 3, "Signal invalid";
+	}
+	FS_DRYR_AUWP_SigEncod {
+		logical_value, 0, "No dry run";
+		logical_value, 1, "Dry run";
+		logical_value, 3, "Signal invalid";
+	}
+	FS_OCU_AUWP_SigEncod {
+		logical_value, 0, "No overcurrent";
+		logical_value, 1, "Overcurrent";
+		logical_value, 3, "Signal invalid";
+	}
+	FS_OTMP_AUWP_SigEncod {
+		logical_value, 0, "No overtemperature";
+		logical_value, 1, "Overtemperature";
+		logical_value, 3, "Signal invalid";
+	}
+	FS_RPM_MONI_AUWP_SigEncod {
+		logical_value, 0, "Rotation monitoring active";
+		logical_value, 1, "No rotation monitoring";
+		logical_value, 3, "Signal invalid";
+	}
+	FS_ST_EMMOD_IN_AUWP_SigEncod {
+		logical_value, 0, "Low";
+		logical_value, 1, "High";
+		logical_value, 3, "Signal invalid";
+	}
+	FS_U_AUWP_SigEncod {
+		logical_value, 0, "Supply voltage in specified range";
+		logical_value, 1, "Supply voltage out of specified range";
+		logical_value, 3, "Signal invalid";
+	}
+	FS_OVSPH_END_WAP_SigEncod {
+		logical_value, 0, "Post running mode ended";
+		logical_value, 1, "Post running mode canceled";
+		logical_value, 3, "Signal invalid";
+	}
+	I_AUWP_SigEncod {
+		physical_value, 0, 254, 0.2, 0, "A";
+		logical_value, 255, "Signal invalid";
+	}
+	NOD_ERR_SigEncod {
+		logical_value, 0, "No error";
+		logical_value, 1, "Error occurred";
+		logical_value, 2, "Status: Error has changed";
+		logical_value, 3, "Signal invalid";
+	}
+	PRM_AUWP_SigEncod {
+		logical_value, 0, "No post running";
+		logical_value, 1, "Speed 944 RPM for 2 minutes";
+		logical_value, 2, "Speed 2124 RPM for 6 minutes";
+		logical_value, 3, "Speed 1652 RPM for 10 minutes";
+		logical_value, 4, "Speed 1652 RPM for 20 minutes";
+		logical_value, 5, "Speed 2006 RPM for 20 minutes";
+		logical_value, 7, "Signal invalid";
+	}
+	ST_EMMOD_FN_AUWP_SigEncod {
+		logical_value, 0, "Emergency mode function activated";
+		logical_value, 1, "Emergency mode function deactivated";
+		logical_value, 3, "Signal invalid";
+	}
+	TARVL_RPM_AUWP_SigEncod {
+		physical_value, 0, 250, 1, 0, "Speed";
+		logical_value, 255, "Signal invalid";
+	}
+	TEMP_AUWP_SigEncod {
+		physical_value, 0, 254, 1, -50, "°C";
+		logical_value, 255, "Signal invalid";
+	}
+	U_AUWP_SigEncod {
+		physical_value, 0, 254, 0.1, 0, "V";
+		logical_value, 255, "Signal invalid";
+	}
+	VRS_AUWP_SigEncod {
+		physical_value, 0, 0, 1, 0, "";
+	}
+}
+
+Signal_representation {
+	AVL_VL_RPM_AUWP_SigEncod: AVL_VL_RPM_AUWP_LIN;
+	COMM_ERR_SigEncod: COMM_ERR_AUWP_LIN;
+	CTR_EMMOD_FN_AUWP_SigEncod: CTR_EMMOD_FN_AUWP_LIN;
+	FS_BLK_AUWP_SigEncod: ERR_ST_BLK_AUWP_LIN;
+	FS_DRYR_AUWP_SigEncod: ERR_ST_DRYR_AUWP_LIN;
+	FS_OCU_AUWP_SigEncod: ERR_ST_OCU_AUWP_LIN;
+	FS_OTMP_AUWP_SigEncod: ERR_ST_OTMP_AUWP_LIN;
+	FS_RPM_MONI_AUWP_SigEncod: ST_RPM_MONI_AUWP_LIN;
+	FS_ST_EMMOD_IN_AUWP_SigEncod: ST_EMMOD_IN_AUWP_LIN;
+	FS_U_AUWP_SigEncod: ERR_ST_U_AUWP_LIN;
+	I_AUWP_SigEncod: I_AUWP_LIN;
+	NOD_ERR_SigEncod: NOD_ERR_AUWP_LIN;
+	PRM_AUWP_SigEncod: FS_PRM_AUWP_LIN, ST_PRM_AUWP_LIN;
+	ST_EMMOD_FN_AUWP_SigEncod: ST_EMMOD_FN_AUWP_LIN;
+	TARVL_RPM_AUWP_SigEncod: TARVL_RPM_AUWP_LIN, ST_TARVL_RPM_AUWP_LIN;
+	TEMP_AUWP_SigEncod: TEMP_AUWP_LIN;
+	U_AUWP_SigEncod: U_AUWP_LIN;
+	VRS_AUWP_SigEncod: VRS_AUWP_LIN;
+	FS_OVSPH_END_WAP_SigEncod: ST_OVSPH_END_WAP_LIN;
+}

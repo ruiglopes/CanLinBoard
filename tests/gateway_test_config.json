@@ -1,0 +1,88 @@
+{
+  "tool_version": "1.0.0",
+  "fw_version": "",
+  "export_time": "",
+  "can": [
+    { "bitrate": 500000, "termination": true, "enabled": true },
+    { "bitrate": 500000, "termination": true, "enabled": true }
+  ],
+  "lin": [
+    {
+      "enabled": true,
+      "mode": 1,
+      "baudrate": 19200,
+      "schedule": [
+        { "id": 16, "dlc": 4, "direction": 1, "data": "00 00 00 00", "delay_ms": 20, "classic_cs": false },
+        { "id": 17, "dlc": 4, "direction": 0, "data": "",            "delay_ms": 20, "classic_cs": false }
+      ]
+    },
+    { "enabled": false, "mode": 0, "baudrate": 19200, "schedule": [] },
+    { "enabled": false, "mode": 0, "baudrate": 19200, "schedule": [] },
+    { "enabled": false, "mode": 0, "baudrate": 19200, "schedule": [] }
+  ],
+  "diag": {
+    "can_id": 2032,
+    "interval_ms": 1000,
+    "enabled": true,
+    "bus": 0,
+    "can_watchdog_ms": 5000,
+    "lin_watchdog_ms": 5000
+  },
+  "routing": [
+    {
+      "enabled": true,
+      "src_bus": 1, "src_id": 256, "src_mask": 2047,
+      "dst_bus": 0, "dst_id": 512, "dst_dlc": 0,
+      "mappings": [],
+      "profile_tag": "test-id-translation"
+    },
+    {
+      "enabled": true,
+      "src_bus": 0, "src_id": 768, "src_mask": 2047,
+      "dst_bus": 1, "dst_id": 4294967295, "dst_dlc": 0,
+      "mappings": [],
+      "profile_tag": "test-passthrough"
+    },
+    {
+      "enabled": true,
+      "src_bus": 0, "src_id": 1024, "src_mask": 2047,
+      "dst_bus": 1, "dst_id": 1025, "dst_dlc": 0,
+      "mappings": [
+        { "src_byte": 0, "dst_byte": 1, "mask": 255, "shift": 0, "offset": 0 },
+        { "src_byte": 1, "dst_byte": 0, "mask": 255, "shift": 0, "offset": 0 }
+      ],
+      "profile_tag": "test-byte-swap"
+    },
+    {
+      "enabled": true,
+      "src_bus": 1, "src_id": 1280, "src_mask": 2032,
+      "dst_bus": 0, "dst_id": 4294967295, "dst_dlc": 0,
+      "mappings": [],
+      "profile_tag": "test-mask-match"
+    },
+    {
+      "enabled": true,
+      "src_bus": 0, "src_id": 640, "src_mask": 2047,
+      "dst_bus": 2, "dst_id": 16, "dst_dlc": 4,
+      "mappings": [
+        { "src_byte": 0, "dst_byte": 0, "mask": 255, "shift": 0, "offset": 0 },
+        { "src_byte": 1, "dst_byte": 1, "mask": 255, "shift": 0, "offset": 0 },
+        { "src_byte": 2, "dst_byte": 2, "mask": 255, "shift": 0, "offset": 0 },
+        { "src_byte": 3, "dst_byte": 3, "mask": 255, "shift": 0, "offset": 0 }
+      ],
+      "profile_tag": "test-can-to-lin"
+    },
+    {
+      "enabled": true,
+      "src_bus": 2, "src_id": 17, "src_mask": 63,
+      "dst_bus": 0, "dst_id": 641, "dst_dlc": 4,
+      "mappings": [
+        { "src_byte": 0, "dst_byte": 0, "mask": 255, "shift": 0, "offset": 0 },
+        { "src_byte": 1, "dst_byte": 1, "mask": 255, "shift": 0, "offset": 0 },
+        { "src_byte": 2, "dst_byte": 2, "mask": 255, "shift": 0, "offset": 0 },
+        { "src_byte": 3, "dst_byte": 3, "mask": 255, "shift": 0, "offset": 0 }
+      ],
+      "profile_tag": "test-lin-to-can"
+    }
+  ]
+}

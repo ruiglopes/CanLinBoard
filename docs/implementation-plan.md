@@ -34,7 +34,7 @@ Ping-pong dual-sector scheme: write to inactive slot, verify CRC, flip active ma
 | `lin_task` | 4 | 512w | SJA1124 interrupt processing, LIN frame RX/TX via SPI, master scheduling engine |
 | `gateway_task` | 3 | 1024w | Core routing engine — applies routing rules, byte-level transforms, posts to CAN/LIN TX queues |
 | `config_task` | 2 | 512w | Handles CAN config protocol messages, reads/writes NVM, applies runtime config changes |
-| `diag_task` | 1 | 384w | 3-frame/sec heartbeat (0x7F0 status, 0x7F1 CAN stats, 0x7F2 LIN/heap/stack), crash report (0x7F3), MCU temp, stack watermark monitoring |
+| `diag_task` | 1 | 512w | 4-frame heartbeat (0x7F0 status, 0x7F1 CAN stats, 0x7F2 LIN stats, 0x7F4 sys health), crash report (0x7F3), boot version frame, MCU temp, stack watermark monitoring |
 
 **IRQ handlers** (not tasks):
 - PIO0_IRQ_0: can2040 CAN1 → lock-free SPSC ring buffer → `can_task`
@@ -319,7 +319,7 @@ src/config/
 - LIN config [4]: enabled, is_master, baudrate, schedule_table
 - Routing table: 32 rules
 - Diagnostics config: CAN ID, interval, bus
-- Device profiles: WDA/CWA400 enable + channel assignment
+- Device profiles: WDA/CWA400 enable + channel assignment (**vestigial** — firmware stores these flags but never acts on them; profile logic is entirely in the config tool)
 - CRC32 (last field)
 
 **CAN configuration protocol:**
@@ -377,21 +377,26 @@ src/diag/
   watchdog.h / watchdog.c           # Per-bus software watchdog timers
 ```
 
-**Diagnostic CAN message** (configurable ID, periodic):
-```
-Byte 0: System state (0=OK, 1=Warn, 2=Error)
-Byte 1: Bus status bitmask (CAN1/CAN2/LIN1-4/NVM)
-Byte 2-3: CAN1/CAN2 error counts (saturating 255)
-Byte 4: LIN error count (OR of all channels)
-Byte 5: Uptime (hours, saturating 255)
-Byte 6-7: Gateway frames routed (16-bit rolling counter)
-```
+**Diagnostic CAN messages** (configurable base ID, periodic, 4 frames staggered 5ms apart):
 
-**Software watchdogs:** FreeRTOS timers per bus, configurable timeout, callback on expiry. Fed on every RX frame.
+| Frame | CAN ID | DLC | Contents |
+|-------|--------|-----|----------|
+| Status | base+0 | 8 | Uptime (32b BE), SysState, BusMask, MCU Temp (signed), ResetReason |
+| CAN Stats | base+1 | 8 | CAN1 RX (16b BE), CAN1 Err (8b), CAN2 RX (16b BE), CAN2 Err (8b), GW Routed (16b BE) |
+| LIN Stats | base+2 | 8 | LIN1-4 RX+Err (2 bytes per channel, 8b each, saturated at 255) |
+| Sys Health | base+4 | 3 | HeapFree (KB), MinStackWatermark (words), WdtTimeoutMask |
 
-**Hardware watchdog:** RP2350 watchdog, 5s timeout, kicked by `diag_task`.
+Additionally, two one-shot frames are sent at boot:
+- **Version frame** on base+0 (DLC=6): FW major/minor/patch, 0xAA sentinel, CRC16 (upper bytes of app CRC32)
+- **Crash report** on base+3 (DLC=8, only if crash data exists): FaultType, PC (32b BE), CrashUptime (16b BE), TaskNameChar
 
-**Diag task:** 10 Hz update loop — health metrics, hardware watchdog kick, periodic diagnostic message.
+See `docs/CanLinBoard.dbc` for the full signal-level definitions.
+
+**Software watchdogs:** 6 FreeRTOS auto-reload timers (CAN1, CAN2, LIN1-4), configurable timeout, callback on expiry. Fed on every RX frame.
+
+**Hardware watchdog:** RP2350 watchdog, 5s timeout, kicked from FreeRTOS idle hook.
+
+**Diag task:** Configurable interval (default 1000ms) — sends 4-frame heartbeat, updates system state every 10 cycles. Stack: 512 words.
 
 **Milestones:**
 - [ ] M6.1: Bus health struct populated with live RX/TX/error counts from CAN and LIN managers
@@ -458,7 +463,7 @@ software/
 | PCAN | Full | Peak.PCANBasic.NET NuGet |
 | Vector XL | Full | vxlapi64.dll (Vector XL Driver Library) |
 | SLCAN | Full | System.IO.Ports (serial ASCII protocol) |
-| Kvaser | Stub | canlib32.dll (P/Invoke declarations only) |
+| Kvaser | Untested | canlib32.dll (full implementation skeleton, requires Kvaser CANlib SDK) |
 
 **UI tabs:**
 1. **CAN Config** — baud rate, termination, enable per bus

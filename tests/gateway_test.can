@@ -1,0 +1,595 @@
+/*@!Encoding:1252*/
+/*
+ * CanLinBoard Gateway Integration Test - CAPL Script
+ * ===================================================
+ *
+ * PHYSICAL WIRING:
+ *   Vector CAN ch1  <-->  Board CAN1  (config protocol + diagnostics + gateway peer)
+ *   Vector CAN ch2  <-->  Board CAN2  (second CAN bus for gateway routing)
+ *   Vector LIN ch1  <-->  Board LIN1  (optional, for CAN-LIN bridge tests)
+ *
+ * CANOE SETUP:
+ *   1. Create two CAN networks: "CAN1" (ch1, 500 kbps) and "CAN2" (ch2, 500 kbps)
+ *   2. Optionally create LIN network: "LIN1" (19200 baud, slave mode)
+ *   3. Add a simulation/test CAPL node attached to ALL networks
+ *   4. Assign this .can file to that node
+ *   5. Load gateway_test_config.json into the board via the CanLinConfig tool
+ *      and SAVE to NVM before running this script
+ *
+ * BOARD CONFIG (gateway_test_config.json):
+ *   Rule 1: CAN2 0x100 --> CAN1 0x200  (ID translation)
+ *   Rule 2: CAN1 0x300 --> CAN2 0x300  (passthrough, same ID)
+ *   Rule 3: CAN1 0x400 --> CAN2 0x401  (ID change + swap bytes 0 <-> 1)
+ *   Rule 4: CAN2 0x5xx --> CAN1 0x5xx  (mask 0x7F0, matches 0x500-0x50F)
+ *   Rule 5: CAN1 0x280 --> LIN1 ID 16  (CAN-to-LIN bridge, 4 bytes)
+ *   Rule 6: LIN1 ID 17 --> CAN1 0x281  (LIN-to-CAN bridge, 4 bytes)
+ *
+ * TEST PLAN:
+ *   T1  - Config protocol CONNECT handshake
+ *   T2  - CAN2->CAN1 ID translation
+ *   T3  - CAN1->CAN2 passthrough
+ *   T4  - CAN1->CAN2 byte swap with ID change
+ *   T5  - CAN2->CAN1 mask-based routing (multiple IDs)
+ *   T6  - Burst routing (10 frames rapid-fire)
+ *   T7  - Non-matching ID (negative test, must NOT route)
+ *   T8  - CAN1->LIN1 bridge (optional, requires LIN)
+ *   T9  - LIN1->CAN1 bridge (optional, requires LIN)
+ *   T10 - Diagnostics heartbeat monitoring
+ */
+
+variables
+{
+  /* ---- Channel assignment (adjust if your CANoe config differs) ---- */
+  const int CH_BOARD_CAN1 = 1;   /* Vector CAN channel wired to Board CAN1 */
+  const int CH_BOARD_CAN2 = 2;   /* Vector CAN channel wired to Board CAN2 */
+
+  /* ---- Protocol IDs ---- */
+  const dword ID_CFG_CMD      = 0x600;
+  const dword ID_CFG_RESP     = 0x601;
+  const dword ID_DIAG_STATUS  = 0x7F0;
+  const dword ID_DIAG_CAN     = 0x7F1;
+  const dword ID_DIAG_LIN     = 0x7F2;
+  const dword ID_DIAG_HEALTH  = 0x7F4;
+
+  /* ---- Test state ---- */
+  int gTestNum;
+  int gPassed;
+  int gFailed;
+  int gTotal;
+  int gResponseOk;    /* 1 = expected response already received for current test */
+  int gBurstCount;    /* counter for burst test */
+
+  /* ---- LIN test enable (set to 0 if LIN not wired) ---- */
+  int gLinTestsEnabled = 0;
+
+  /* ---- Diag counters ---- */
+  int gDiagStatusRx;
+  int gDiagCanStatsRx;
+  int gDiagHealthRx;
+
+  /* ---- Timers ---- */
+  msTimer tSequencer;   /* drives test sequencing */
+  msTimer tTimeout;     /* per-test response timeout */
+  msTimer tDiagWindow;  /* window for diag monitoring test */
+  msTimer tNegative;    /* wait period for negative test */
+  int gNegativeRx;      /* flag: set if an unexpected frame arrives */
+}
+
+/* ======================================================================
+ *  STARTUP
+ * ====================================================================== */
+
+on start
+{
+  write("============================================================");
+  write(" CanLinBoard Gateway Integration Test");
+  write("============================================================");
+  write("  CAN ch%d  <-->  Board CAN1 (config + gateway peer)", CH_BOARD_CAN1);
+  write("  CAN ch%d  <-->  Board CAN2 (gateway peer)", CH_BOARD_CAN2);
+  if (gLinTestsEnabled)
+    write("  LIN ch1   <-->  Board LIN1 (CAN-LIN bridge)");
+  else
+    write("  LIN tests DISABLED (set gLinTestsEnabled=1 to enable)");
+  write("------------------------------------------------------------");
+  write("Waiting 3 s for board boot...");
+  write("");
+
+  gTestNum   = 0;
+  gPassed    = 0;
+  gFailed    = 0;
+  gTotal     = 0;
+  gBurstCount = 0;
+  gDiagStatusRx  = 0;
+  gDiagCanStatsRx = 0;
+  gDiagHealthRx  = 0;
+
+  setTimer(tSequencer, 3000);
+}
+
+/* ======================================================================
+ *  TEST SEQUENCER
+ * ====================================================================== */
+
+on timer tSequencer
+{
+  gTestNum++;
+  gResponseOk = 0;
+
+  switch (gTestNum)
+  {
+    case 1:  test_ConfigConnect();         break;
+    case 2:  test_CAN2toCAN1_IDTranslate();break;
+    case 3:  test_CAN1toCAN2_Passthrough();break;
+    case 4:  test_CAN1toCAN2_ByteSwap();   break;
+    case 5:  test_CAN2toCAN1_MaskMatch();  break;
+    case 6:  test_BurstRouting();          break;
+    case 7:  test_NegativeNoRoute();       break;
+    case 8:  test_CAN1toLIN1();            break;
+    case 9:  test_LIN1toCAN1();            break;
+    case 10: test_DiagMonitor();           break;
+    default: printSummary();               break;
+  }
+}
+
+/* ======================================================================
+ *  HELPERS
+ * ====================================================================== */
+
+void passTest (char msg[])
+{
+  if (gResponseOk) return;   /* prevent double-count */
+  gResponseOk = 1;
+  gPassed++;
+  gTotal++;
+  cancelTimer(tTimeout);
+  write("  PASS - %s", msg);
+  setTimer(tSequencer, 300);
+}
+
+void failTest (char msg[])
+{
+  if (gResponseOk) return;
+  gResponseOk = 1;
+  gFailed++;
+  gTotal++;
+  cancelTimer(tTimeout);
+  write("  FAIL - %s", msg);
+  setTimer(tSequencer, 300);
+}
+
+void skipTest (char msg[])
+{
+  if (gResponseOk) return;
+  gResponseOk = 1;
+  gTotal++;
+  cancelTimer(tTimeout);
+  write("  SKIP - %s", msg);
+  setTimer(tSequencer, 300);
+}
+
+on timer tTimeout
+{
+  if (!gResponseOk)
+    failTest("Timeout - no response within window");
+}
+
+void sendCAN (int channel, dword id, int dlc,
+              byte d0, byte d1, byte d2, byte d3,
+              byte d4, byte d5, byte d6, byte d7)
+{
+  message 0x000 msg;
+  msg.id    = id;
+  msg.dlc   = dlc;
+  msg.MsgChannel = channel;
+  msg.byte(0) = d0;  msg.byte(1) = d1;
+  msg.byte(2) = d2;  msg.byte(3) = d3;
+  msg.byte(4) = d4;  msg.byte(5) = d5;
+  msg.byte(6) = d6;  msg.byte(7) = d7;
+  output(msg);
+}
+
+/* ======================================================================
+ *  T1 - CONFIG PROTOCOL CONNECT
+ * ====================================================================== */
+
+void test_ConfigConnect ()
+{
+  write("[T1] Config Protocol - CONNECT");
+  sendCAN(CH_BOARD_CAN1, ID_CFG_CMD, 1,  0x01, 0,0,0, 0,0,0,0);
+  setTimer(tTimeout, 1000);
+}
+
+on message 0x601   /* CFG_Response */
+{
+  if (this.MsgChannel != CH_BOARD_CAN1) return;
+
+  /* T1: CONNECT response */
+  if (gTestNum == 1 && this.byte(0) == 0x01)
+  {
+    if (this.byte(1) == 0x00)
+    {
+      char buf[80];
+      snprintf(buf, elcount(buf), "Connected - FW v%d.%d.%d, cfg_size=%d, rules=%d",
+               this.byte(2), this.byte(3), this.byte(4),
+               this.byte(5) | (this.byte(6) << 8), this.byte(7));
+      passTest(buf);
+    }
+    else
+    {
+      char buf[40];
+      snprintf(buf, elcount(buf), "CONNECT returned status 0x%02X", this.byte(1));
+      failTest(buf);
+    }
+  }
+}
+
+/* ======================================================================
+ *  T2 - CAN2 -> CAN1 ID TRANSLATION  (0x100 -> 0x200)
+ * ====================================================================== */
+
+void test_CAN2toCAN1_IDTranslate ()
+{
+  write("[T2] CAN2->CAN1 ID translation (0x100 -> 0x200)");
+  sendCAN(CH_BOARD_CAN2, 0x100, 8,  0x11,0x22,0x33,0x44, 0x55,0x66,0x77,0x88);
+  setTimer(tTimeout, 500);
+}
+
+on message 0x200
+{
+  if (gTestNum != 2 || this.MsgChannel != CH_BOARD_CAN1) return;
+
+  if (this.byte(0) == 0x11 && this.byte(1) == 0x22 &&
+      this.byte(2) == 0x33 && this.byte(3) == 0x44 &&
+      this.byte(4) == 0x55 && this.byte(5) == 0x66 &&
+      this.byte(6) == 0x77 && this.byte(7) == 0x88)
+  {
+    passTest("ID 0x100->0x200, all 8 data bytes match");
+  }
+  else
+  {
+    failTest("ID translated but data mismatch");
+  }
+}
+
+/* ======================================================================
+ *  T3 - CAN1 -> CAN2 PASSTHROUGH  (0x300 -> 0x300)
+ * ====================================================================== */
+
+void test_CAN1toCAN2_Passthrough ()
+{
+  write("[T3] CAN1->CAN2 passthrough (0x300 -> 0x300)");
+  sendCAN(CH_BOARD_CAN1, 0x300, 4,  0xAA,0xBB,0xCC,0xDD, 0,0,0,0);
+  setTimer(tTimeout, 500);
+}
+
+on message 0x300
+{
+  if (gTestNum != 3 || this.MsgChannel != CH_BOARD_CAN2) return;
+
+  if (this.byte(0) == 0xAA && this.byte(1) == 0xBB &&
+      this.byte(2) == 0xCC && this.byte(3) == 0xDD)
+  {
+    passTest("Passthrough 0x300, data intact (DLC=4)");
+  }
+  else
+  {
+    failTest("Data mismatch on passthrough");
+  }
+}
+
+/* ======================================================================
+ *  T4 - CAN1 -> CAN2 BYTE SWAP  (0x400 -> 0x401, swap byte 0 <-> 1)
+ * ====================================================================== */
+
+void test_CAN1toCAN2_ByteSwap ()
+{
+  write("[T4] CAN1->CAN2 byte swap (0x400 -> 0x401, bytes 0<->1)");
+  /* Send byte[0]=0xAA, byte[1]=0x55 — expect them swapped in output */
+  sendCAN(CH_BOARD_CAN1, 0x400, 8,  0xAA,0x55,0x33,0x44, 0x55,0x66,0x77,0x88);
+  setTimer(tTimeout, 500);
+}
+
+on message 0x401
+{
+  if (gTestNum != 4 || this.MsgChannel != CH_BOARD_CAN2) return;
+
+  if (this.byte(0) == 0x55 && this.byte(1) == 0xAA)
+  {
+    passTest("Byte swap confirmed: dst[0]=0x55, dst[1]=0xAA");
+  }
+  else
+  {
+    char buf[80];
+    snprintf(buf, elcount(buf), "Expected dst[0]=55 dst[1]=AA, got %02X %02X",
+             this.byte(0), this.byte(1));
+    failTest(buf);
+  }
+}
+
+/* ======================================================================
+ *  T5 - CAN2 -> CAN1 MASK MATCH  (0x500-0x50F all routed, passthrough ID)
+ * ====================================================================== */
+
+void test_CAN2toCAN1_MaskMatch ()
+{
+  write("[T5] CAN2->CAN1 mask routing (0x505 matches mask 0x7F0)");
+  sendCAN(CH_BOARD_CAN2, 0x505, 3,  0xDE,0xAD,0x01, 0,0,0,0,0);
+  setTimer(tTimeout, 500);
+}
+
+on message 0x505
+{
+  if (gTestNum != 5 || this.MsgChannel != CH_BOARD_CAN1) return;
+
+  if (this.byte(0) == 0xDE && this.byte(1) == 0xAD && this.byte(2) == 0x01)
+  {
+    passTest("Mask match 0x505 routed with passthrough ID, data OK");
+  }
+  else
+  {
+    failTest("Data mismatch on mask-routed frame");
+  }
+}
+
+/* ======================================================================
+ *  T6 - BURST ROUTING  (10 frames rapid-fire CAN2->CAN1 via rule 1)
+ * ====================================================================== */
+
+void test_BurstRouting ()
+{
+  int i;
+  write("[T6] Burst routing: 10 frames CAN2->CAN1 (0x100->0x200)");
+  gBurstCount = 0;
+
+  for (i = 0; i < 10; i++)
+  {
+    sendCAN(CH_BOARD_CAN2, 0x100, 1,  i, 0,0,0, 0,0,0,0);
+  }
+  setTimer(tTimeout, 2000);
+}
+
+/* Count routed burst frames — reuse 0x200 handler */
+on message 0x200
+{
+  if (gTestNum != 6 || this.MsgChannel != CH_BOARD_CAN1) return;
+
+  gBurstCount++;
+  if (gBurstCount >= 10)
+  {
+    passTest("All 10 burst frames routed successfully");
+  }
+}
+
+/* ======================================================================
+ *  T7 - NEGATIVE TEST  (non-matching ID must NOT be routed)
+ * ====================================================================== */
+
+void test_NegativeNoRoute ()
+{
+  write("[T7] Negative test: 0x1FF on CAN2 should NOT route to CAN1");
+  gNegativeRx = 0;
+
+  sendCAN(CH_BOARD_CAN2, 0x1FF, 2,  0xBA,0xAD, 0,0, 0,0,0,0);
+
+  /* Wait 400 ms — if we receive 0x1FF on CAN1, it's a failure */
+  setTimer(tNegative, 400);
+  setTimer(tTimeout, 500);
+}
+
+on message 0x1FF
+{
+  if (gTestNum != 7 || this.MsgChannel != CH_BOARD_CAN1) return;
+  gNegativeRx = 1;
+}
+
+on timer tNegative
+{
+  if (gTestNum != 7) return;
+
+  if (gNegativeRx == 0)
+    passTest("No routing for unmatched ID 0x1FF (correct)");
+  else
+    failTest("0x1FF was routed to CAN1 — should have been dropped");
+}
+
+/* ======================================================================
+ *  T8 - CAN1 -> LIN1 BRIDGE  (0x280 -> LIN ID 0x10)
+ *  Requires LIN wired + board LIN1 in master mode with schedule
+ * ====================================================================== */
+
+void test_CAN1toLIN1 ()
+{
+  if (!gLinTestsEnabled)
+  {
+    write("[T8] CAN1->LIN1 bridge (0x280 -> LIN ID 0x10)");
+    skipTest("LIN tests disabled");
+    return;
+  }
+
+  write("[T8] CAN1->LIN1 bridge (0x280 -> LIN ID 0x10)");
+  /* Send CAN frame — gateway maps bytes 0-3 into LIN schedule entry ID 0x10 */
+  sendCAN(CH_BOARD_CAN1, 0x280, 4,  0xCA,0xFE,0xBA,0xBE, 0,0,0,0);
+
+  /* The board will transmit LIN ID 0x10 on the next schedule cycle (~20 ms) */
+  /* We capture it via on linFrame 16 below */
+  setTimer(tTimeout, 500);
+}
+
+/*
+ * LIN frame reception handler for master-published frame ID 0x10.
+ * In CANoe, when the board (LIN master) publishes this frame,
+ * it appears as a received linFrame on the Vector LIN slave interface.
+ *
+ * NOTE: If your CANoe version uses a different API (e.g. on linMessage),
+ * adjust accordingly.
+ */
+on linFrame 16    /* ID 0x10 = 16 decimal */
+{
+  if (gTestNum != 8) return;
+
+  if (this.byte(0) == 0xCA && this.byte(1) == 0xFE &&
+      this.byte(2) == 0xBA && this.byte(3) == 0xBE)
+  {
+    passTest("CAN->LIN bridge: LIN ID 0x10 data matches CAN 0x280");
+  }
+  else
+  {
+    char buf[80];
+    snprintf(buf, elcount(buf), "LIN data mismatch: got %02X %02X %02X %02X",
+             this.byte(0), this.byte(1), this.byte(2), this.byte(3));
+    failTest(buf);
+  }
+}
+
+/* ======================================================================
+ *  T9 - LIN1 -> CAN1 BRIDGE  (LIN ID 0x11 -> 0x281)
+ *  Board is master, Vector LIN is slave responding to ID 0x11
+ * ====================================================================== */
+
+void test_LIN1toCAN1 ()
+{
+  if (!gLinTestsEnabled)
+  {
+    write("[T9] LIN1->CAN1 bridge (LIN ID 0x11 -> 0x281)");
+    skipTest("LIN tests disabled");
+    return;
+  }
+
+  write("[T9] LIN1->CAN1 bridge (LIN ID 0x11 -> 0x281)");
+  /*
+   * The board (LIN master) periodically sends a header for ID 0x11.
+   * Our Vector LIN slave must respond with data.
+   * The slave response is configured in on preStart or via
+   * the linSlaveResponse mechanism below.
+   *
+   * After the board receives the slave response, the gateway routes
+   * it to CAN1 as 0x281.
+   */
+  setTimer(tTimeout, 500);
+}
+
+/*
+ * LIN slave response handler.
+ * When the board (master) sends a header for ID 0x11, we respond as slave.
+ *
+ * CANoe API varies by version. Common approaches:
+ *   - on linSlaveRespOnRq 17 { ... }        (CANoe 11+)
+ *   - linUpdateResponse in on linReceive     (older)
+ *
+ * Adjust to match your CANoe version.
+ */
+on linSlaveRespOnRq 17   /* ID 0x11 = 17 decimal */
+{
+  /* Provide slave response data */
+  this.byte(0) = 0xDE;
+  this.byte(1) = 0xAD;
+  this.byte(2) = 0xBE;
+  this.byte(3) = 0xEF;
+}
+
+on message 0x281
+{
+  if (gTestNum != 9 || this.MsgChannel != CH_BOARD_CAN1) return;
+
+  if (this.byte(0) == 0xDE && this.byte(1) == 0xAD &&
+      this.byte(2) == 0xBE && this.byte(3) == 0xEF)
+  {
+    passTest("LIN->CAN bridge: CAN 0x281 data matches LIN slave response");
+  }
+  else
+  {
+    char buf[80];
+    snprintf(buf, elcount(buf), "CAN data mismatch: got %02X %02X %02X %02X",
+             this.byte(0), this.byte(1), this.byte(2), this.byte(3));
+    failTest(buf);
+  }
+}
+
+/* ======================================================================
+ *  T10 - DIAGNOSTICS HEARTBEAT MONITORING
+ * ====================================================================== */
+
+void test_DiagMonitor ()
+{
+  write("[T10] Diagnostics heartbeat monitoring (3 s window)");
+  gDiagStatusRx  = 0;
+  gDiagCanStatsRx = 0;
+  gDiagHealthRx  = 0;
+
+  setTimer(tDiagWindow, 3000);
+  setTimer(tTimeout, 4000);
+}
+
+on message 0x7F0   /* DIAG_Status */
+{
+  if (gTestNum != 10 || this.MsgChannel != CH_BOARD_CAN1) return;
+
+  gDiagStatusRx++;
+  if (gDiagStatusRx == 1)
+  {
+    int sysState;
+    int mcuTemp;
+    sysState = this.byte(4);
+    mcuTemp  = this.byte(6);
+    if (mcuTemp > 127) mcuTemp = mcuTemp - 256;  /* signed */
+    write("    Diag: SysState=%d, MCU_Temp=%d C, BusMask=0x%02X",
+          sysState, mcuTemp, this.byte(5));
+  }
+}
+
+on message 0x7F1   /* DIAG_CANStats */
+{
+  if (gTestNum != 10 || this.MsgChannel != CH_BOARD_CAN1) return;
+  gDiagCanStatsRx++;
+}
+
+on message 0x7F4   /* DIAG_SysHealth */
+{
+  if (gTestNum != 10 || this.MsgChannel != CH_BOARD_CAN1) return;
+  gDiagHealthRx++;
+
+  if (gDiagHealthRx == 1)
+  {
+    write("    Health: HeapFree=%d KB, MinStack=%d words, WdtMask=0x%02X",
+          this.byte(0), this.byte(1), this.byte(2));
+  }
+}
+
+on timer tDiagWindow
+{
+  char buf[120];
+  if (gTestNum != 10) return;
+
+  snprintf(buf, elcount(buf),
+           "Heartbeat in 3s: Status=%d, CANStats=%d, Health=%d (expect >=2 each)",
+           gDiagStatusRx, gDiagCanStatsRx, gDiagHealthRx);
+
+  if (gDiagStatusRx >= 2 && gDiagCanStatsRx >= 2 && gDiagHealthRx >= 2)
+    passTest(buf);
+  else
+    failTest(buf);
+}
+
+/* ======================================================================
+ *  SUMMARY
+ * ====================================================================== */
+
+void printSummary ()
+{
+  write("");
+  write("============================================================");
+  write(" TEST SUMMARY");
+  write("============================================================");
+  write("  Total:   %d", gTotal);
+  write("  Passed:  %d", gPassed);
+  write("  Failed:  %d", gFailed);
+  write("  Skipped: %d", gTotal - gPassed - gFailed);
+  write("============================================================");
+
+  if (gFailed == 0)
+    write("  >>> ALL TESTS PASSED <<<");
+  else
+    write("  >>> %d TEST(S) FAILED <<<", gFailed);
+
+  write("");
+}

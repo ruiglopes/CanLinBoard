@@ -350,7 +350,7 @@ Flash `build/test_phase5.bin` via bootloader.
 ### Run
 
 ```bash
-python tests/phase5/test_config_host.py --channel PCAN_USBBUS1
+python tests/phase5/test_nvm_config_host.py --channel PCAN_USBBUS1
 ```
 
 ### Key Tests

@@ -1,0 +1,80 @@
+<mah:MetroWindow x:Class="CanLinConfig.Views.LdfImportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+        Title="Import from LDF" Height="500" Width="550"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- LIN Info -->
+        <TextBlock Grid.Row="0" FontSize="14" FontWeight="Bold" Margin="0,0,0,10">
+            <Run Text="LIN Description File" />
+        </TextBlock>
+
+        <Grid Grid.Row="1" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="LIN Speed:" FontWeight="SemiBold" Grid.Row="0" />
+            <TextBlock x:Name="SpeedText" Grid.Row="0" Grid.Column="1" />
+
+            <TextBlock Text="Protocol:" FontWeight="SemiBold" Grid.Row="1" />
+            <TextBlock x:Name="ProtocolText" Grid.Row="1" Grid.Column="1" />
+
+            <TextBlock Text="Master:" FontWeight="SemiBold" Grid.Row="2" />
+            <TextBlock x:Name="MasterText" Grid.Row="2" Grid.Column="1" />
+
+            <TextBlock Text="Slaves:" FontWeight="SemiBold" Grid.Row="3" />
+            <TextBlock x:Name="SlavesText" Grid.Row="3" Grid.Column="1" />
+        </Grid>
+
+        <!-- Frames -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,3">
+            <TextBlock Text="Frames:" FontWeight="SemiBold" />
+            <TextBlock x:Name="FrameWarning" Foreground="Orange" Margin="10,0,0,0" />
+        </StackPanel>
+
+        <DataGrid Grid.Row="3" x:Name="FrameGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" HeadersVisibility="Column" Height="120">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="180" />
+                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="50" />
+                <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="50" />
+                <DataGridTextColumn Header="Publisher" Binding="{Binding Publisher}" Width="100" />
+                <DataGridTextColumn Header="Direction" Binding="{Binding Direction}" Width="90" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Schedule Table Selection -->
+        <GroupBox Grid.Row="4" Header="Schedule Table" Margin="0,10,0,0">
+            <StackPanel Margin="5">
+                <ListBox x:Name="ScheduleList" Height="80" DisplayMemberPath="DisplayText" />
+                <CheckBox x:Name="ImportSignalsCheck" Content="Also import signal definitions"
+                          IsChecked="True" Margin="0,5,0,0" />
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Import" Click="OnImport" Width="80" Margin="0,0,10,0" />
+            <Button Content="Cancel" Click="OnCancel" Width="80" IsCancel="True" />
+        </StackPanel>
+    </Grid>
+</mah:MetroWindow>
