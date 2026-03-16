@@ -45,6 +45,8 @@ typedef struct __attribute__((packed)) {
         uint8_t  enabled;       /* bool */
         uint16_t can_watchdog_ms;  /* 0=disabled */
         uint16_t lin_watchdog_ms;  /* 0=disabled */
+        uint8_t  bulk_tx_retries;       /* 0=use default, 1-255 */
+        uint8_t  bulk_tx_retry_delay_ms; /* 0=use default, 1-255 */
     } diag;
 
     /* Device profiles */

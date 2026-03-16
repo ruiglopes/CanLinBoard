@@ -283,6 +283,14 @@ static void handle_read_param(const uint8_t *data, uint8_t dlc)
             plen = 5;
             break;
         }
+        case 6: /* bulk_tx_retries */
+            payload[3] = s_working_config.diag.bulk_tx_retries;
+            plen = 4;
+            break;
+        case 7: /* bulk_tx_retry_delay_ms */
+            payload[3] = s_working_config.diag.bulk_tx_retry_delay_ms;
+            plen = 4;
+            break;
         default:
             send_response(CFG_CMD_READ_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
             return;
@@ -431,6 +439,12 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
         case 5: /* lin_watchdog_ms */
             if (dlc < 6) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
             s_working_config.diag.lin_watchdog_ms = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+            break;
+        case 6: /* bulk_tx_retries */
+            s_working_config.diag.bulk_tx_retries = data[4];
+            break;
+        case 7: /* bulk_tx_retry_delay_ms */
+            s_working_config.diag.bulk_tx_retry_delay_ms = data[4];
             break;
         default:
             send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
@@ -633,6 +647,12 @@ static void handle_bulk_read_data(void)
         return;
     }
 
+    /* Read retry config (0 = use compile-time default) */
+    uint32_t max_retries = s_working_config.diag.bulk_tx_retries;
+    if (max_retries == 0) max_retries = CFG_BULK_TX_RETRIES;
+    uint32_t retry_delay = s_working_config.diag.bulk_tx_retry_delay_ms;
+    if (retry_delay == 0) retry_delay = CFG_BULK_TX_RETRY_DELAY_MS;
+
     send_response(CFG_CMD_BULK_READ_DATA, CFG_STATUS_OK, NULL, 0);
 
     /* Stream data frames on BULK_RESP_ID */
@@ -649,9 +669,14 @@ static void handle_bulk_read_data(void)
         frame.dlc = 1 + chunk;
         offset += chunk;
 
-        /* Retry with yield if TX queue is full */
+        /* Retry with yield if TX queue is full; abort on timeout */
+        uint32_t retries = 0;
         while (!can_manager_transmit(CAN_BUS_1, &frame)) {
-            vTaskDelay(pdMS_TO_TICKS(1));
+            if (++retries >= max_retries) {
+                s_bulk_read_size = 0;
+                return;  /* CAN bus fault — abort transfer */
+            }
+            vTaskDelay(pdMS_TO_TICKS(retry_delay));
         }
     }
 

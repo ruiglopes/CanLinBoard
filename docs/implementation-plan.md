@@ -611,4 +611,6 @@ Phase 0 ✅ → Phase 1 ✅ → Phase 2 ✅ → Phase 3 ✅ → Phase 4 ✅ → 
 
 **All phases complete.** Firmware (Phases 0–6) tested on-target. Windows Config Tool (Phase 8) fully implemented with PCAN, SLCAN, Vector XL adapters, profile library, and all 15 milestones verified.
 
-**Post-completion hardening (2026-03-16):** All 6 P0 critical bugs fixed and verified on-target. See `docs/ROADMAP.md` §1 for details.
+**Post-completion hardening (2026-03-16):**
+- v0.1.1: All 6 P0 critical bugs fixed and verified on-target. See `docs/ROADMAP.md` §1.
+- v0.1.2: P1 issues 2.1–2.5 fixed (SJA1124 init/PLL recovery, flash timeout, bulk read retry, alloc checks). See `docs/ROADMAP.md` §2.

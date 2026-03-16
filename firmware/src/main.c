@@ -23,6 +23,10 @@
 
 #include <string.h>
 
+/* Assert allocation — saves crash data and reboots on failure */
+#define ASSERT_ALLOC(x) do { if (!(x)) fault_handler_save_assert( \
+    (void*)(uintptr_t)__LINE__, (void*)(uintptr_t)0); } while(0)
+
 /* ---- FreeRTOS Queue Handles (global) ---- */
 QueueHandle_t g_gateway_input_queue;
 QueueHandle_t g_can_tx_queue;
@@ -130,6 +134,10 @@ int main(void)
     g_can_tx_queue        = xQueueCreate(QUEUE_DEPTH_CAN_TX,     sizeof(gateway_frame_t));
     g_lin_tx_queue        = xQueueCreate(QUEUE_DEPTH_LIN_TX,     sizeof(gateway_frame_t));
     g_config_rx_queue     = xQueueCreate(QUEUE_DEPTH_CONFIG_RX,  sizeof(gateway_frame_t));
+    ASSERT_ALLOC(g_gateway_input_queue);
+    ASSERT_ALLOC(g_can_tx_queue);
+    ASSERT_ALLOC(g_lin_tx_queue);
+    ASSERT_ALLOC(g_config_rx_queue);
 
     /* Initialize config handler — loads config from NVM (or defaults) */
     config_handler_init(g_config_rx_queue, g_can_tx_queue);
@@ -153,11 +161,11 @@ int main(void)
     diagnostics_init(s_task_handles, NUM_APP_TASKS);
 
     /* Create tasks — store handles for stack watermark monitoring */
-    xTaskCreate(can_task_entry,      "CAN",  TASK_STACK_CAN,     NULL, TASK_PRIORITY_CAN,     &s_task_handles[0]);
-    xTaskCreate(lin_task_entry,      "LIN",  TASK_STACK_LIN,     NULL, TASK_PRIORITY_LIN,     &s_task_handles[1]);
-    xTaskCreate(gateway_task,        "GW",   TASK_STACK_GATEWAY,  NULL, TASK_PRIORITY_GATEWAY, &s_task_handles[2]);
-    xTaskCreate(config_task,         "CFG",  TASK_STACK_CONFIG,   NULL, TASK_PRIORITY_CONFIG,  &s_task_handles[3]);
-    xTaskCreate(diagnostics_task,    "DIAG", TASK_STACK_DIAG,     NULL, TASK_PRIORITY_DIAG,    &s_task_handles[4]);
+    ASSERT_ALLOC(xTaskCreate(can_task_entry,   "CAN",  TASK_STACK_CAN,    NULL, TASK_PRIORITY_CAN,     &s_task_handles[0]) == pdPASS);
+    ASSERT_ALLOC(xTaskCreate(lin_task_entry,   "LIN",  TASK_STACK_LIN,    NULL, TASK_PRIORITY_LIN,     &s_task_handles[1]) == pdPASS);
+    ASSERT_ALLOC(xTaskCreate(gateway_task,     "GW",   TASK_STACK_GATEWAY, NULL, TASK_PRIORITY_GATEWAY, &s_task_handles[2]) == pdPASS);
+    ASSERT_ALLOC(xTaskCreate(config_task,      "CFG",  TASK_STACK_CONFIG,  NULL, TASK_PRIORITY_CONFIG,  &s_task_handles[3]) == pdPASS);
+    ASSERT_ALLOC(xTaskCreate(diagnostics_task, "DIAG", TASK_STACK_DIAG,   NULL, TASK_PRIORITY_DIAG,    &s_task_handles[4]) == pdPASS);
 
     /* Enable hardware watchdog (5 second timeout, pause on debug) */
     watchdog_enable(HW_WATCHDOG_TIMEOUT_MS, true);

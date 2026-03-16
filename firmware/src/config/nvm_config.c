@@ -95,6 +95,8 @@ void nvm_config_defaults(nvm_config_t *cfg)
     cfg->diag.enabled         = 1;
     cfg->diag.can_watchdog_ms = 0;  /* disabled by default */
     cfg->diag.lin_watchdog_ms = 0;  /* disabled by default */
+    cfg->diag.bulk_tx_retries       = CFG_BULK_TX_RETRIES;
+    cfg->diag.bulk_tx_retry_delay_ms = CFG_BULK_TX_RETRY_DELAY_MS;
 
     /* Profiles disabled */
     cfg->profiles.wda_enabled    = 0;

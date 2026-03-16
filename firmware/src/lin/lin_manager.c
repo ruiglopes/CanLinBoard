@@ -27,6 +27,7 @@ static lin_channel_stats_t  s_channel_stats[LIN_CHANNEL_COUNT];
 
 static uint32_t s_temp_warning_count;
 static bool     s_pll_lost_lock;
+static bool     s_sja_init_failed;
 
 /* Master scheduling state per channel */
 static struct {
@@ -193,6 +194,7 @@ void lin_manager_init(QueueHandle_t gateway_queue, QueueHandle_t lin_tx_queue)
 bool lin_manager_start_channel(uint8_t ch, const lin_channel_config_t *config)
 {
     if (ch >= LIN_CHANNEL_COUNT) return false;
+    if (s_sja_init_failed) return false;
 
     /* Stop schedule first to prevent race with schedule_tick() in LIN task */
     s_schedule_state[ch].active = false;
@@ -284,10 +286,14 @@ void lin_task_entry(void *params)
     /* Initialize SJA1124 now that the scheduler is running.
      * sja1124_init() uses vTaskDelay() for PLL lock polling,
      * which requires task context. */
-    sja1124_init(&s_sja_ctx, &s_spi_ctx);
+    if (sja1124_init(&s_sja_ctx, &s_spi_ctx) != SJA_OK) {
+        s_sja_init_failed = true;
+        for (int ch = 0; ch < LIN_CHANNEL_COUNT; ch++)
+            s_channel_stats[ch].state = LIN_STATE_ERROR;
+    }
 
     /* Apply LIN config from NVM (must happen after sja1124_init) */
-    {
+    if (!s_sja_init_failed) {
         const nvm_config_t *cfg = config_handler_get_config();
         for (int ch = 0; ch < LIN_CHANNEL_COUNT; ch++) {
             if (cfg->lin[ch].enabled) {
@@ -306,6 +312,43 @@ void lin_task_entry(void *params)
     for (;;) {
         /* Wait for INTN interrupt notification or 5 ms timeout */
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(5));
+
+        /* If SJA1124 init failed, drain TX queue and idle */
+        if (s_sja_init_failed) {
+            gateway_frame_t discard;
+            while (xQueueReceive(s_lin_tx_queue, &discard, 0) == pdTRUE) {}
+            continue;
+        }
+
+        /* PLL loss-of-lock recovery: reset and re-init SJA1124 */
+        if (s_pll_lost_lock) {
+            s_pll_lost_lock = false;
+            /* Stop all active channels */
+            for (uint8_t ch = 0; ch < LIN_CHANNEL_COUNT; ch++) {
+                s_schedule_state[ch].active = false;
+                s_channel_stats[ch].state = LIN_STATE_ERROR;
+                s_channel_stats[ch].error_count++;
+            }
+            sja1124_reset(&s_sja_ctx);
+            vTaskDelay(pdMS_TO_TICKS(10));
+            if (sja1124_init(&s_sja_ctx, &s_spi_ctx) != SJA_OK) {
+                s_sja_init_failed = true;
+                continue;
+            }
+            /* Re-start channels that were enabled */
+            const nvm_config_t *cfg = config_handler_get_config();
+            for (int ch = 0; ch < LIN_CHANNEL_COUNT; ch++) {
+                if (cfg->lin[ch].enabled) {
+                    lin_channel_config_t lc;
+                    lc.enabled  = true;
+                    lc.mode     = (lin_mode_t)cfg->lin[ch].mode;
+                    lc.baudrate = cfg->lin[ch].baudrate;
+                    memcpy(&lc.schedule, &cfg->lin[ch].schedule,
+                           sizeof(lin_schedule_table_t));
+                    lin_manager_start_channel(ch, &lc);
+                }
+            }
+        }
 
         /* Process SJA1124 interrupts */
         if (hal_lin_int_active()) {

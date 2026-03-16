@@ -34,10 +34,10 @@ bool __no_inline_not_in_flash_func(hal_nvm_erase_sector)(uint32_t offset)
     if (offset % NVM_SECTOR_SIZE != 0) return false;
 
     uint32_t irq = sec_flash_acquire_bus();
-    sec_flash_sector_erase(offset);
+    bool ok = sec_flash_sector_erase(offset);
     sec_flash_release_bus(irq);
 
-    return true;
+    return ok;
 }
 
 bool __no_inline_not_in_flash_func(hal_nvm_write_page)(uint32_t offset, const void *data, size_t len)
@@ -50,10 +50,10 @@ bool __no_inline_not_in_flash_func(hal_nvm_write_page)(uint32_t offset, const vo
     memcpy(page_buf, data, len);
 
     uint32_t irq = sec_flash_acquire_bus();
-    sec_flash_page_program(offset, page_buf, NVM_PAGE_SIZE);
+    bool ok = sec_flash_page_program(offset, page_buf, NVM_PAGE_SIZE);
     sec_flash_release_bus(irq);
 
-    return true;
+    return ok;
 }
 
 bool __no_inline_not_in_flash_func(hal_nvm_write)(uint32_t offset, const void *data, size_t len)
@@ -71,7 +71,10 @@ bool __no_inline_not_in_flash_func(hal_nvm_write)(uint32_t offset, const void *d
         uint8_t page_buf[NVM_PAGE_SIZE];
         sec_flash_read(page_offset, page_buf, NVM_PAGE_SIZE);
         memcpy(page_buf + offset_in_page, src, chunk);
-        sec_flash_page_program(page_offset, page_buf, NVM_PAGE_SIZE);
+        if (!sec_flash_page_program(page_offset, page_buf, NVM_PAGE_SIZE)) {
+            sec_flash_release_bus(irq);
+            return false;
+        }
 
         offset += chunk;
         src += chunk;

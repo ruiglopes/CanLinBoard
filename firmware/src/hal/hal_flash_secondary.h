@@ -30,11 +30,13 @@ void sec_flash_read_jedec_id(uint8_t *mfr, uint8_t *type, uint8_t *cap);
 /* Read data from flash at the given 24-bit address */
 void sec_flash_read(uint32_t addr, uint8_t *buf, size_t len);
 
-/* Program a page (up to 256 bytes, must not cross page boundary) */
-void sec_flash_page_program(uint32_t addr, const uint8_t *data, size_t len);
+/* Program a page (up to 256 bytes, must not cross page boundary).
+ * Returns false if flash busy timeout exceeded. */
+bool sec_flash_page_program(uint32_t addr, const uint8_t *data, size_t len);
 
-/* Erase a 4KB sector (addr must be sector-aligned) */
-void sec_flash_sector_erase(uint32_t addr);
+/* Erase a 4KB sector (addr must be sector-aligned).
+ * Returns false if flash busy timeout exceeded. */
+bool sec_flash_sector_erase(uint32_t addr);
 
 /* Read status register */
 uint8_t sec_flash_read_status(void);

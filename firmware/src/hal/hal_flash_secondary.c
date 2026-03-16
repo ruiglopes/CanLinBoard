@@ -146,10 +146,20 @@ uint8_t __no_inline_not_in_flash_func(sec_flash_read_status)(void) {
     return rx[1];
 }
 
-static void __no_inline_not_in_flash_func(sec_flash_wait_busy)(void) {
-    while (sec_flash_read_status() & 0x01)
+static bool __no_inline_not_in_flash_func(sec_flash_wait_busy)(uint32_t max_polls) {
+    for (uint32_t i = 0; i < max_polls; i++) {
+        if (!(sec_flash_read_status() & 0x01))
+            return true;
         tight_loop_contents();
+    }
+    return false;  /* timed out */
 }
+
+/* Poll limits (~1-2us per SPI read_status transaction):
+ * Page program: 10ms max → 100,000 polls ≈ 100-200ms headroom
+ * Sector erase: 400ms max → 500,000 polls ≈ 0.5-1s headroom */
+#define WAIT_PAGE_PROGRAM   100000U
+#define WAIT_SECTOR_ERASE   500000U
 
 void __no_inline_not_in_flash_func(sec_flash_read_jedec_id)(uint8_t *mfr, uint8_t *type, uint8_t *cap) {
     uint8_t tx[4] = {0x9F, 0x00, 0x00, 0x00};
@@ -203,7 +213,7 @@ void __no_inline_not_in_flash_func(sec_flash_read)(uint32_t addr, uint8_t *buf, 
     hw_clear_bits(&qmi_hw->direct_csr, QMI_DIRECT_CSR_ASSERT_CS1N_BITS);
 }
 
-void __no_inline_not_in_flash_func(sec_flash_page_program)(uint32_t addr, const uint8_t *data, size_t len) {
+bool __no_inline_not_in_flash_func(sec_flash_page_program)(uint32_t addr, const uint8_t *data, size_t len) {
     sec_flash_write_enable();
 
     hw_set_bits(&qmi_hw->direct_csr, QMI_DIRECT_CSR_ASSERT_CS1N_BITS);
@@ -248,10 +258,10 @@ void __no_inline_not_in_flash_func(sec_flash_page_program)(uint32_t addr, const 
     hw_clear_bits(&qmi_hw->direct_csr, QMI_DIRECT_CSR_EN_BITS);
     hw_clear_bits(&qmi_hw->direct_csr, QMI_DIRECT_CSR_ASSERT_CS1N_BITS);
 
-    sec_flash_wait_busy();
+    return sec_flash_wait_busy(WAIT_PAGE_PROGRAM);
 }
 
-void __no_inline_not_in_flash_func(sec_flash_sector_erase)(uint32_t addr) {
+bool __no_inline_not_in_flash_func(sec_flash_sector_erase)(uint32_t addr) {
     sec_flash_write_enable();
 
     uint8_t tx[4] = {
@@ -263,5 +273,5 @@ void __no_inline_not_in_flash_func(sec_flash_sector_erase)(uint32_t addr) {
     uint8_t rx[4];
     sec_flash_do_cmd(tx, rx, 4);
 
-    sec_flash_wait_busy();
+    return sec_flash_wait_busy(WAIT_SECTOR_ERASE);
 }

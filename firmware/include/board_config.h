@@ -6,7 +6,7 @@
 /* ---- Firmware Version ---- */
 #define FW_VERSION_MAJOR    0
 #define FW_VERSION_MINOR    1
-#define FW_VERSION_PATCH    0
+#define FW_VERSION_PATCH    2
 #define FW_VERSION_PACKED   ((FW_VERSION_MAJOR << 16) | (FW_VERSION_MINOR << 8) | FW_VERSION_PATCH)
 
 /* ---- System Clock ---- */
@@ -128,6 +128,10 @@
 #define MAX_ROUTING_RULES       32
 #define MAX_BYTE_MAPPINGS       8
 #define MAX_SCHEDULE_ENTRIES    16
+
+/* ---- Config Protocol Tuning ---- */
+#define CFG_BULK_TX_RETRIES         50U     /* Max retries per bulk read frame */
+#define CFG_BULK_TX_RETRY_DELAY_MS  1U      /* Delay between retries (ms) */
 
 /* ---- NVM Configuration ---- */
 #define NVM_CONFIG_MAGIC        0x4E564D01U  /* "NVM\x01" */

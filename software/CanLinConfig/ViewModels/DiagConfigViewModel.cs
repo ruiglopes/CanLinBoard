@@ -13,6 +13,8 @@ public partial class DiagConfigViewModel : ObservableObject
     [ObservableProperty] private byte _bus; // 0=CAN1, 1=CAN2
     [ObservableProperty] private ushort _canWatchdogMs;
     [ObservableProperty] private ushort _linWatchdogMs;
+    [ObservableProperty] private byte _bulkTxRetries = 50;
+    [ObservableProperty] private byte _bulkTxRetryDelayMs = 1;
 
     public string CanIdHex
     {
@@ -50,6 +52,14 @@ public partial class DiagConfigViewModel : ObservableObject
         var lwdt = await proto.ReadParamAsync(ProtocolConstants.SectionDiag, 5, 0);
         if (lwdt.Success && lwdt.Value.Length >= 2)
             LinWatchdogMs = (ushort)(lwdt.Value[0] | (lwdt.Value[1] << 8));
+
+        var btr = await proto.ReadParamAsync(ProtocolConstants.SectionDiag, 6, 0);
+        if (btr.Success && btr.Value.Length >= 1 && btr.Value[0] > 0)
+            BulkTxRetries = btr.Value[0];
+
+        var btd = await proto.ReadParamAsync(ProtocolConstants.SectionDiag, 7, 0);
+        if (btd.Success && btd.Value.Length >= 1 && btd.Value[0] > 0)
+            BulkTxRetryDelayMs = btd.Value[0];
     }
 
     public async Task WriteToDeviceAsync(ConfigProtocol proto)
@@ -65,5 +75,9 @@ public partial class DiagConfigViewModel : ObservableObject
             [(byte)CanWatchdogMs, (byte)(CanWatchdogMs >> 8)]);
         await proto.WriteParamAsync(ProtocolConstants.SectionDiag, 5, 0,
             [(byte)LinWatchdogMs, (byte)(LinWatchdogMs >> 8)]);
+        await proto.WriteParamAsync(ProtocolConstants.SectionDiag, 6, 0,
+            [BulkTxRetries]);
+        await proto.WriteParamAsync(ProtocolConstants.SectionDiag, 7, 0,
+            [BulkTxRetryDelayMs]);
     }
 }

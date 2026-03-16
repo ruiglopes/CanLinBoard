@@ -40,30 +40,30 @@ Added `SelectedMapping` and `SelectedEntry` properties with `SelectedItem` DataG
 
 ## 2. Important Issues (fix soon)
 
-### 2.1 SJA1124 init failure silently ignored
-**File:** `firmware/src/lin/lin_manager.c:287`
-If `sja1124_init()` fails, the LIN task continues and tries to start channels on a non-initialized SPI context, causing cascading SPI errors.
-**Fix:** Log the failure and skip channel initialization if `sja1124_init()` returns error.
+### ~~2.1 SJA1124 init failure silently ignored~~ FIXED
+**File:** `firmware/src/lin/lin_manager.c`
+`lin_task_entry()` now checks `sja1124_init()` return value. On failure: sets `s_sja_init_failed`, marks all channels `LIN_STATE_ERROR`, and idles (drains TX queue only). `lin_manager_start_channel()` also rejects calls when init has failed.
+**Verified:** Happy path on-target (SJA1124 present, init succeeds, board boots normally).
 
-### 2.2 SJA1124 PLL loss-of-lock not recovered
-**File:** `firmware/src/lin/lin_manager.c:153`
-`s_pll_lost_lock` is set by the interrupt handler but nothing reads it or takes corrective action. LIN communication silently fails after a PLL glitch.
-**Fix:** Check `s_pll_lost_lock` in the LIN task loop and attempt re-initialization.
+### ~~2.2 SJA1124 PLL loss-of-lock not recovered~~ FIXED
+**File:** `firmware/src/lin/lin_manager.c`
+LIN task main loop now checks `s_pll_lost_lock` flag. On PLL loss: stops all channels, resets SJA1124, re-initializes, and restarts enabled channels from NVM config. If re-init fails, falls into the init-failed idle state.
+**Verified:** Happy path on-target (no PLL glitch observed, normal operation confirmed).
 
-### 2.3 `sec_flash_wait_busy` has no timeout
-**File:** `firmware/src/hal/hal_flash_secondary.c:149-152`
-Loops forever waiting for flash busy bit. A malfunctioning flash chip freezes the system with the bus acquired until the HW watchdog fires (5s).
-**Fix:** Add an iteration counter and return an error status after a reasonable timeout.
+### ~~2.3 `sec_flash_wait_busy` has no timeout~~ FIXED
+**Files:** `firmware/src/hal/hal_flash_secondary.c`, `hal_flash_secondary.h`, `hal_flash_nvm.c`
+`sec_flash_wait_busy()` now takes a `max_polls` parameter and returns `bool`. Page program uses 100k polls (~100-200ms), sector erase uses 500k polls (~0.5-1s). `sec_flash_page_program()` and `sec_flash_sector_erase()` return `bool`, propagated through `hal_nvm_*` callers.
+**Verified:** On-target NVM save/read round-trip (write, erase, save, readback all OK).
 
-### 2.4 `handle_bulk_read_data` can loop forever on CAN bus-off
-**File:** `firmware/src/config/config_handler.c:644-646`
-`while (!can_manager_transmit(...)) { vTaskDelay(1); }` retries indefinitely. A CAN bus fault during bulk read permanently stalls the config handler task.
-**Fix:** Add a retry limit or timeout.
+### ~~2.4 `handle_bulk_read_data` can loop forever on CAN bus-off~~ FIXED
+**Files:** `firmware/src/config/config_handler.c`, `nvm_config.h`, `nvm_config.c`, `board_config.h`, `software/.../DiagConfigViewModel.cs`, `DiagConfigView.xaml`
+Bulk read TX retry loop now has a configurable limit. Added `diag.bulk_tx_retries` (default 50) and `diag.bulk_tx_retry_delay_ms` (default 1) to NVM config, exposed as diag params 6/7 via config protocol, and added UI controls in the Diagnostics Settings tab. Values of 0 fall back to compile-time defaults.
+**Verified:** On-target param read/write round-trip, NVM persistence, and defaults restore all passed.
 
-### 2.5 No FreeRTOS resource creation failure checks
-**File:** `firmware/src/main.c:129-132`
-`xQueueCreate` and `xTimerCreate` return values are not checked. NULL handles cause HardFault on first use if heap is exhausted.
-**Fix:** Check return values and halt with a diagnostic message.
+### ~~2.5 No FreeRTOS resource creation failure checks~~ FIXED
+**File:** `firmware/src/main.c`
+Added `ASSERT_ALLOC` macro that calls `fault_handler_save_assert()` on failure (saves crash data to watchdog scratch registers, reboots). Applied to all 4 `xQueueCreate` and 5 `xTaskCreate` calls. On failure, the next boot reports the crash via diagnostic CAN message.
+**Verified:** Happy path on-target (all allocations succeed, board boots normally).
 
 ### 2.6 Config read across tasks without synchronization
 **File:** `firmware/src/config/config_handler.c:712-715`
@@ -294,7 +294,7 @@ Encrypt sensitive configuration data in NVM to prevent extraction via flash dump
 | Priority | Category | Items |
 |----------|----------|-------|
 | ~~**P0 — Now**~~ | ~~Critical bugs~~ | ~~1.1, 1.2, 1.3, 1.4, 1.5, 1.6~~ ALL FIXED |
-| **P1 — Next sprint** | Important issues | 2.1–2.9 |
+| **P1 — Next sprint** | Important issues | ~~2.1, 2.2, 2.3, 2.4, 2.5~~ FIXED, 2.6–2.9 remaining |
 | **P2 — Near-term** | Robustness | 3.1–3.5 |
 | **P2 — Near-term** | Test coverage | 4.1, 4.2, 4.5 |
 | **P2 — Near-term** | Documentation | 5.1, 5.2, 5.3 |
