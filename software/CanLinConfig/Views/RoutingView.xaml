@@ -64,6 +64,7 @@
                 </StackPanel>
 
                 <DataGrid Grid.Row="1" ItemsSource="{Binding SelectedRule.Mappings}"
+                          SelectedItem="{Binding SelectedMapping}"
                           AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Src Byte" Binding="{Binding SrcByte}" Width="80" />

@@ -15,6 +15,7 @@ public partial class LinChannelViewModel : ObservableObject
     public string ChannelName => $"LIN{ChannelIndex + 1}";
 
     public ObservableCollection<LinScheduleEntry> Schedule { get; } = [];
+    [ObservableProperty] private LinScheduleEntry? _selectedEntry;
 
     public bool IsMaster => Mode == 1;
 
@@ -30,24 +31,24 @@ public partial class LinChannelViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void RemoveEntry(LinScheduleEntry? entry)
+    private void RemoveEntry()
     {
-        if (entry != null) Schedule.Remove(entry);
+        if (SelectedEntry != null) Schedule.Remove(SelectedEntry);
     }
 
     [RelayCommand]
-    private void MoveUp(LinScheduleEntry? entry)
+    private void MoveUp()
     {
-        if (entry == null) return;
-        int idx = Schedule.IndexOf(entry);
+        if (SelectedEntry == null) return;
+        int idx = Schedule.IndexOf(SelectedEntry);
         if (idx > 0) Schedule.Move(idx, idx - 1);
     }
 
     [RelayCommand]
-    private void MoveDown(LinScheduleEntry? entry)
+    private void MoveDown()
     {
-        if (entry == null) return;
-        int idx = Schedule.IndexOf(entry);
+        if (SelectedEntry == null) return;
+        int idx = Schedule.IndexOf(SelectedEntry);
         if (idx < Schedule.Count - 1) Schedule.Move(idx, idx + 1);
     }
 

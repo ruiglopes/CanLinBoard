@@ -121,8 +121,11 @@ pico_set_linker_script(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld
 pico_enable_stdio_usb(${PROJECT_NAME} 0)
 pico_enable_stdio_uart(${PROJECT_NAME} 0)
 
-# Generate .uf2, .bin, .hex, .map outputs
-pico_add_extra_outputs(${PROJECT_NAME})
+# Generate .bin, .hex, .dis, .map outputs (no UF2 — bootloader uses .bin)
+pico_add_bin_output(${PROJECT_NAME})
+pico_add_hex_output(${PROJECT_NAME})
+pico_add_dis_output(${PROJECT_NAME})
+pico_add_map_output(${PROJECT_NAME})
 
 # ---- Post-build: patch app header in binary ----
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
@@ -191,7 +194,7 @@ target_compile_definitions(test_phase1 PRIVATE TEST_PHASE1)
 pico_set_linker_script(test_phase1 ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
 pico_enable_stdio_usb(test_phase1 0)
 pico_enable_stdio_uart(test_phase1 0)
-pico_add_extra_outputs(test_phase1)
+pico_add_bin_output(test_phase1)
 add_custom_command(TARGET test_phase1 POST_BUILD
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase1.bin
@@ -209,7 +212,7 @@ target_compile_definitions(test_phase2 PRIVATE TEST_PHASE2)
 pico_set_linker_script(test_phase2 ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
 pico_enable_stdio_usb(test_phase2 0)
 pico_enable_stdio_uart(test_phase2 0)
-pico_add_extra_outputs(test_phase2)
+pico_add_bin_output(test_phase2)
 add_custom_command(TARGET test_phase2 POST_BUILD
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase2.bin
@@ -227,7 +230,7 @@ target_compile_definitions(test_phase3 PRIVATE TEST_PHASE3)
 pico_set_linker_script(test_phase3 ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
 pico_enable_stdio_usb(test_phase3 0)
 pico_enable_stdio_uart(test_phase3 0)
-pico_add_extra_outputs(test_phase3)
+pico_add_bin_output(test_phase3)
 add_custom_command(TARGET test_phase3 POST_BUILD
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase3.bin
@@ -245,7 +248,7 @@ target_compile_definitions(test_phase4 PRIVATE TEST_PHASE4)
 pico_set_linker_script(test_phase4 ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
 pico_enable_stdio_usb(test_phase4 0)
 pico_enable_stdio_uart(test_phase4 0)
-pico_add_extra_outputs(test_phase4)
+pico_add_bin_output(test_phase4)
 add_custom_command(TARGET test_phase4 POST_BUILD
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase4.bin
@@ -263,7 +266,7 @@ target_compile_definitions(test_phase4_5 PRIVATE TEST_PHASE4_5)
 pico_set_linker_script(test_phase4_5 ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
 pico_enable_stdio_usb(test_phase4_5 0)
 pico_enable_stdio_uart(test_phase4_5 0)
-pico_add_extra_outputs(test_phase4_5)
+pico_add_bin_output(test_phase4_5)
 add_custom_command(TARGET test_phase4_5 POST_BUILD
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase4_5.bin
@@ -281,7 +284,7 @@ target_compile_definitions(test_phase5 PRIVATE TEST_PHASE5)
 pico_set_linker_script(test_phase5 ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
 pico_enable_stdio_usb(test_phase5 0)
 pico_enable_stdio_uart(test_phase5 0)
-pico_add_extra_outputs(test_phase5)
+pico_add_bin_output(test_phase5)
 add_custom_command(TARGET test_phase5 POST_BUILD
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase5.bin
@@ -299,7 +302,7 @@ target_compile_definitions(test_phase6 PRIVATE TEST_PHASE6)
 pico_set_linker_script(test_phase6 ${CMAKE_CURRENT_SOURCE_DIR}/linker/app.ld)
 pico_enable_stdio_usb(test_phase6 0)
 pico_enable_stdio_uart(test_phase6 0)
-pico_add_extra_outputs(test_phase6)
+pico_add_bin_output(test_phase6)
 add_custom_command(TARGET test_phase6 POST_BUILD
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/patch_header.py
             ${CMAKE_CURRENT_BINARY_DIR}/test_phase6.bin

@@ -203,6 +203,9 @@ void can_manager_stop_can2(void)
 
 bool can_manager_transmit(can_bus_id_t bus, const can_frame_t *frame)
 {
+    if (bus > CAN_BUS_2 || can_stats[bus].state != CAN_STATE_ACTIVE)
+        return false;
+
     struct can2040 *inst = &can2040_inst[bus];
     uint pio_irq = (bus == CAN_BUS_1) ? PIO0_IRQ_0 : PIO1_IRQ_0;
 

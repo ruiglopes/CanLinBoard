@@ -64,7 +64,8 @@ static void apply_config(const nvm_config_t *cfg)
     hal_can_set_termination(CAN_BUS_1, cfg->can[0].termination);
     hal_can_set_termination(CAN_BUS_2, cfg->can[1].termination);
 
-    /* CAN2: start/stop based on config */
+    /* CAN2: stop first (safe if not running), then start/stop based on config */
+    can_manager_stop_can2();
     if (cfg->can[1].enabled) {
         can_manager_start_can2(cfg->can[1].bitrate);
         bus_watchdog_set_enabled(BUS_CAN2, true);
@@ -150,16 +151,18 @@ static void handle_reboot(void)
 
 static void handle_enter_bootloader(const uint8_t *data, uint8_t dlc)
 {
-    /* Validate unlock key if provided (matches bootloader protocol) */
-    if (dlc >= 5) {
-        uint32_t key = (uint32_t)data[1] |
-                       ((uint32_t)data[2] << 8) |
-                       ((uint32_t)data[3] << 16) |
-                       ((uint32_t)data[4] << 24);
-        if (key != RESET_UNLOCK_KEY) {
-            send_response(CFG_CMD_ENTER_BOOTLOADER, CFG_STATUS_INVALID_PARAM, NULL, 0);
-            return;
-        }
+    /* Unlock key is mandatory — reject frames without it */
+    if (dlc < 5) {
+        send_response(CFG_CMD_ENTER_BOOTLOADER, CFG_STATUS_INVALID_PARAM, NULL, 0);
+        return;
+    }
+    uint32_t key = (uint32_t)data[1] |
+                   ((uint32_t)data[2] << 8) |
+                   ((uint32_t)data[3] << 16) |
+                   ((uint32_t)data[4] << 24);
+    if (key != RESET_UNLOCK_KEY) {
+        send_response(CFG_CMD_ENTER_BOOTLOADER, CFG_STATUS_INVALID_PARAM, NULL, 0);
+        return;
     }
     send_response(CFG_CMD_ENTER_BOOTLOADER, CFG_STATUS_OK, NULL, 0);
     vTaskDelay(pdMS_TO_TICKS(50));
@@ -358,12 +361,15 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
     case CFG_SECTION_CAN:
         if (sub > 1) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
         switch (param) {
-        case 0: /* bitrate (LE, up to 3 bytes in frame) */
+        case 0: /* bitrate (LE, up to 3 bytes in frame) */ {
             if (dlc < 7) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
-            s_working_config.can[sub].bitrate = (uint32_t)data[4] |
-                                                 ((uint32_t)data[5] << 8) |
-                                                 ((uint32_t)data[6] << 16);
+            uint32_t br = (uint32_t)data[4] |
+                          ((uint32_t)data[5] << 8) |
+                          ((uint32_t)data[6] << 16);
+            if (br < 10000 || br > 1000000) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            s_working_config.can[sub].bitrate = br;
             break;
+        }
         case 1: /* termination */
             s_working_config.can[sub].termination = data[4] ? 1 : 0;
             break;
@@ -385,12 +391,15 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
         case 1: /* mode */
             s_working_config.lin[sub].mode = data[4];
             break;
-        case 2: /* baudrate */
+        case 2: /* baudrate */ {
             if (dlc < 7) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
-            s_working_config.lin[sub].baudrate = (uint32_t)data[4] |
-                                                  ((uint32_t)data[5] << 8) |
-                                                  ((uint32_t)data[6] << 16);
+            uint32_t lbr = (uint32_t)data[4] |
+                           ((uint32_t)data[5] << 8) |
+                           ((uint32_t)data[6] << 16);
+            if (lbr < 1000 || lbr > 20000) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            s_working_config.lin[sub].baudrate = lbr;
             break;
+        }
         default:
             send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
             return;

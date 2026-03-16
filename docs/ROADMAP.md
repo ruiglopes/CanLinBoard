@@ -4,37 +4,37 @@ Comprehensive audit performed 2026-03-15 covering firmware, config tool, tests, 
 
 ---
 
-## 1. Critical Bugs (fix before next release)
+## 1. Critical Bugs ~~(fix before next release)~~ ALL FIXED (2026-03-16)
 
-### 1.1 Bootloader entry without unlock key via config protocol
-**File:** `firmware/src/config/config_handler.c:151-167`
-`handle_enter_bootloader()` only validates the unlock key when `dlc >= 5`. A single-byte frame `[0x05]` on CAN ID 0x600 reboots the device into bootloader mode — no key required. Any node on the CAN1 bus can trigger this.
-**Fix:** Reject frames with `dlc < 5` early, before calling `hal_request_bootloader()`.
+### ~~1.1 Bootloader entry without unlock key via config protocol~~ FIXED
+**File:** `firmware/src/config/config_handler.c`
+`handle_enter_bootloader()` now requires `dlc >= 5` with valid unlock key. Frames without the key are rejected with `CFG_STATUS_INVALID_PARAM`.
+**Verified:** On-target regression test (`tests/test_bug_1_1.py`) — 2/2 passed.
 
-### 1.2 Diagnostics can transmit on disabled CAN2
-**File:** `firmware/src/diag/diagnostics.c:82`
-If `cfg->diag.bus == 1` (CAN2) but CAN2 is not started, `send_heartbeat()` calls `can_manager_transmit(CAN_BUS_2, ...)` on an uninitialized `can2040` instance. User misconfiguration causes a HardFault.
-**Fix:** Guard `can_manager_transmit()` with a state check, or validate `diag.bus` against active buses in `apply_config()`.
+### ~~1.2 Diagnostics can transmit on disabled CAN2~~ FIXED
+**File:** `firmware/src/can/can_manager.c`
+`can_manager_transmit()` now checks `can_stats[bus].state == CAN_STATE_ACTIVE` before accessing the can2040 instance. Returns `false` for inactive buses.
+**Verified:** On-target regression test (`tests/test_bug_1_2.py`) — 2/2 passed.
 
-### 1.3 Zero bitrate causes divide-by-zero
-**Files:** `firmware/src/config/config_handler.c:363`, `firmware/src/lin/sja1124_driver.c:50`
-A `WRITE_PARAM` with bitrate=0 is accepted for both CAN and LIN. CAN: `can2040_start()` divides by bitrate. LIN: `calc_baud_regs()` divides `pll_freq / baudrate`.
-**Fix:** Reject bitrate=0 (and values outside valid range) in the WRITE_PARAM handler.
+### ~~1.3 Zero bitrate causes divide-by-zero~~ FIXED
+**File:** `firmware/src/config/config_handler.c`
+WRITE_PARAM handler now validates CAN bitrate (10,000–1,000,000) and LIN bitrate (1,000–20,000). Out-of-range values rejected with `CFG_STATUS_INVALID_PARAM`.
+**Verified:** On-target regression test (`tests/test_bug_1_3.py`) — 8/8 passed.
 
-### 1.4 `apply_config` does not stop CAN2 before restarting
-**File:** `firmware/src/config/config_handler.c:68-69`
-If CAN2 is already running and config is re-applied, `can_manager_start_can2()` is called without stopping first. This calls `can2040_setup` and `can2040_start` on an active PIO instance, potentially corrupting PIO state.
-**Fix:** Call `can_manager_stop_can2()` before `can_manager_start_can2()` in `apply_config()`.
+### ~~1.4 `apply_config` does not stop CAN2 before restarting~~ FIXED
+**File:** `firmware/src/config/config_handler.c`
+`apply_config()` now calls `can_manager_stop_can2()` unconditionally before starting CAN2, matching the LIN pattern (stop-then-start).
+**Verified:** On-target regression test (`tests/test_bug_1_4.py`) — 4/4 passed.
 
-### 1.5 Config tool: Remove Mapping and Move Up/Down buttons are non-functional
-**Files:** `software/CanLinConfig/Views/RoutingView.xaml:63`, `Views/LinConfigView.xaml:63-64`
-The XAML buttons do not pass `CommandParameter`, so the commands receive `null` and return immediately. Users cannot remove byte mappings or reorder schedule entries via the UI.
-**Fix:** Add `CommandParameter="{Binding SelectedItem, ElementName=...}"` to the button bindings.
+### ~~1.5 Config tool: Remove Mapping and Move Up/Down buttons are non-functional~~ FIXED
+**Files:** `software/CanLinConfig/ViewModels/RoutingViewModel.cs`, `LinConfigViewModel.cs`, `Views/RoutingView.xaml`, `Views/LinConfigView.xaml`
+Added `SelectedMapping` and `SelectedEntry` properties with `SelectedItem` DataGrid bindings. Commands changed to parameterless, using selected properties (consistent with existing `SelectedBitMapping` pattern).
+**Verified:** Manual UI testing.
 
-### 1.6 Config tool: Profile mask/shift not applied correctly for non-zero-aligned masks
-**File:** `software/CanLinConfig/ViewModels/ProfilesViewModel.cs:278`
-`GetByteValue()` ANDs the option index with the mask instead of shifting the value into the mask's bit position. Profiles with masks like `0x0C` (bits 2-3) produce incorrect control bytes.
-**Fix:** Shift the value left by the mask's LSB position before applying the mask.
+### ~~1.6 Config tool: Profile mask/shift not applied correctly for non-zero-aligned masks~~ FIXED
+**File:** `software/CanLinConfig/ViewModels/ProfilesViewModel.cs`
+`GetByteValue()` now shifts the value left by the mask's LSB position before applying the mask.
+**Verified:** Manual UI testing.
 
 ---
 
@@ -293,7 +293,7 @@ Encrypt sensitive configuration data in NVM to prevent extraction via flash dump
 
 | Priority | Category | Items |
 |----------|----------|-------|
-| **P0 — Now** | Critical bugs | 1.1, 1.2, 1.3, 1.4, 1.5, 1.6 |
+| ~~**P0 — Now**~~ | ~~Critical bugs~~ | ~~1.1, 1.2, 1.3, 1.4, 1.5, 1.6~~ ALL FIXED |
 | **P1 — Next sprint** | Important issues | 2.1–2.9 |
 | **P2 — Near-term** | Robustness | 3.1–3.5 |
 | **P2 — Near-term** | Test coverage | 4.1, 4.2, 4.5 |

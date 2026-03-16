@@ -12,6 +12,7 @@ public partial class RoutingViewModel : ObservableObject
     private readonly MainViewModel _main;
     public ObservableCollection<RoutingRule> Rules { get; } = [];
     [ObservableProperty] private RoutingRule? _selectedRule;
+    [ObservableProperty] private ByteMapping? _selectedMapping;
 
     // Set by MainViewModel after querying firmware, falls back to expected constant
     public int FirmwareRuleSize { get; set; } = ProtocolConstants.ExpectedRoutingRuleSize;
@@ -47,10 +48,10 @@ public partial class RoutingViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void RemoveMapping(ByteMapping? mapping)
+    private void RemoveMapping()
     {
-        if (SelectedRule != null && mapping != null)
-            SelectedRule.Mappings.Remove(mapping);
+        if (SelectedRule != null && SelectedMapping != null)
+            SelectedRule.Mappings.Remove(SelectedMapping);
     }
 
     [ObservableProperty] private BitMapping? _selectedBitMapping;

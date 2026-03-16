@@ -274,9 +274,16 @@ public partial class ProfileParameterValue : ObservableObject
 
     public byte GetByteValue()
     {
+        int mask = Definition.Mask & 0xFF;
+        // Find LSB position of mask to shift value into correct bit position
+        int shift = 0;
+        if (mask != 0)
+            for (int m = mask; (m & 1) == 0; m >>= 1)
+                shift++;
+
         if (IsEnum && Definition.Options != null)
-            return (byte)(SelectedOptionIndex & (Definition.Mask & 0xFF));
-        return (byte)(Value & (Definition.Mask & 0xFF));
+            return (byte)((SelectedOptionIndex << shift) & mask);
+        return (byte)((Value << shift) & mask);
     }
 }
 
