@@ -32,7 +32,7 @@ CanLinBoard/
 │       ├── ViewModels/    ← MVVM view models (Main, CAN, LIN, Routing, Profiles, Diagnostics)
 │       ├── Views/         ← WPF XAML views
 │       └── Helpers/       ← CRC32, converters
-├── docs/                  ← implementation-plan.md, CanLinBoard.dbc
+├── docs/                  ← implementation-plan.md, ROADMAP.md, CHANGELOG.md, CanLinBoard.dbc
 ├── Datasheets/            ← hardware references (SJA1124.pdf)
 ├── Brief.txt              ← project specification
 └── CLAUDE.md

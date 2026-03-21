@@ -85,12 +85,12 @@ CanLinBoard/
 - Post-build Python script reads binary, computes CRC32, patches header fields to match bootloader's `app_validate()`
 
 **Milestones:**
-- [ ] M0.1: CMakeLists.txt compiles with Pico SDK + FreeRTOS (no errors, no warnings)
-- [ ] M0.2: can2040 submodule integrated and compiles as static library
-- [ ] M0.3: Custom linker script produces binary with `.app_header` at `0x10008000` (verified via map file)
-- [ ] M0.4: `patch_header.py` correctly patches CRC32/size/entry_point in output binary
-- [ ] M0.5: Binary flashes via 2350Bootloader and app_validate() passes
-- [ ] M0.6: FreeRTOS scheduler starts, idle task runs (verified via GPIO toggle or debugger)
+- [x] M0.1: CMakeLists.txt compiles with Pico SDK + FreeRTOS (no errors, no warnings)
+- [x] M0.2: can2040 submodule integrated and compiles as static library
+- [x] M0.3: Custom linker script produces binary with `.app_header` at `0x10008000` (verified via map file)
+- [x] M0.4: `patch_header.py` correctly patches CRC32/size/entry_point in output binary
+- [x] M0.5: Binary flashes via 2350Bootloader and app_validate() passes
+- [x] M0.6: FreeRTOS scheduler starts, idle task runs (verified via GPIO toggle or debugger)
 
 **Test Plan:**
 | Test ID | Test | Method | Pass Criteria |
@@ -126,11 +126,11 @@ src/hal/
 **SPI mutex:** Protects SJA1124 SPI bus from concurrent access by `lin_task` and `config_task`.
 
 **Milestones:**
-- [ ] M1.1: All GPIO pins initialize correctly (CAN EN/TERM, LIN control)
-- [ ] M1.2: SPI driver communicates with SJA1124 (read ID register returns valid silicon ID)
-- [ ] M1.3: Secondary flash erase/write/read cycle completes successfully
-- [ ] M1.4: 8 MHz clock output on GPIO 21 measured within +/-0.3% accuracy
-- [ ] M1.5: `hal_request_bootloader()` reboots into bootloader mode
+- [x] M1.1: All GPIO pins initialize correctly (CAN EN/TERM, LIN control)
+- [x] M1.2: SPI driver communicates with SJA1124 (read ID register returns valid silicon ID)
+- [x] M1.3: Secondary flash erase/write/read cycle completes successfully
+- [x] M1.4: 8 MHz clock output on GPIO 21 measured within +/-0.3% accuracy
+- [x] M1.5: `hal_request_bootloader()` reboots into bootloader mode
 
 **Test Plan:**
 | Test ID | Test | Method | Pass Criteria |
@@ -169,13 +169,13 @@ src/can/
 - Task notification from can2040 IRQ wakes `can_task` for <1 ms forwarding latency
 
 **Milestones:**
-- [ ] M2.1: CAN1 (PIO0) initializes at 500 kbps and receives frames
-- [ ] M2.2: CAN2 (PIO1) initializes at 500 kbps and receives frames
-- [ ] M2.3: Both CAN buses operate simultaneously without interference
-- [ ] M2.4: CAN TX works on both buses (frames visible on external analyzer)
-- [ ] M2.5: CAN2 runtime enable/disable works (transceiver + can2040 instance)
-- [ ] M2.6: Received frames arrive in `gateway_input_queue` within 1 ms of bus reception
-- [ ] M2.7: System stable under 100% CAN bus load for 60 seconds (no crash, ring buffer overflows counted)
+- [x] M2.1: CAN1 (PIO0) initializes at 500 kbps and receives frames
+- [x] M2.2: CAN2 (PIO1) initializes at 500 kbps and receives frames
+- [x] M2.3: Both CAN buses operate simultaneously without interference
+- [x] M2.4: CAN TX works on both buses (frames visible on external analyzer)
+- [x] M2.5: CAN2 runtime enable/disable works (transceiver + can2040 instance)
+- [x] M2.6: Received frames arrive in `gateway_input_queue` within 1 ms of bus reception
+- [x] M2.7: System stable under 100% CAN bus load for 60 seconds (no crash, ring buffer overflows counted)
 
 **Test Plan:**
 | Test ID | Test | Method | Pass Criteria |
@@ -221,15 +221,15 @@ src/lin/
 **LIN task:** Waits on INTN GPIO interrupt notification (5 ms timeout), processes SJA1124 interrupts, runs schedule tick.
 
 **Milestones:**
-- [ ] M3.1: SJA1124 register map header (`sja1124_regs.h`) complete and reviewed against datasheet
-- [ ] M3.2: SJA1124 PLL locks successfully with 8 MHz reference clock
-- [ ] M3.3: Single LIN channel configured as master, transmits a header (visible on oscilloscope)
-- [ ] M3.4: LIN frame TX with data bytes (master publish) works on at least one channel
-- [ ] M3.5: LIN frame RX via interrupt works (slave response received and read via SPI)
-- [ ] M3.6: All 4 LIN channels operational independently
-- [ ] M3.7: Master scheduling engine runs a 3-entry schedule table at correct intervals
-- [ ] M3.8: LIN error detection works (timeout, checksum error reported in LES register)
-- [ ] M3.9: Channel mode switching (master↔slave) works at runtime
+- [x] M3.1: SJA1124 register map header (`sja1124_regs.h`) complete and reviewed against datasheet
+- [x] M3.2: SJA1124 PLL locks successfully with 8 MHz reference clock
+- [x] M3.3: Single LIN channel configured as master, transmits a header (visible on oscilloscope)
+- [x] M3.4: LIN frame TX with data bytes (master publish) works on at least one channel
+- [x] M3.5: LIN frame RX via interrupt works (slave response received and read via SPI)
+- [x] M3.6: All 4 LIN channels operational independently
+- [x] M3.7: Master scheduling engine runs a 3-entry schedule table at correct intervals
+- [x] M3.8: LIN error detection works (timeout, checksum error reported in LES register)
+- [x] M3.9: Channel mode switching (master↔slave) works at runtime
 
 **Test Plan:**
 | Test ID | Test | Method | Pass Criteria |
@@ -273,14 +273,14 @@ src/gateway/
 **Latency targets:** <2 ms CAN-to-CAN, <10 ms CAN-to-LIN.
 
 **Milestones:**
-- [ ] M4.1: Routing rule data structures defined and gateway_engine compiles
-- [ ] M4.2: CAN-to-CAN full passthrough works (CAN1→CAN2 and CAN2→CAN1)
-- [ ] M4.3: CAN-to-LIN routing works (CAN frame triggers LIN frame on correct channel)
-- [ ] M4.4: LIN-to-CAN routing works (received LIN frame forwarded as CAN frame)
-- [ ] M4.5: Byte-level mapping/transformation works (mask, shift, offset)
-- [ ] M4.6: ID translation works (source ID differs from destination ID)
-- [ ] M4.7: Multiple rules can match the same source frame (fan-out routing)
-- [ ] M4.8: CAN-to-CAN latency < 2 ms measured end-to-end
+- [x] M4.1: Routing rule data structures defined and gateway_engine compiles
+- [x] M4.2: CAN-to-CAN full passthrough works (CAN1→CAN2 and CAN2→CAN1)
+- [x] M4.3: CAN-to-LIN routing works (CAN frame triggers LIN frame on correct channel)
+- [x] M4.4: LIN-to-CAN routing works (received LIN frame forwarded as CAN frame)
+- [x] M4.5: Byte-level mapping/transformation works (mask, shift, offset)
+- [x] M4.6: ID translation works (source ID differs from destination ID)
+- [x] M4.7: Multiple rules can match the same source frame (fan-out routing)
+- [x] M4.8: CAN-to-CAN latency < 2 ms measured end-to-end
 
 **Test Plan:**
 | Test ID | Test | Method | Pass Criteria |
@@ -333,16 +333,16 @@ src/config/
 **Config task:** Receives filtered CAN frames from `config_rx_queue`, dispatches commands, applies changes to runtime state after SAVE.
 
 **Milestones:**
-- [ ] M5.1: `nvm_config_t` struct defined, `sizeof` < 4096 bytes
-- [ ] M5.2: Default config written to NVM on first boot (virgin flash)
-- [ ] M5.3: Config loads from NVM on subsequent boots with CRC validation
-- [ ] M5.4: CONNECT handshake (0x01) responds with firmware version via PCAN
-- [ ] M5.5: Single-parameter READ/WRITE works for all sections
-- [ ] M5.6: Bulk transfer works for routing table (write + CRC verification)
-- [ ] M5.7: SAVE_CONFIG persists to NVM, survives power cycle
-- [ ] M5.8: LOAD_DEFAULTS resets all parameters to factory values
-- [ ] M5.9: ENTER_BOOTLOADER reboots into bootloader
-- [ ] M5.10: Runtime config apply works (e.g., changing CAN bitrate takes effect immediately after SAVE)
+- [x] M5.1: `nvm_config_t` struct defined, `sizeof` < 4096 bytes
+- [x] M5.2: Default config written to NVM on first boot (virgin flash)
+- [x] M5.3: Config loads from NVM on subsequent boots with CRC validation
+- [x] M5.4: CONNECT handshake (0x01) responds with firmware version via PCAN
+- [x] M5.5: Single-parameter READ/WRITE works for all sections
+- [x] M5.6: Bulk transfer works for routing table (write + CRC verification)
+- [x] M5.7: SAVE_CONFIG persists to NVM, survives power cycle
+- [x] M5.8: LOAD_DEFAULTS resets all parameters to factory values
+- [x] M5.9: ENTER_BOOTLOADER reboots into bootloader
+- [x] M5.10: Runtime config apply works (e.g., changing CAN bitrate takes effect immediately after SAVE)
 
 **Test Plan:**
 | Test ID | Test | Method | Pass Criteria |
@@ -399,12 +399,12 @@ See `docs/CanLinBoard.dbc` for the full signal-level definitions.
 **Diag task:** Configurable interval (default 1000ms) — sends 4-frame heartbeat, updates system state every 10 cycles. Stack: 512 words.
 
 **Milestones:**
-- [ ] M6.1: Bus health struct populated with live RX/TX/error counts from CAN and LIN managers
-- [ ] M6.2: Diagnostic CAN message broadcasts at configured interval with correct byte layout
-- [ ] M6.3: Per-bus software watchdog fires timeout callback when no frames received within threshold
-- [ ] M6.4: Hardware watchdog kicks MCU reset if firmware hangs (verified with deliberate hang)
-- [ ] M6.5: Diagnostics configurable via config protocol (CAN ID, interval, bus selection)
-- [ ] M6.6: System runs stable for 1 hour under normal bus traffic with diagnostics active
+- [x] M6.1: Bus health struct populated with live RX/TX/error counts from CAN and LIN managers
+- [x] M6.2: Diagnostic CAN message broadcasts at configured interval with correct byte layout
+- [x] M6.3: Per-bus software watchdog fires timeout callback when no frames received within threshold
+- [x] M6.4: Hardware watchdog kicks MCU reset if firmware hangs (verified with deliberate hang)
+- [x] M6.5: Diagnostics configurable via config protocol (CAN ID, interval, bus selection)
+- [x] M6.6: System runs stable for 1 hour under normal bus traffic with diagnostics active
 
 **Test Plan:**
 | Test ID | Test | Method | Pass Criteria |
