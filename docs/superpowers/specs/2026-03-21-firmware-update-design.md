@@ -25,8 +25,9 @@ All bootloader protocol features except multi-device scan:
 
 | Control | Type | Description |
 |---------|------|-------------|
-| Firmware file | File picker + label | Shows path, version, size, CRC, signature status after selection |
+| Firmware file | File picker + label | Accepts `.bin` (single-bank) or `.dfw` (dual-bank container). Shows version, size, CRC, signature status |
 | HMAC key | File picker + hex text box toggle | "Browse..." button, manual hex entry fallback, "Remember path" checkbox |
+| Bootloader bitrate | ComboBox | 125k, 250k, 500k (default), 1M. Saved in settings. Used when connecting to bootloader |
 | Target bank | Read-only label | Auto-populated after bootloader connect: "Bank A -> B" or "B -> A" |
 | Delta update | Checkbox (default on) | When checked, compares sector CRCs and only flashes changed sectors |
 
@@ -128,9 +129,72 @@ public static class AdapterFactory
 
 ### Bitrate Handling
 
-- Bootloader always runs at 500 kbps (index 2 for PCAN/Vector/Kvaser, S6 for SLCAN)
-- After reset-to-app, config tool reconnects at its original bitrate (which may differ)
-- If the user changes the bootloader's bitrate config param, the lib adapter auto-scales timeouts but the CAN bus bitrate itself doesn't change mid-session
+The bootloader's CAN bitrate is independently configurable (stored in bootloader config sector, not app NVM). It defaults to 500 kbps but may have been changed by the user. The app firmware cannot query this value.
+
+**Primary:** User selects the bootloader bitrate in the dialog dropdown (default 500 kbps, persisted in `firmware-update.json`). The lib adapter initializes at this bitrate.
+
+**Fallback (auto-scan):** If `Connect()` fails after the full 10-attempt retry loop at the selected bitrate, the service offers "Connection failed at 500 kbps. Try other bitrates?". If accepted, it cycles through the remaining standard bitrates (250k, 1M, 125k) with 3 connect attempts each:
+
+```
+ 1. Try user-selected bitrate (10 attempts, 200ms apart)
+ 2. If failed → prompt user: "Try other bitrates?"
+ 3. If accepted → try remaining bitrates in order: [500k, 250k, 1M, 125k] minus already-tried
+    - 3 attempts per bitrate, adapter.Shutdown() + re-Initialize() between each
+ 4. If a bitrate succeeds → log "Connected at {bitrate}" and continue
+    - Update the saved setting so next time it defaults to the working bitrate
+ 5. If all fail → "Device not responding at any standard bitrate"
+```
+
+**After reset-to-app:** Config tool reconnects at its original app bitrate (from `MainViewModel.SelectedBitrate`), which is independent of the bootloader bitrate.
+
+## Firmware File Formats
+
+The dialog accepts two firmware file formats:
+
+### `.bin` — Single-Bank Binary
+
+Standard firmware binary with 256-byte app header prepended by the build system. Parsed by `AppHeader.TryParse()`. When using `.bin`, the service queries the active bank, selects the inactive bank as target, and flashes the same binary to it.
+
+### `.dfw` — Dual-Bank Firmware Container
+
+Container format that bundles both Bank A and Bank B images in a single file. Parsed by `DfwContainer.TryParse()`.
+
+```
+Offset  Size    Field
+0x00    4       Magic (0x44465701 = "DFW\x01")
+0x04    4       Format version (1)
+0x08    4       Bank A image size
+0x0C    4       Bank B image size
+0x10    ...     Bank A image (header + app data)
+...     ...     Bank B image (header + app data)
+```
+
+Validation:
+- Magic and format version must match
+- Total file size must equal 16 + bankASize + bankBSize
+- Both bank images must be individually valid (`AppHeader.IsValid`)
+- Bank A entry point must be in range 0x10008000–0x10207FFF
+- Bank B entry point must be in range 0x10208000–0x103FFFFF
+- Both banks must have the same firmware version
+
+When using `.dfw`, the service queries the active bank and flashes the **correct bank image** to the inactive bank (Bank A image to Bank A address, Bank B image to Bank B address). This ensures each bank gets a binary linked for its address range.
+
+### File Picker Filter
+
+```
+Firmware (*.dfw;*.bin)|*.dfw;*.bin|Dual-Bank (*.dfw)|*.dfw|Binary (*.bin)|*.bin|All files (*.*)|*.*
+```
+
+### UI Display
+
+- `.bin`: "v1.2.3 — 128,256 bytes, CRC 0xABCD1234, Signed/Unsigned"
+- `.dfw`: "Dual-bank v1.2.3 — Bank A (128,256 bytes) + Bank B (128,256 bytes)"
+
+### Source Files
+
+Both `AppHeader.cs` and `DfwContainer.cs` are copied from the bootloader programmer:
+- Source: `C:\Projects\Embedded\Bootloader\programmer\CanFlashProgrammer\Models\`
+- Change namespace from `CanFlashProgrammer.Models` to `CanLinConfig.Models`
 
 ## Flash Workflow (FirmwareUpdateService)
 
@@ -148,8 +212,10 @@ public class FirmwareUpdateService
 public record FlashOptions(
     string AdapterType,
     string ChannelName,
-    uint OriginalBitrate,
-    byte[] Firmware,          // Full binary (header + app data)
+    uint OriginalBitrate,     // Config tool's app bitrate (for reconnect)
+    uint BootloaderBitrate,   // Bootloader bitrate (default 500000)
+    byte[] Firmware,          // Full binary for .bin, or null if .dfw
+    DfwContainer? DfwFile,    // Parsed .dfw container, or null if .bin
     byte[]? HmacKey,          // 32-byte key, null if no auth
     bool DeltaUpdate,         // Try delta if possible
     bool WasConnected         // Whether config tool was connected before
@@ -178,8 +244,9 @@ All `BootloaderProtocol` methods are synchronous (blocking `Receive()` with time
 ### Sequence
 
 ```
- 1. CreateLibAdapter(adapterType, channelName)
+ 1. CreateLibAdapter(adapterType, channelName, bootloaderBitrate)
  2. Connect(retry loop, max 10 attempts, 200ms between)
+     - If all attempts fail → offer bitrate auto-scan (see Bitrate Handling)
      - If bootloader is in RECEIVING state → offer resume (see Resume section)
  3. If info.AuthRequired:
      a. If no key provided → throw (UI should have prevented this)
@@ -189,6 +256,12 @@ All `BootloaderProtocol` methods are synchronous (blocking `Receive()` with time
  5. Query active bank: ConfigRead(CfgParamActiveBank)
      - targetBank = opposite of active
      - targetAddress = targetBank == 0 ? BankABase : BankBBase
+     - Select firmware bytes:
+       .dfw: use DfwFile.BankAFirmware or DfwFile.BankBFirmware matching targetBank
+       .bin: use Firmware (same binary for either bank)
+     - If bank query fails (device doesn't support dual-bank):
+       .dfw: fall back to Bank A image at BankABase
+       .bin: use BankABase (AppBase)
  6. If deltaUpdate:
      a. GetSectorCrcs(targetAddress) — returns null if unsupported
      b. ComputeLocalSectorCrcs(firmware)
@@ -263,7 +336,8 @@ Key file path persisted in `%AppData%/CanLinConfig/firmware-update.json`:
 ```json
 {
     "lastKeyFilePath": "C:\\Keys\\canlinboard.key",
-    "lastFirmwarePath": "C:\\Firmware\\canlinboard.bin"
+    "lastFirmwarePath": "C:\\Firmware\\canlinboard.bin",
+    "bootloaderBitrate": 500000
 }
 ```
 
@@ -295,7 +369,8 @@ If the binary already has a signature, it is flashed as-is (the bootloader valid
 
 | File | Purpose |
 |------|---------|
-| `software/CanLinConfig/Models/AppHeader.cs` | Firmware binary parser/validator. Source: `C:\Projects\Embedded\Bootloader\programmer\CanFlashProgrammer\Models\AppHeader.cs`. Change namespace from `CanFlashProgrammer.Models` to `CanLinConfig.Models`. Key APIs: `TryParse(string filePath)`, `TryParse(byte[])`, `SignFirmware(byte[], byte[])`, `IsValid`, `FullBinary`, `HasSignature`, `VersionString` |
+| `software/CanLinConfig/Models/AppHeader.cs` | Firmware binary parser/validator. Source: `C:\Projects\Embedded\Bootloader\programmer\CanFlashProgrammer\Models\AppHeader.cs`. Change namespace from `CanFlashProgrammer.Models` to `CanLinConfig.Models`. Key APIs: `TryParse(string)`, `TryParse(byte[])`, `SignFirmware(byte[], byte[])`, `IsValid`, `FullBinary`, `HasSignature`, `VersionString` |
+| `software/CanLinConfig/Models/DfwContainer.cs` | Dual-bank firmware container parser. Source: same directory as AppHeader.cs. Change namespace to `CanLinConfig.Models`. Key APIs: `TryParse(string)`, `TryParse(byte[])`, `Validate(byte[])`, `BankAFirmware`, `BankBFirmware`, `VersionString` |
 | `software/CanLinConfig/Services/FirmwareUpdateService.cs` | Orchestrates full flash workflow (connect → auth → erase → flash → verify → bank switch → reset) |
 | `software/CanLinConfig/Services/AdapterFactory.cs` | Maps config tool adapter type string to lib `ICanAdapter` instance |
 | `software/CanLinConfig/Services/FirmwareUpdateSettings.cs` | Loads/saves key path and firmware path from `%AppData%/CanLinConfig/firmware-update.json` |
