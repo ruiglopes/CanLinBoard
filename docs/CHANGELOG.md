@@ -4,6 +4,15 @@ All notable changes to the CAN/LIN Gateway Board project.
 
 ---
 
+## v0.2.1 — 2026-03-22
+
+Config thread safety fix (P1.1).
+
+### Fixed
+- **Config read across tasks without synchronization** — added FreeRTOS mutex with priority inheritance to protect `s_working_config`. All multi-byte writes (bitrate, CAN ID, interval, routing rules, LIN schedules) locked in CONFIG task. Reader tasks (DIAG, LIN, GATEWAY) lock and copy to locals before use. Refactored `send_heartbeat()` to take extracted values instead of raw config pointer. Verified on-target: Phase 5 (15/15), Phase 6 (14/14), 30s heartbeat sanity, concurrent write stress test.
+
+---
+
 ## v0.2.0 — 2026-03-22
 
 Firmware update via config tool — flash firmware over CAN using the bootloader protocol.
