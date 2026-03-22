@@ -192,6 +192,9 @@ public class FirmwareUpdateService
                         if (changedSectors.Count == 0)
                         {
                             Log?.Invoke("Firmware is identical — no update needed");
+                            Log?.Invoke("Resetting to application...");
+                            progress.Report(new(FlashStage.Resetting, "Resetting to application...", 0, 0, true));
+                            _protocol!.Reset(ResetModeApp);
                             progress.Report(new(FlashStage.Complete, "Firmware already up to date", 0, 0, false));
                             return;
                         }

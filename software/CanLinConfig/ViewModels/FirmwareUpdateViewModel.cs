@@ -50,8 +50,6 @@ public partial class FirmwareUpdateViewModel : ObservableObject
 
         // Restore settings
         SelectedBitrate = _settings.BootloaderBitrate.ToString();
-        if (_settings.LastFirmwarePath != null && File.Exists(_settings.LastFirmwarePath))
-            LoadFirmwareFile(_settings.LastFirmwarePath);
         if (_settings.LastKeyFilePath != null && File.Exists(_settings.LastKeyFilePath))
             LoadKeyFile(_settings.LastKeyFilePath);
 
@@ -114,8 +112,7 @@ public partial class FirmwareUpdateViewModel : ObservableObject
                 FirmwareValid = true;
             }
 
-            _settings.LastFirmwarePath = path;
-            _settings.Save();
+            // Don't persist firmware path — user should select each time
         }
         catch (Exception ex)
         {
