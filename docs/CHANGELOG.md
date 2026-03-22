@@ -4,9 +4,21 @@ All notable changes to the CAN/LIN Gateway Board project.
 
 ---
 
+## v0.2.2 — 2026-03-22
+
+All P1 bugs resolved.
+
+### Fixed
+- **Config tool file I/O error handling** — `SaveToFile`/`LoadFromFile` wrapped in try/catch with MessageBox error dialogs for malformed JSON, permission errors, and other exceptions
+- **Profile storage path** — moved from `AppDomain.BaseDirectory` to `%AppData%/CanLinConfig/Profiles/`. Bundled profiles auto-copied on first run. Fixes `UnauthorizedAccessException` when installed under Program Files
+- **BulkWriteAsync retry** — retry `Send()` return value now checked; returns failure status instead of silently losing data (which caused confusing CRC mismatch at BULK_END)
+- **Heartbeat timing drift** — `vTaskDelay` replaced with `vTaskDelayUntil` in diagnostics task (fixed 15ms drift from 1015ms to exact 1000ms)
+
+---
+
 ## v0.2.1 — 2026-03-22
 
-Config thread safety fix (P1.1).
+Config thread safety fix.
 
 ### Fixed
 - **Config read across tasks without synchronization** — added FreeRTOS mutex with priority inheritance to protect `s_working_config`. All multi-byte writes (bitrate, CAN ID, interval, routing rules, LIN schedules) locked in CONFIG task. Reader tasks (DIAG, LIN, GATEWAY) lock and copy to locals before use. Refactored `send_heartbeat()` to take extracted values instead of raw config pointer. Verified on-target: Phase 5 (15/15), Phase 6 (14/14), 30s heartbeat sanity, concurrent write stress test.

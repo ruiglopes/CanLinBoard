@@ -4,24 +4,7 @@ Outstanding work organized by priority. For completed work history, see [CHANGEL
 
 ---
 
-## P1 — Known Bugs (fix next)
-
-### 1. Config tool: file I/O has no error handling
-**File:** `software/CanLinConfig/Services/ConfigFileService.cs`
-`LoadFromFile` / `SaveToFile` have no try/catch. Malformed JSON or permission errors crash the application.
-
-### 2. Config tool: profile storage path not user-writable
-**File:** `software/CanLinConfig/ViewModels/ProfilesViewModel.cs`
-Profiles stored in `AppDomain.CurrentDomain.BaseDirectory`. If installed under Program Files, writes throw `UnauthorizedAccessException`.
-**Fix:** Use `%AppData%/CanLinConfig/Profiles/`.
-
-### 3. Config tool: `BulkWriteAsync` retry ignores second send result
-**File:** `software/CanLinConfig/Protocol/ConfigProtocol.cs`
-If the first `Send()` fails, it retries once without checking the retry return value. Silent data loss leads to CRC mismatch at BULK_END.
-
----
-
-## P2 — Robustness
+## P2 — Robustness (now highest priority)
 
 ### 5. Firmware input validation gaps
 Bitrate validation is done (CAN 10K–1M, LIN 1K–20K). Remaining:
