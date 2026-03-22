@@ -263,6 +263,40 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Enters bootloader mode and fully tears down the config tool adapter.
+    /// Called by FirmwareUpdateService before starting flash.
+    /// </summary>
+    public async Task DisconnectForFirmwareUpdate()
+    {
+        if (_protocol != null)
+        {
+            try
+            {
+                await _protocol.EnterBootloaderAsync();
+            }
+            catch { }
+        }
+        Disconnect();
+    }
+
+    /// <summary>
+    /// Reconnects the config tool adapter after firmware update.
+    /// Returns true if reconnect succeeded.
+    /// </summary>
+    public async Task<bool> ReconnectAfterFirmwareUpdate()
+    {
+        try
+        {
+            await ConnectAsync();
+            return IsConnected;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     [RelayCommand]
     private void SaveConfigFile()
     {
