@@ -353,6 +353,16 @@ public class FirmwareUpdateService
         _adapter.Initialize(channelIndex, bitrateIndex);
         _protocol = new BootloaderProtocol(_adapter);
 
+        // Send reboot-to-bootloader on 0x700 in case the board is running app firmware.
+        // The app firmware's check_bootloader_cmd() handles this and writes SRAM magic + reboots.
+        // If the board is already in bootloader mode, this is harmless (bootloader ignores unknown state).
+        if (!options.WasConnected)
+        {
+            Log?.Invoke("Sending reboot-to-bootloader command...");
+            SendRebootToBootloader();
+            Thread.Sleep(500); // Wait for reboot
+        }
+
         progress.Report(new(FlashStage.Connecting, $"Connecting at {options.BootloaderBitrate / 1000} kbps...", 0, 0, true));
 
         // Try primary bitrate
@@ -385,6 +395,20 @@ public class FirmwareUpdateService
         }
 
         throw new TimeoutException("Device not responding at any standard bitrate — check CAN connection and power");
+    }
+
+    /// <summary>
+    /// Sends CMD_RESET (0x05) with MODE_BOOTLOADER (0x01) and unlock key on CAN ID 0x700.
+    /// The app firmware's check_bootloader_cmd() handles this: writes SRAM magic and reboots.
+    /// </summary>
+    private void SendRebootToBootloader()
+    {
+        var frame = new byte[] {
+            CmdReset,            // 0x05
+            ResetModeBootloader, // 0x01
+            0xFE, 0xCA, 0x07, 0xB0  // RESET_UNLOCK_KEY 0xB007CAFE little-endian
+        };
+        _adapter!.Send(CanIdCmdDefault, frame); // 0x700
     }
 
     private BootloaderInfo? TryConnect(int maxAttempts, CancellationToken ct)
