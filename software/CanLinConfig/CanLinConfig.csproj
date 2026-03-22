@@ -15,8 +15,14 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="MahApps.Metro" Version="2.4.10" />
-    <PackageReference Include="Peak.PCANBasic.NET" Version="4.9.0.942" />
+    <PackageReference Include="Peak.PCANBasic.NET" Version="4.10.1.968" />
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\lib\CanBus.Abstractions\CanBus.Abstractions.csproj" />
+    <ProjectReference Include="..\..\lib\CanBus.Adapters\CanBus.Adapters.csproj" />
+    <ProjectReference Include="..\..\lib\CanBus.Protocol\CanBus.Protocol.csproj" />
   </ItemGroup>
 
   <ItemGroup>
