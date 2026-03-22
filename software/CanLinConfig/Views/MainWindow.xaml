@@ -79,8 +79,6 @@
                         IsEnabled="{Binding IsConnected}" />
                 <Button Content="Load Defaults" Command="{Binding LoadDefaultsCommand}" Width="100" Margin="5,0"
                         IsEnabled="{Binding IsConnected}" />
-                <Button Content="Enter Bootloader" Command="{Binding EnterBootloaderCommand}" Width="120" Margin="5,0"
-                        IsEnabled="{Binding IsConnected}" />
                 <Button Content="Update Firmware" Command="{Binding UpdateFirmwareCommand}" Width="120" Margin="5,0" />
                 <Separator Margin="10,0" />
                 <Button Content="Export File" Command="{Binding SaveConfigFileCommand}" Width="90" Margin="5,0" />
