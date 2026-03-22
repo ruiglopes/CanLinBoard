@@ -6,18 +6,7 @@ Outstanding work organized by priority. For completed work history, see [CHANGEL
 
 ## P2 — Robustness (now highest priority)
 
-### 5. Firmware input validation gaps
-Bitrate validation is done (CAN 10K–1M, LIN 1K–20K). Remaining:
-- Validate CAN ID range (0x000–0x7FF) for diagnostic config
-- Prevent disabling CAN1 via config protocol (would brick config access)
-- Bounds-check `bus` parameter in `can_manager_transmit()` and `can_manager_get_stats()`
-
-### 6. Config tool input validation
-- Validate bitrate values in CAN config UI (reject 0, out-of-range)
-- Validate CAN ID range in diagnostic config (0x000–0x7FF, warn on protocol ID conflicts)
-- Validate DLC and byte index ranges in routing rule editor
-
-### 7. CAN error recovery
+### 5. CAN error recovery
 - Detect CAN bus-off state and attempt automatic recovery after a delay
 - Report bus-off events via diagnostic CAN message
 
