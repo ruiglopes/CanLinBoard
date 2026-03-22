@@ -6,12 +6,22 @@ namespace CanLinConfig.ViewModels;
 
 public partial class CanBusViewModel : ObservableObject
 {
-    [ObservableProperty] private uint _bitrate = 500000;
+    private uint _bitrate = 500000;
     [ObservableProperty] private bool _termination;
     [ObservableProperty] private bool _enabled;
     public int BusIndex { get; }
     public string BusName => BusIndex == 0 ? "CAN1" : "CAN2";
     public bool CanDisable => BusIndex == 1; // CAN1 always on
+
+    public uint Bitrate
+    {
+        get => _bitrate;
+        set
+        {
+            if (value >= 10000 && value <= 1000000)
+                SetProperty(ref _bitrate, value);
+        }
+    }
 
     public CanBusViewModel(int busIndex) { BusIndex = busIndex; }
 }

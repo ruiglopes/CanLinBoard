@@ -13,8 +13,14 @@ public partial class RoutingRule : ObservableObject
     [ObservableProperty] private uint _srcMask = 0x7FF;
     [ObservableProperty] private byte _dstBus;
     [ObservableProperty] private uint _dstId = 0xFFFFFFFF; // passthrough
-    [ObservableProperty] private byte _dstDlc; // 0=auto
     [ObservableProperty] private bool _enabled = true;
+
+    private byte _dstDlc; // 0=auto
+    public byte DstDlc
+    {
+        get => _dstDlc;
+        set => SetProperty(ref _dstDlc, value <= 8 ? value : (byte)8);
+    }
     public ObservableCollection<ByteMapping> Mappings { get; } = [];
 
     // Software-only fields (not serialized to firmware)

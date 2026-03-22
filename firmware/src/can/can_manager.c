@@ -231,6 +231,10 @@ bool can_manager_transmit(can_bus_id_t bus, const can_frame_t *frame)
 
 void can_manager_get_stats(can_bus_id_t bus, can_bus_stats_t *stats)
 {
+    if (bus > CAN_BUS_2) {
+        memset(stats, 0, sizeof(*stats));
+        return;
+    }
     *stats = can_stats[bus];
 }
 

@@ -388,6 +388,11 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
             s_working_config.can[sub].termination = data[4] ? 1 : 0;
             break;
         case 2: /* enabled */
+            if (sub == 0 && data[4] == 0) {
+                /* Prevent disabling CAN1 — it carries the config protocol */
+                send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+                return;
+            }
             s_working_config.can[sub].enabled = data[4] ? 1 : 0;
             break;
         default:
@@ -424,13 +429,16 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
 
     case CFG_SECTION_DIAG:
         switch (param) {
-        case 0: /* can_id */
+        case 0: /* can_id */ {
             if (dlc < 7) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            uint32_t new_id = (uint32_t)data[4] |
+                              ((uint32_t)data[5] << 8) |
+                              ((uint32_t)data[6] << 16);
+            if (new_id > 0x7FF) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
             config_handler_lock();
-            s_working_config.diag.can_id = (uint32_t)data[4] |
-                                            ((uint32_t)data[5] << 8) |
-                                            ((uint32_t)data[6] << 16);
+            s_working_config.diag.can_id = new_id;
             config_handler_unlock();
+        }
             break;
         case 1: /* interval_ms */
             if (dlc < 6) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
