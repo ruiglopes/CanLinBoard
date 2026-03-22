@@ -4,6 +4,21 @@ All notable changes to the CAN/LIN Gateway Board project.
 
 ---
 
+## v0.2.3 — 2026-03-22
+
+Input validation (P2.5, P2.6).
+
+### Fixed
+- **Firmware: diag CAN ID validation** — WRITE_PARAM rejects values > 0x7FF
+- **Firmware: CAN1 disable protection** — WRITE_PARAM rejects disabling CAN1 (would brick config access)
+- **Firmware: can_manager_get_stats bounds check** — returns zeroed stats for invalid bus index
+- **Config tool: CAN bitrate validation** — UI rejects values outside 10K–1M
+- **Config tool: diag CAN ID validation** — UI rejects values > 0x7FF
+- **Config tool: DLC clamping** — routing rule DLC clamped to 0–8
+- **Config tool: byte index clamping** — byte mapping src/dst indices clamped to 0–7
+
+---
+
 ## v0.2.2 — 2026-03-22
 
 All P1 bugs resolved.
