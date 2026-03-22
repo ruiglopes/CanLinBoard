@@ -298,6 +298,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private void UpdateFirmware()
+    {
+        var window = new Views.FirmwareUpdateWindow(this);
+        window.Owner = Application.Current.MainWindow;
+        window.ShowDialog();
+    }
+
+    [RelayCommand]
     private void SaveConfigFile()
     {
         if (ConfigFileService.SaveToFile(this))
