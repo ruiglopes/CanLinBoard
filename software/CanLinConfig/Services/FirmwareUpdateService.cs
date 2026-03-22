@@ -99,38 +99,44 @@ public class FirmwareUpdateService
                     Log?.Invoke($"Bus diagnostics: parseErrors={diag.Value.ParseErrors}, rxOverflows={diag.Value.RxOverflows}, txRetries={diag.Value.TxRetries}");
             }
 
-            // Step 4: Query active bank
+            // Step 4: Query active bank and select target
             ct.ThrowIfCancellationRequested();
             progress.Report(new(FlashStage.QueryingBank, "Querying active bank...", 0, 0, true));
             byte targetBank;
             uint targetAddress;
             byte[] firmware;
             bool dualBankSupported = true;
+            bool isDfw = options.DfwFile != null;
 
-            try
+            if (isDfw)
             {
-                var (bankStatus, bankValue) = _protocol!.ConfigRead(CfgParamActiveBank);
-                byte activeBank = bankValue[0];
-                targetBank = (byte)(activeBank == 0 ? 1 : 0);
-                targetAddress = targetBank == 0 ? BankABase : BankBBase;
-                Log?.Invoke($"Active bank: {(activeBank == 0 ? "A" : "B")}, targeting Bank {(targetBank == 0 ? "A" : "B")} at 0x{targetAddress:X8}");
-            }
-            catch
-            {
-                Log?.Invoke("Dual-bank not supported, using Bank A");
-                dualBankSupported = false;
-                targetBank = 0;
-                targetAddress = AppBase;
-            }
-
-            // Select firmware bytes
-            if (options.DfwFile != null)
-            {
-                firmware = targetBank == 0 ? options.DfwFile.BankAFirmware : options.DfwFile.BankBFirmware;
+                // .dfw: each bank image is linked for its address range — flash the inactive bank
+                try
+                {
+                    var (bankStatus, bankValue) = _protocol!.ConfigRead(CfgParamActiveBank);
+                    byte activeBank = bankValue[0];
+                    targetBank = (byte)(activeBank == 0 ? 1 : 0);
+                    targetAddress = targetBank == 0 ? BankABase : BankBBase;
+                    firmware = targetBank == 0 ? options.DfwFile!.BankAFirmware : options.DfwFile!.BankBFirmware;
+                    Log?.Invoke($"Dual-bank: active=Bank {(activeBank == 0 ? "A" : "B")}, flashing Bank {(targetBank == 0 ? "A" : "B")} at 0x{targetAddress:X8}");
+                }
+                catch
+                {
+                    Log?.Invoke("Dual-bank query failed, falling back to Bank A image");
+                    dualBankSupported = false;
+                    targetBank = 0;
+                    targetAddress = AppBase;
+                    firmware = options.DfwFile!.BankAFirmware;
+                }
             }
             else
             {
+                // .bin: single binary linked for Bank A (0x10008000) — always target Bank A
+                targetBank = 0;
+                targetAddress = AppBase;
                 firmware = options.Firmware!;
+                dualBankSupported = false; // No bank switch needed for single-bank .bin
+                Log?.Invoke($"Single-bank .bin: flashing Bank A at 0x{targetAddress:X8}");
             }
 
             // Sign if needed
