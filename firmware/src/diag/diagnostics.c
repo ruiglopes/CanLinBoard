@@ -272,6 +272,7 @@ void diagnostics_task(void *params)
     s_sys_state = SYS_STATE_OK;
     uint32_t uptime_s = 0;
     uint32_t state_check_counter = 0;
+    TickType_t last_wake = xTaskGetTickCount();
 
     for (;;) {
         /* Copy diag config under lock */
@@ -285,6 +286,7 @@ void diagnostics_task(void *params)
 
         if (!hb_enabled || hb_interval == 0) {
             vTaskDelay(pdMS_TO_TICKS(1000));
+            last_wake = xTaskGetTickCount(); /* re-sync after disabled period */
             state_check_counter++;
             if (state_check_counter >= 10) {
                 state_check_counter = 0;
@@ -294,7 +296,7 @@ void diagnostics_task(void *params)
             continue;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(hb_interval));
+        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(hb_interval));
         uptime_s += (hb_interval + 500) / 1000;  /* approximate */
 
         can_bus_id_t tx_bus = (hb_bus == 0) ? CAN_BUS_1 : CAN_BUS_2;
