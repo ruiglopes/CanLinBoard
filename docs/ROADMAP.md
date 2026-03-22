@@ -116,15 +116,7 @@ The bootloader supports `can_id_mode` config. Firmware's `check_bootloader_cmd()
 ### 19. CAN "bridge all" mode
 One-button mode that mirrors all CAN1 traffic to CAN2 and vice versa without individual routing rules. Useful for initial setup, debugging, and simple passthrough.
 
-### 20. Firmware update via config tool
-Flash new firmware over CAN, leveraging the 2350Bootloader.
-- Firmware update dialog with file picker for `.bin` files
-- Validate binary (app header magic, CRC32, size limits)
-- Reboot to bootloader (reuse `RebootToBootloaderAsync`)
-- Implement bootloader CAN flash protocol (erase, write pages, verify)
-- Progress bar, error handling with retry/abort
-
-### 21. Config tool UI improvements
+### 20. Config tool UI improvements
 - **Logging:** File-based logging (Serilog) for adapter errors, protocol traces, CRC mismatches
 - **Bulk transfer progress:** Progress bar for large transfers (2KB+ routing rules)
 - **Busy state:** Disable buttons during async ops, add spinner, prevent double-clicks
@@ -133,29 +125,29 @@ Flash new firmware over CAN, leveraging the 2350Bootloader.
 - **Frame monitor auto-scroll:** Add auto-scroll toggle to diagnostics frame log
 - **Undo/redo:** Allow undoing config changes before writing to device
 
-### 22. Hardware setup guide
+### 21. Hardware setup guide
 Wiring, CAN termination, LIN connections, power supply requirements.
 
 ---
 
 ## P4 — Future Features
 
-### 23. CAN1 runtime bitrate change
+### 22. CAN1 runtime bitrate change
 CAN1 bitrate only takes effect at boot. Requires stop/restart sequence, TX drain, and config tool reconnect at new bitrate. Risk: wrong bitrate makes device unreachable until reboot.
 
-### 24. Data logging to secondary flash
+### 23. Data logging to secondary flash
 Secondary flash (16 MB) has ample space beyond 12 KB NVM. Ring-buffer logger for timestamped CAN/LIN frames with configurable filters, start/stop via config protocol, and bulk readback.
 
-### 25. Advanced gateway features
+### 24. Advanced gateway features
 - **Conditional routing** — route based on data content (byte value thresholds)
 - **Frame rate limiting** — per-rule forwarding rate limits to prevent bus flooding
 - **J1939 / ISO-TP support** — multi-frame protocol for larger payloads
 - **Per-rule statistics** — match count, last match timestamp, error count per routing rule
 
-### 26. Multi-device management
+### 25. Multi-device management
 - **Device serial number** — expose RP2350 unique chip ID via config protocol
 - **Full device profiles** — save/restore complete device configurations (all CAN, LIN, routing, diag settings) as named config-tool profiles
 
-### 27. Security hardening
+### 26. Security hardening
 - **Config protocol authentication** — challenge-response handshake before write operations
 - **NVM config encryption** — encrypt sensitive data to prevent extraction via flash dumps

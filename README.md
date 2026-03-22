@@ -61,6 +61,15 @@ Firmware and Windows configuration tool for a custom CAN/LIN gateway board based
 - Runtime config apply — changes take effect immediately after save
 - Bootloader entry via config protocol (with unlock key security)
 
+### Firmware Update (Config Tool)
+- Flash firmware over CAN via the 2350Bootloader protocol
+- Supports `.bin` (single-bank) and `.dfw` (dual-bank container) file formats
+- HMAC-SHA256 authentication with key file or hex input
+- Delta updates — compares sector CRCs, only flashes changed sectors
+- Transfer resume for interrupted flashes
+- Dual-bank A/B flashing with automatic bank switch (`.dfw`)
+- Bitrate auto-scan if bootloader is at a non-default bitrate
+
 ### Device Profiles (Config Tool)
 - Predefined profiles for specific LIN devices (Bosch WDA wiper, Pierburg CWA400 pump)
 - Profiles translate device parameters into LIN schedules + routing rules
@@ -122,7 +131,7 @@ SECONDARY FLASH (2 MB via QMI CS1):
 | SLCAN | Full | System.IO.Ports |
 | Kvaser | Untested | canlib32.dll |
 
-**UI:** CAN Config, LIN Config, Gateway Routing, Device Profiles, Diagnostics Settings, Live Diagnostics tabs. Bottom bar with Read All / Write All / Save NVM / Load Defaults / Enter Bootloader.
+**UI:** CAN Config, LIN Config, Gateway Routing, Device Profiles, Diagnostics Settings, Live Diagnostics tabs. Bottom bar with Read All / Write All / Save NVM / Load Defaults / Update Firmware.
 
 ## Building
 
@@ -178,13 +187,17 @@ CanLinBoard/
 │   ├── linker/                Linker scripts
 │   ├── tools/                 patch_header.py
 │   └── tests/                 Per-phase test firmware + host scripts
+├── lib/                       Bootloader protocol libraries (git subtree)
+│   ├── CanBus.Abstractions/   Interfaces, constants, models
+│   ├── CanBus.Adapters/       CAN adapter implementations (PCAN, Vector, Kvaser, SLCAN)
+│   └── CanBus.Protocol/       BootloaderProtocol flash workflow
 ├── software/                  Windows config tool (.NET 8, WPF)
 │   ├── CanLinConfig/
-│   │   ├── Adapters/          CAN adapter implementations
+│   │   ├── Adapters/          CAN adapter implementations (config protocol)
 │   │   ├── Protocol/          Config protocol + constants
-│   │   ├── Models/            Data models
+│   │   ├── Models/            Data models, AppHeader, DfwContainer
 │   │   ├── Profiles/Devices/  Device profile JSON files
-│   │   ├── Services/          Config file I/O
+│   │   ├── Services/          Config file I/O, firmware update service
 │   │   ├── ViewModels/        MVVM view models
 │   │   └── Views/             WPF XAML views
 │   └── CanLinConfig.sln

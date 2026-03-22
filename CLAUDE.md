@@ -20,16 +20,20 @@ CanLinBoard/
 │   ├── tools/             ← patch_header.py and build utilities
 │   └── tests/             ← per-phase test firmware and host scripts
 │       └── TEST_GUIDE.md  ← firmware test guide (phases 0-6)
+├── lib/                   ← Bootloader protocol libraries (git subtree from 2350Bootloader)
+│   ├── CanBus.Abstractions/  ← Interfaces, constants, models
+│   ├── CanBus.Adapters/      ← CAN adapter implementations (bootloader protocol)
+│   └── CanBus.Protocol/      ← BootloaderProtocol flash workflow
 ├── software/              ← Windows config tool (.NET 8, WPF)
 │   ├── CanLinConfig.sln
 │   ├── TEST_GUIDE.md      ← config tool test guide
 │   └── CanLinConfig/
 │       ├── Adapters/      ← CAN adapter implementations (PCAN, Vector XL, Kvaser, SLCAN)
 │       ├── Protocol/      ← ConfigProtocol.cs, ProtocolConstants.cs
-│       ├── Models/        ← RoutingRule, LinScheduleEntry, ByteMapping
+│       ├── Models/        ← RoutingRule, LinScheduleEntry, ByteMapping, AppHeader, DfwContainer
 │       ├── Profiles/Devices/  ← WdaWiper.json, Cwa400Pump.json
-│       ├── Services/      ← ConfigFileService (JSON export/import)
-│       ├── ViewModels/    ← MVVM view models (Main, CAN, LIN, Routing, Profiles, Diagnostics)
+│       ├── Services/      ← ConfigFileService, FirmwareUpdateService, AdapterFactory
+│       ├── ViewModels/    ← MVVM view models (Main, CAN, LIN, Routing, Profiles, Diagnostics, FirmwareUpdate)
 │       ├── Views/         ← WPF XAML views
 │       └── Helpers/       ← CRC32, converters
 ├── docs/                  ← implementation-plan.md, ROADMAP.md, CHANGELOG.md, CanLinBoard.dbc

@@ -4,6 +4,38 @@ All notable changes to the CAN/LIN Gateway Board project.
 
 ---
 
+## v0.2.0 — 2026-03-22
+
+Firmware update via config tool — flash firmware over CAN using the bootloader protocol.
+
+### Added
+- **Firmware Update dialog** — modal window launched from "Update Firmware" button in bottom bar
+- **Bootloader protocol integration** — uses `lib/CanBus.*` libraries (git subtree from 2350Bootloader)
+- **File format support** — `.bin` (single-bank, always Bank A) and `.dfw` (dual-bank container with per-bank images)
+- **HMAC authentication** — key file or hex input, in-memory signing of unsigned binaries
+- **Delta updates** — sector CRC comparison, only flashes changed sectors
+- **Transfer resume** — detects interrupted transfers, resumes from last page boundary
+- **Bitrate auto-scan** — user-selectable bootloader bitrate with fallback scan through 125k/250k/500k/1M
+- **Dual-bank flashing** — auto-detects active bank, flashes inactive bank, switches on success (`.dfw` only)
+- **Progress reporting** — per-stage progress bar, byte/sector counters, timestamped log
+- **Device identity** — logs UID, flash JEDEC IDs, CAN bus diagnostics on connect
+- **Adapter handoff** — disconnects config tool adapter, uses lib adapter for bootloader, reconnects after
+- **Settings persistence** — HMAC key path and bootloader bitrate saved to `%AppData%/CanLinConfig/`
+
+### Changed
+- Removed "Enter Bootloader" button from bottom bar (firmware updater handles this internally)
+- Upgraded `Peak.PCANBasic.NET` NuGet from 4.9.0.942 to 4.10.1.968
+
+### New Files
+- `Models/AppHeader.cs`, `Models/DfwContainer.cs` — firmware binary parsers
+- `Services/AdapterFactory.cs` — maps config tool adapters to bootloader lib adapters
+- `Services/FirmwareUpdateService.cs` — flash workflow orchestrator
+- `Services/FirmwareUpdateSettings.cs` — persisted dialog preferences
+- `ViewModels/FirmwareUpdateViewModel.cs` — dialog MVVM logic
+- `Views/FirmwareUpdateWindow.xaml` — dialog UI
+
+---
+
 ## v0.1.2 — 2026-03-16
 
 P1 important issue fixes — robustness and error recovery.
