@@ -15,6 +15,7 @@
 #include "hardware/watchdog.h"
 #include "FreeRTOS.h"
 #include "queue.h"
+#include "semphr.h"
 
 #include <string.h>
 
@@ -23,6 +24,7 @@
 static nvm_config_t s_working_config;
 static QueueHandle_t s_config_rx_queue;
 static QueueHandle_t s_can_tx_queue;
+static SemaphoreHandle_t s_config_mutex;
 
 /* Bulk transfer state */
 static bool     s_bulk_active;
@@ -723,6 +725,8 @@ static void dispatch_command(const gateway_frame_t *gf)
 
 void config_handler_init(QueueHandle_t config_rx_queue, QueueHandle_t can_tx_queue)
 {
+    s_config_mutex = xSemaphoreCreateMutex();
+    configASSERT(s_config_mutex);
     s_config_rx_queue = config_rx_queue;
     s_can_tx_queue    = can_tx_queue;
     s_bulk_active     = false;
@@ -746,4 +750,14 @@ void config_handler_task(void *params)
 const nvm_config_t *config_handler_get_config(void)
 {
     return &s_working_config;
+}
+
+void config_handler_lock(void)
+{
+    xSemaphoreTake(s_config_mutex, portMAX_DELAY);
+}
+
+void config_handler_unlock(void)
+{
+    xSemaphoreGive(s_config_mutex);
 }
