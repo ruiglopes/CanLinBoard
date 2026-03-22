@@ -15,6 +15,7 @@
 #include "hardware/watchdog.h"
 #include "FreeRTOS.h"
 #include "queue.h"
+#include "semphr.h"
 
 #include <string.h>
 
@@ -23,6 +24,7 @@
 static nvm_config_t s_working_config;
 static QueueHandle_t s_config_rx_queue;
 static QueueHandle_t s_can_tx_queue;
+static SemaphoreHandle_t s_config_mutex;
 
 /* Bulk transfer state */
 static bool     s_bulk_active;
@@ -137,7 +139,9 @@ static void handle_save(void)
 
 static void handle_defaults(void)
 {
+    config_handler_lock();
     nvm_config_defaults(&s_working_config);
+    config_handler_unlock();
     send_response(CFG_CMD_DEFAULTS, CFG_STATUS_OK, NULL, 0);
 }
 
@@ -375,7 +379,9 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
                           ((uint32_t)data[5] << 8) |
                           ((uint32_t)data[6] << 16);
             if (br < 10000 || br > 1000000) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            config_handler_lock();
             s_working_config.can[sub].bitrate = br;
+            config_handler_unlock();
             break;
         }
         case 1: /* termination */
@@ -405,7 +411,9 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
                            ((uint32_t)data[5] << 8) |
                            ((uint32_t)data[6] << 16);
             if (lbr < 1000 || lbr > 20000) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            config_handler_lock();
             s_working_config.lin[sub].baudrate = lbr;
+            config_handler_unlock();
             break;
         }
         default:
@@ -418,13 +426,17 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
         switch (param) {
         case 0: /* can_id */
             if (dlc < 7) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            config_handler_lock();
             s_working_config.diag.can_id = (uint32_t)data[4] |
                                             ((uint32_t)data[5] << 8) |
                                             ((uint32_t)data[6] << 16);
+            config_handler_unlock();
             break;
         case 1: /* interval_ms */
             if (dlc < 6) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            config_handler_lock();
             s_working_config.diag.interval_ms = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+            config_handler_unlock();
             break;
         case 2: /* enabled */
             s_working_config.diag.enabled = data[4] ? 1 : 0;
@@ -434,11 +446,15 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
             break;
         case 4: /* can_watchdog_ms */
             if (dlc < 6) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            config_handler_lock();
             s_working_config.diag.can_watchdog_ms = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+            config_handler_unlock();
             break;
         case 5: /* lin_watchdog_ms */
             if (dlc < 6) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            config_handler_lock();
             s_working_config.diag.lin_watchdog_ms = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+            config_handler_unlock();
             break;
         case 6: /* bulk_tx_retries */
             s_working_config.diag.bulk_tx_retries = data[4];
@@ -554,9 +570,11 @@ static void handle_bulk_end(const uint8_t *data, uint8_t dlc)
     case CFG_SECTION_ROUTING: {
         uint8_t count = (uint8_t)(s_bulk_received / sizeof(routing_rule_t));
         if (count > MAX_ROUTING_RULES) count = MAX_ROUTING_RULES;
+        config_handler_lock();
         s_working_config.routing_rule_count = count;
         memcpy(s_working_config.routing_rules, s_bulk_buffer,
                count * sizeof(routing_rule_t));
+        config_handler_unlock();
         break;
     }
     case CFG_SECTION_LIN: {
@@ -569,10 +587,12 @@ static void handle_bulk_end(const uint8_t *data, uint8_t dlc)
             return;
         }
         /* Zero first to clear stale entries from previous config */
+        config_handler_lock();
         memset(&s_working_config.lin[s_bulk_sub].schedule, 0,
                sizeof(lin_schedule_table_t));
         memcpy(&s_working_config.lin[s_bulk_sub].schedule, s_bulk_buffer,
                s_bulk_received);
+        config_handler_unlock();
         break;
     }
     default:
@@ -723,6 +743,8 @@ static void dispatch_command(const gateway_frame_t *gf)
 
 void config_handler_init(QueueHandle_t config_rx_queue, QueueHandle_t can_tx_queue)
 {
+    s_config_mutex = xSemaphoreCreateMutex();
+    configASSERT(s_config_mutex);
     s_config_rx_queue = config_rx_queue;
     s_can_tx_queue    = can_tx_queue;
     s_bulk_active     = false;
@@ -746,4 +768,14 @@ void config_handler_task(void *params)
 const nvm_config_t *config_handler_get_config(void)
 {
     return &s_working_config;
+}
+
+void config_handler_lock(void)
+{
+    xSemaphoreTake(s_config_mutex, portMAX_DELAY);
+}
+
+void config_handler_unlock(void)
+{
+    xSemaphoreGive(s_config_mutex);
 }

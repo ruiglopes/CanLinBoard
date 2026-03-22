@@ -298,11 +298,15 @@ void lin_task_entry(void *params)
         for (int ch = 0; ch < LIN_CHANNEL_COUNT; ch++) {
             if (cfg->lin[ch].enabled) {
                 lin_channel_config_t lc;
+
+                config_handler_lock();
                 lc.enabled  = true;
                 lc.mode     = (lin_mode_t)cfg->lin[ch].mode;
                 lc.baudrate = cfg->lin[ch].baudrate;
                 memcpy(&lc.schedule, &cfg->lin[ch].schedule,
                        sizeof(lin_schedule_table_t));
+                config_handler_unlock();
+
                 lin_manager_start_channel(ch, &lc);
                 bus_watchdog_set_enabled((bus_id_t)(BUS_LIN1 + ch), true);
             }
@@ -340,11 +344,15 @@ void lin_task_entry(void *params)
             for (int ch = 0; ch < LIN_CHANNEL_COUNT; ch++) {
                 if (cfg->lin[ch].enabled) {
                     lin_channel_config_t lc;
+
+                    config_handler_lock();
                     lc.enabled  = true;
                     lc.mode     = (lin_mode_t)cfg->lin[ch].mode;
                     lc.baudrate = cfg->lin[ch].baudrate;
                     memcpy(&lc.schedule, &cfg->lin[ch].schedule,
                            sizeof(lin_schedule_table_t));
+                    config_handler_unlock();
+
                     lin_manager_start_channel(ch, &lc);
                 }
             }

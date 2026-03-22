@@ -76,11 +76,8 @@ static uint8_t get_bus_active_mask(void)
     return bus_mask;
 }
 
-static void send_heartbeat(const nvm_config_t *cfg, uint32_t uptime_s)
+static void send_heartbeat(uint32_t base_id, can_bus_id_t tx_bus, uint32_t uptime_s)
 {
-    uint32_t base_id = cfg->diag.can_id;
-    can_bus_id_t tx_bus = (cfg->diag.bus == 0) ? CAN_BUS_1 : CAN_BUS_2;
-
     /* ---- Frame 1: System status (8B) ---- */
     {
         can_frame_t hb = {0};
@@ -202,8 +199,16 @@ void diagnostics_task(void *params)
 
     const nvm_config_t *cfg = config_handler_get_config();
 
+    /* Copy startup config under lock */
+    config_handler_lock();
+    uint16_t init_can_wd_ms = cfg->diag.can_watchdog_ms;
+    uint16_t init_lin_wd_ms = cfg->diag.lin_watchdog_ms;
+    uint32_t init_can_id    = cfg->diag.can_id;
+    uint8_t  init_bus       = cfg->diag.bus;
+    config_handler_unlock();
+
     /* Initialize bus watchdogs with NVM config timeouts */
-    bus_watchdog_init(cfg->diag.can_watchdog_ms, cfg->diag.lin_watchdog_ms);
+    bus_watchdog_init(init_can_wd_ms, init_lin_wd_ms);
 
     /* Enable watchdogs for active buses */
     {
@@ -226,9 +231,9 @@ void diagnostics_task(void *params)
 
     /* One-shot: version frame */
     {
-        can_bus_id_t tx_bus = (cfg->diag.bus == 0) ? CAN_BUS_1 : CAN_BUS_2;
+        can_bus_id_t tx_bus = (init_bus == 0) ? CAN_BUS_1 : CAN_BUS_2;
         can_frame_t diag = {0};
-        diag.id = cfg->diag.can_id;
+        diag.id = init_can_id;
         diag.dlc = 6;
         diag.data[0] = FW_VERSION_MAJOR;
         diag.data[1] = FW_VERSION_MINOR;
@@ -245,9 +250,9 @@ void diagnostics_task(void *params)
     {
         const crash_data_t *cd = fault_handler_get_crash_data();
         if (cd->magic == CRASH_DATA_MAGIC) {
-            can_bus_id_t tx_bus = (cfg->diag.bus == 0) ? CAN_BUS_1 : CAN_BUS_2;
+            can_bus_id_t tx_bus = (init_bus == 0) ? CAN_BUS_1 : CAN_BUS_2;
             can_frame_t crash = {0};
-            crash.id = cfg->diag.can_id + 3;
+            crash.id = init_can_id + 3;
             crash.dlc = 8;
             crash.data[0] = (uint8_t)cd->fault_type;
             crash.data[1] = (uint8_t)(cd->pc >> 24);
@@ -269,10 +274,16 @@ void diagnostics_task(void *params)
     uint32_t state_check_counter = 0;
 
     for (;;) {
-        /* Re-read config each iteration (may change at runtime) */
+        /* Copy diag config under lock */
+        config_handler_lock();
         cfg = config_handler_get_config();
+        uint32_t hb_can_id   = cfg->diag.can_id;
+        uint16_t hb_interval = cfg->diag.interval_ms;
+        uint8_t  hb_bus      = cfg->diag.bus;
+        bool     hb_enabled  = cfg->diag.enabled;
+        config_handler_unlock();
 
-        if (!cfg->diag.enabled || cfg->diag.interval_ms == 0) {
+        if (!hb_enabled || hb_interval == 0) {
             vTaskDelay(pdMS_TO_TICKS(1000));
             state_check_counter++;
             if (state_check_counter >= 10) {
@@ -283,10 +294,11 @@ void diagnostics_task(void *params)
             continue;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(cfg->diag.interval_ms));
-        uptime_s += (cfg->diag.interval_ms + 500) / 1000;  /* approximate */
+        vTaskDelay(pdMS_TO_TICKS(hb_interval));
+        uptime_s += (hb_interval + 500) / 1000;  /* approximate */
 
-        send_heartbeat(cfg, uptime_s);
+        can_bus_id_t tx_bus = (hb_bus == 0) ? CAN_BUS_1 : CAN_BUS_2;
+        send_heartbeat(hb_can_id, tx_bus, uptime_s);
 
         state_check_counter++;
         if (state_check_counter >= 10) {

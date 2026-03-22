@@ -44,12 +44,18 @@ static void gateway_task(void *params)
     (void)params;
     gateway_engine_init(g_can_tx_queue, g_lin_tx_queue);
 
-    /* Apply routing rules from NVM config */
+    /* Apply routing rules from NVM config (locked per-rule to avoid large stack allocation) */
     {
+        config_handler_lock();
         const nvm_config_t *cfg = config_handler_get_config();
-        for (int i = 0; i < cfg->routing_rule_count && i < MAX_ROUTING_RULES; i++) {
+        uint8_t rule_count = cfg->routing_rule_count;
+        config_handler_unlock();
+
+        for (int i = 0; i < rule_count && i < MAX_ROUTING_RULES; i++) {
             routing_rule_t rule;
+            config_handler_lock();
             memcpy(&rule, &cfg->routing_rules[i], sizeof(routing_rule_t));
+            config_handler_unlock();
             gateway_engine_add_rule(&rule);
         }
     }
