@@ -318,10 +318,30 @@ public partial class ProfilesViewModel : ObservableObject
         ProfileApplied = false;
     }
 
+    private static string GetProfilesDirectory()
+    {
+        // Use %AppData% for user-writable path; fall back to app directory for bundled profiles
+        var appDataDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "CanLinConfig", "Profiles");
+
+        // On first run, copy bundled profiles from app directory to AppData
+        var bundledDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Profiles", "Devices");
+        if (Directory.Exists(bundledDir) && !Directory.Exists(appDataDir))
+        {
+            Directory.CreateDirectory(appDataDir);
+            foreach (var file in Directory.GetFiles(bundledDir, "*.json"))
+                File.Copy(file, Path.Combine(appDataDir, Path.GetFileName(file)), overwrite: false);
+        }
+
+        Directory.CreateDirectory(appDataDir);
+        return appDataDir;
+    }
+
     private void LoadProfiles()
     {
         Profiles.Clear();
-        var devicesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Profiles", "Devices");
+        var devicesDir = GetProfilesDirectory();
         if (!Directory.Exists(devicesDir)) return;
 
         foreach (var file in Directory.GetFiles(devicesDir, "*.json"))
@@ -546,7 +566,7 @@ public partial class ProfilesViewModel : ObservableObject
         if (result != MessageBoxResult.Yes) return;
 
         // Remove file
-        var devicesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Profiles", "Devices");
+        var devicesDir = GetProfilesDirectory();
         var filePath = Path.Combine(devicesDir, $"{SelectedProfile.Id}.json");
         if (File.Exists(filePath))
             File.Delete(filePath);
@@ -559,7 +579,7 @@ public partial class ProfilesViewModel : ObservableObject
 
     private static void SaveProfileToFile(ProfileDefinition profile)
     {
-        var devicesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Profiles", "Devices");
+        var devicesDir = GetProfilesDirectory();
         Directory.CreateDirectory(devicesDir);
         var filePath = Path.Combine(devicesDir, $"{profile.Id}.json");
         var json = JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = true });
@@ -602,7 +622,7 @@ public partial class ProfilesViewModel : ObservableObject
             }
 
             // Copy file to Profiles/Devices/
-            var devicesDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Profiles", "Devices");
+            var devicesDir = GetProfilesDirectory();
             Directory.CreateDirectory(devicesDir);
             var destPath = Path.Combine(devicesDir, $"{profile.Id}.json");
             File.Copy(dlg.FileName, destPath, overwrite: true);

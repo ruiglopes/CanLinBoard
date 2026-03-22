@@ -247,7 +247,8 @@ public class ConfigProtocol : IDisposable
             if (!_adapter.Send(frame))
             {
                 await Task.Delay(5);
-                _adapter.Send(frame); // retry once
+                if (!_adapter.Send(frame))
+                    return new StatusResult(false, 0xFE); // TX failed after retry
             }
             await Task.Delay(2); // pace to avoid TX overflow
         }
