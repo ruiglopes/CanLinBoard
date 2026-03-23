@@ -7,6 +7,7 @@
 #include "gateway/gateway_engine.h"
 #include "diag/diagnostics.h"
 #include "diag/bus_watchdog.h"
+#include "monitor/bus_monitor.h"
 #include "hal/hal_gpio.h"
 #include "util/crc32.h"
 #include "board_config.h"
@@ -349,6 +350,30 @@ static void handle_read_param(const uint8_t *data, uint8_t dlc)
         }
         break;
 
+    case CFG_SECTION_MONITOR:
+        switch (param) {
+        case MONITOR_PARAM_ENABLE:
+            payload[3] = bus_monitor_get_enabled() ? 1 : 0;
+            plen = 4;
+            break;
+        case MONITOR_PARAM_BUS_MASK:
+            payload[3] = bus_monitor_get_bus_mask();
+            plen = 4;
+            break;
+        case MONITOR_PARAM_FILTER_MODE:
+            payload[3] = bus_monitor_get_filter_mode();
+            plen = 4;
+            break;
+        case MONITOR_PARAM_DROP_COUNT:
+            payload[3] = bus_monitor_get_drop_count();
+            plen = 4;
+            break;
+        default:
+            send_response(CFG_CMD_READ_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        break;
+
     default:
         send_response(CFG_CMD_READ_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
         return;
@@ -492,6 +517,28 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
         }
         break;
 
+    case CFG_SECTION_MONITOR:
+        if (dlc < 5) {
+            send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        switch (param) {
+        case MONITOR_PARAM_ENABLE:
+            bus_monitor_set_enabled(data[4] != 0);
+            break;
+        case MONITOR_PARAM_BUS_MASK:
+            bus_monitor_set_bus_mask(data[4]);
+            break;
+        case MONITOR_PARAM_FILTER_MODE:
+            bus_monitor_set_filter_mode(data[4]);
+            break;
+        default:
+            send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_OK, NULL, 0);
+        return;
+
     default:
         send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
         return;
@@ -522,6 +569,12 @@ static void handle_bulk_start(const uint8_t *data, uint8_t dlc)
     }
 
     if (s_bulk_expected_size > sizeof(s_bulk_buffer)) {
+        send_response(CFG_CMD_BULK_START, CFG_STATUS_INVALID_PARAM, NULL, 0);
+        return;
+    }
+
+    if (s_bulk_section == CFG_SECTION_MONITOR &&
+        s_bulk_expected_size > MONITOR_MAX_FILTER_IDS * sizeof(uint32_t)) {
         send_response(CFG_CMD_BULK_START, CFG_STATUS_INVALID_PARAM, NULL, 0);
         return;
     }
@@ -601,6 +654,15 @@ static void handle_bulk_end(const uint8_t *data, uint8_t dlc)
         memcpy(&s_working_config.lin[s_bulk_sub].schedule, s_bulk_buffer,
                s_bulk_received);
         config_handler_unlock();
+        break;
+    }
+    case CFG_SECTION_MONITOR:
+    {
+        /* Bulk data is an array of uint32_t IDs */
+        uint8_t count = s_bulk_received / 4;
+        if (count > MONITOR_MAX_FILTER_IDS)
+            count = MONITOR_MAX_FILTER_IDS;
+        bus_monitor_set_filter_ids((const uint32_t *)s_bulk_buffer, count);
         break;
     }
     default:
