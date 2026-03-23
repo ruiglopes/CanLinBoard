@@ -32,6 +32,9 @@ public class ProjectManifest
 
     [JsonPropertyName("bus_monitor")]
     public ProjectBusMonitor BusMonitor { get; set; } = new();
+
+    [JsonPropertyName("instruments")]
+    public List<WidgetLayout> Instruments { get; set; } = [];
 }
 
 public class ProjectConnection

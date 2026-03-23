@@ -612,6 +612,61 @@ Included in the test suite. LDF-specific tests:
 
 ---
 
+## Instrument Panel Tests (Plan 7 — No Hardware Required)
+
+### Automated Unit Tests
+
+| Test Class | Count | What it covers |
+|------------|-------|----------------|
+| InstrumentPanelViewModelTests | 7 | Add/remove widget, duplicate prevention, signal routing, normalized value, layout round-trip |
+
+### Instrument Panel Manual Tests
+
+#### INS-1: Add signal to instrument panel
+
+1. Go to Bus Monitor tab, use simulated traffic or live connection
+2. Load a DBC file, wait for signals to appear in Signal panel
+3. Right-click a signal → "Add to Instrument Panel"
+4. Switch to Instruments tab (bottom section) → widget appears
+
+#### INS-2: Widget types
+
+1. Add a signal to instrument panel
+2. Right-click the widget → "Change Type"
+3. Cycles through: Numeric → Bar → Gauge → Boolean → Enum
+4. Each type renders correctly with live updating values
+
+#### INS-3: Remove widget
+
+1. Right-click a widget → "Remove"
+2. Widget disappears from panel
+
+#### INS-4: Multiple widgets
+
+1. Add 3-4 different signals to instrument panel
+2. Widgets arrange in a WrapPanel (flow layout)
+3. All update independently with live values
+
+#### INS-5: Instrument layout in project
+
+1. Set up several instrument widgets
+2. File > Save Project
+3. Close and reopen project
+4. Instrument panel restored with same widgets and types
+
+### Instrument Panel Test Checklist
+
+| # | Test | Hardware | Status |
+|---|------|----------|--------|
+| — | Unit tests (7 instrument-specific) | None | |
+| INS-1 | Add signal to instrument panel | None | |
+| INS-2 | Widget types cycle | None | |
+| INS-3 | Remove widget | None | |
+| INS-4 | Multiple widgets | None | |
+| INS-5 | Layout in project save/load | None | |
+
+---
+
 ## Known Limitations
 
 | Item | Detail |

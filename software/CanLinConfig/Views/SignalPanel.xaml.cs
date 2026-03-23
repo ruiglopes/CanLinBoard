@@ -17,6 +17,15 @@ public partial class SignalPanel : UserControl
                 vm.AddToGraphCommand.Execute(entry);
         };
         menu.Items.Add(addToGraph);
+
+        var addToInstrument = new MenuItem { Header = "Add to Instrument Panel" };
+        addToInstrument.Click += (_, _) =>
+        {
+            if (DataContext is SignalPanelViewModel vm && SignalGrid.SelectedItem is SignalEntry entry)
+                vm.AddToInstrumentPanelCommand.Execute(entry);
+        };
+        menu.Items.Add(addToInstrument);
+
         SignalGrid.ContextMenu = menu;
     }
 }

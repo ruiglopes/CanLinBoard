@@ -53,7 +53,14 @@
             <GridSplitter Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
             <local:SignalPanel Grid.Row="0" Grid.Column="2" DataContext="{Binding Signals}"/>
             <GridSplitter Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-            <local:GraphPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" DataContext="{Binding Graph}"/>
+            <TabControl Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                <TabItem Header="Graph">
+                    <local:GraphPanel DataContext="{Binding Graph}"/>
+                </TabItem>
+                <TabItem Header="Instruments">
+                    <local:InstrumentPanel DataContext="{Binding Instruments}"/>
+                </TabItem>
+            </TabControl>
         </Grid>
     </Grid>
 </UserControl>

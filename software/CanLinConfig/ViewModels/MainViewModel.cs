@@ -393,6 +393,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _currentProject = _projectService.Open(path);
             var state = _projectService.ToState(_currentProject);
             ApplyState(state);
+            BusMonitor.Instruments.FromLayouts(_currentProject.Manifest.Instruments);
 
             _appSettings.LastProjectPath = path;
             _appSettings.AddRecentProject(path);
@@ -456,6 +457,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var state = CaptureCurrentState();
             state.ProjectName = _currentProject!.Manifest.Name;
             _currentProject = _projectService.CreateFromState(state);
+            _currentProject.Manifest.Instruments = BusMonitor.Instruments.ToLayouts().ToList();
             _projectService.Save(_currentProject, filePath);
 
             _appSettings.LastProjectPath = filePath;
@@ -485,6 +487,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         _projectService.CloseProject();
         _currentProject = null;
+        BusMonitor.Instruments.ClearAllCommand.Execute(null);
         UpdateWindowTitle();
     }
 

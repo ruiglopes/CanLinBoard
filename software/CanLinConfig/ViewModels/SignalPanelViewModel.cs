@@ -12,6 +12,7 @@ public partial class SignalPanelViewModel : ObservableObject
     public ObservableCollection<SignalEntry> Signals { get; } = [];
 
     public event EventHandler<SignalEntry>? AddToGraphRequested;
+    public event EventHandler<SignalEntry>? AddToInstrumentPanelRequested;
 
     public void UpdateSignals(IReadOnlyList<SignalValue> values)
     {
@@ -36,6 +37,13 @@ public partial class SignalPanelViewModel : ObservableObject
     {
         if (entry != null)
             AddToGraphRequested?.Invoke(this, entry);
+    }
+
+    [RelayCommand]
+    private void AddToInstrumentPanel(SignalEntry? entry)
+    {
+        if (entry != null)
+            AddToInstrumentPanelRequested?.Invoke(this, entry);
     }
 
     [RelayCommand]

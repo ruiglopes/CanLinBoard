@@ -18,6 +18,7 @@ public partial class BusMonitorViewModel : ObservableObject
     public TracePanelViewModel Trace { get; }
     public SignalPanelViewModel Signals { get; }
     public GraphPanelViewModel Graph { get; }
+    public InstrumentPanelViewModel Instruments { get; }
 
     [ObservableProperty] private string _can1DbPath = "(none)";
     [ObservableProperty] private string _can2DbPath = "(none)";
@@ -34,10 +35,12 @@ public partial class BusMonitorViewModel : ObservableObject
         Trace = new TracePanelViewModel();
         Signals = new SignalPanelViewModel();
         Graph = new GraphPanelViewModel();
+        Instruments = new InstrumentPanelViewModel();
 
         _busDataService.FrameReceived += OnFrameReceived;
         _busDataService.SignalsDecoded += OnSignalsDecoded;
         Signals.AddToGraphRequested += OnAddToGraph;
+        Signals.AddToInstrumentPanelRequested += OnAddToInstrumentPanel;
     }
 
     private void OnFrameReceived(object? sender, BusFrame frame)
@@ -52,12 +55,18 @@ public partial class BusMonitorViewModel : ObservableObject
         {
             Signals.UpdateSignals(signals);
             Graph.OnSignalValues(signals);
+            Instruments.OnSignalValues(signals);
         });
     }
 
     private void OnAddToGraph(object? sender, SignalEntry entry)
     {
         Graph.AddSignal(entry.MessageKey, entry.Name, entry.Unit);
+    }
+
+    private void OnAddToInstrumentPanel(object? sender, SignalEntry entry)
+    {
+        Instruments.AddWidget(entry.MessageKey, entry.Name, entry.Unit);
     }
 
     [RelayCommand]
