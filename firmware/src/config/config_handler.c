@@ -444,6 +444,48 @@ static void handle_read_param(const uint8_t *data, uint8_t dlc)
             plen = 5;
             break;
         }
+        case LOG_PARAM_TRIGGER_BUS:
+            payload[3] = flash_logger_get_trigger_bus();
+            plen = 4;
+            break;
+        case LOG_PARAM_TRIGGER_ID: {
+            uint32_t tid = flash_logger_get_trigger_id();
+            if (sub == 0) {
+                payload[3] = (uint8_t)(tid);
+                payload[4] = (uint8_t)(tid >> 8);
+            } else {
+                payload[3] = (uint8_t)(tid >> 16);
+                payload[4] = (uint8_t)(tid >> 24);
+            }
+            plen = 5;
+            break;
+        }
+        case LOG_PARAM_TRIGGER_BYTE:
+            payload[3] = flash_logger_get_trigger_byte();
+            plen = 4;
+            break;
+        case LOG_PARAM_TRIGGER_OP:
+            payload[3] = flash_logger_get_trigger_op();
+            plen = 4;
+            break;
+        case LOG_PARAM_TRIGGER_VALUE:
+            payload[3] = flash_logger_get_trigger_value();
+            plen = 4;
+            break;
+        case LOG_PARAM_PRE_TRIG_KB: {
+            uint16_t pre = flash_logger_get_pre_trigger_kb();
+            payload[3] = (uint8_t)(pre);
+            payload[4] = (uint8_t)(pre >> 8);
+            plen = 5;
+            break;
+        }
+        case LOG_PARAM_POST_TRIG_KB: {
+            uint16_t post = flash_logger_get_post_trigger_kb();
+            payload[3] = (uint8_t)(post);
+            payload[4] = (uint8_t)(post >> 8);
+            plen = 5;
+            break;
+        }
         default:
             send_response(CFG_CMD_READ_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
             return;
@@ -632,8 +674,41 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
                 flash_logger_start();
             } else if (data[4] == 0) {
                 flash_logger_stop();
+            } else if (data[4] == 2) {
+                flash_logger_arm();
             } else if (data[4] == 0xFF) {
                 flash_logger_erase_all();
+            }
+            break;
+        case LOG_PARAM_TRIGGER_BUS:
+            flash_logger_set_trigger_bus(data[4]);
+            break;
+        case LOG_PARAM_TRIGGER_ID:
+            if (dlc >= 8) {
+                uint32_t tid = (uint32_t)data[4] | ((uint32_t)data[5] << 8)
+                             | ((uint32_t)data[6] << 16) | ((uint32_t)data[7] << 24);
+                flash_logger_set_trigger_id(tid);
+            }
+            break;
+        case LOG_PARAM_TRIGGER_BYTE:
+            flash_logger_set_trigger_byte(data[4]);
+            break;
+        case LOG_PARAM_TRIGGER_OP:
+            flash_logger_set_trigger_op(data[4]);
+            break;
+        case LOG_PARAM_TRIGGER_VALUE:
+            flash_logger_set_trigger_value(data[4]);
+            break;
+        case LOG_PARAM_PRE_TRIG_KB:
+            if (dlc >= 6) {
+                uint16_t kb = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+                flash_logger_set_pre_trigger_kb(kb);
+            }
+            break;
+        case LOG_PARAM_POST_TRIG_KB:
+            if (dlc >= 6) {
+                uint16_t kb = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+                flash_logger_set_post_trigger_kb(kb);
             }
             break;
         default:
