@@ -243,11 +243,330 @@ Standard adapter — all tests above apply.
 
 ---
 
+---
+
+## Bus Monitor Tests (Plan 1 — No Hardware Required)
+
+### Automated Unit Tests
+
+```bash
+cd software
+dotnet test CanLinConfig.Tests -v normal
+```
+
+**Expected: 28 tests passing**
+
+| Test Class | Count | What it covers |
+|------------|-------|----------------|
+| SignalExtractorTests | 9 | Intel/Motorola byte order, signed/unsigned, factor/offset, nibble, boolean |
+| DatabaseManagerTests | 6 | DBC load, signal cache, message name lookup, frame decoding, remove |
+| BusDataServiceTests | 6 | Frame events, signal decode events, CAN1 wrapping, history buffer, cap |
+| TracePanelViewModelTests | 4 | Add frame, max entries cap, pause, clear |
+| IntegrationTests | 2 | End-to-end pipeline: frame → trace + signals; unknown message handling |
+| UnitTest1 | 1 | Placeholder (template) |
+
+---
+
+### Bus Monitor UI Walkthrough (No Connection Needed)
+
+#### BM-1: Tab exists and layout is correct
+
+1. Launch config tool: `dotnet run --project CanLinConfig/CanLinConfig.csproj`
+2. Confirm tab bar shows: CAN | LIN | Routing | Diagnostics Settings | **Bus Monitor** | Live Diagnostics | Profiles
+3. Click "Bus Monitor"
+4. Verify layout:
+
+| Area | Expected |
+|------|----------|
+| Top bar | CAN1 DB: (none) [...] [X] — CAN2 DB: (none) [...] [X] |
+| Top-left panel | Trace: empty DataGrid (Time, Bus, ID, DLC, Data, Message) |
+| Top-right panel | Signal: empty DataGrid (Signal, Value, Unit, Raw, Min, Max, Bus, Last Update) |
+| Bottom panel | Graph: ScottPlot chart with Pause/Clear/Window toolbar |
+| Splitters | Vertical between trace/signals, horizontal above graph — both draggable |
+
+#### BM-2: DBC file assignment
+
+1. Click "..." next to CAN1 DB
+2. Browse to any `.dbc` file (e.g., `docs/CanLinBoard.dbc`)
+3. Filename appears next to "CAN1 DB:"
+4. Click "X" → resets to "(none)"
+5. Repeat for CAN2 DB
+
+#### BM-3: Trace panel controls
+
+1. Click Pause → button text changes to "Resume"
+2. Click Resume → button text changes to "Pause"
+3. Click Clear (no crash when empty)
+4. Type "7F0" in ID filter field (no crash, field accepts input)
+5. Select "CAN1" from bus dropdown, then "All"
+
+#### BM-4: Signal panel context menu
+
+1. Right-click on the empty signal DataGrid
+2. Context menu appears with "Add to Graph"
+3. Click "Add to Graph" (no crash — nothing happens since no signal selected)
+
+#### BM-5: Graph panel controls
+
+1. Click Pause/Resume on graph toolbar
+2. Click Clear (no crash when empty)
+3. Change window dropdown: 10s → 30s → 60s → 5m (no crash)
+
+---
+
+### Bus Monitor Live Test (With CAN Adapter)
+
+#### BM-6: Live frame capture
+
+1. Connect to a CAN adapter at 500 kbps
+2. Switch to Bus Monitor tab
+3. If CAN traffic present: frames appear in Trace panel
+4. Verify columns: Time (HH:mm:ss.fff), Bus (CAN1), ID (0xNNN), DLC, Data (hex bytes)
+
+#### BM-7: DBC signal decoding
+
+1. While connected, assign `docs/CanLinBoard.dbc` as CAN1 DB
+2. Diagnostics heartbeat frames (0x7F0) should show message name in the "Message" column
+3. Signal panel populates with decoded values (uptime, system state, MCU temp, etc.)
+4. Values update in real-time as new frames arrive
+
+#### BM-8: Signal graphing
+
+1. In Signal panel, right-click a signal → "Add to Graph"
+2. Graph shows a time-series line
+3. Add a second signal — both visible with legend
+4. Pause graph → line stops, Resume → catches up
+5. Clear → graph empties
+
+#### BM-9: Filtering
+
+1. Type a hex ID in the trace ID filter (e.g., "7F1") → only matching frames shown
+2. Clear filter → all frames return
+3. Select bus filter "CAN1" → same effect (all traffic is CAN1 for now)
+
+#### BM-10: Pause/resume trace
+
+1. Pause trace → no new frames appear
+2. Resume → frames resume appearing
+
+---
+
+### Simulated Traffic Test (No Hardware At All)
+
+For testing the full pipeline without any CAN hardware, temporarily add a test frame injection button:
+
+1. Add to `BusMonitorViewModel.cs`:
+```csharp
+[RelayCommand]
+private void InjectTestFrame()
+{
+    byte[] data = [0xE8, 0x03, 200, 0x01, 0, 0, 0, 0];
+    var frame = new Adapters.CanFrame(256, data);
+    _busDataService.OnCanFrame(frame);
+}
+```
+
+2. Add to `BusMonitorView.xaml` in the database bar StackPanel:
+```xml
+<Button Content="Test Frame" Command="{Binding InjectTestFrameCommand}" Margin="15,0,0,0"/>
+```
+
+3. Launch the app, go to Bus Monitor tab
+4. Assign `software/CanLinConfig.Tests/TestData/test.dbc` as CAN1 DB
+5. Click "Test Frame" repeatedly
+
+| What to verify | Expected |
+|----------------|----------|
+| Trace entry | ID=0x100, Bus=CAN1, DLC=8, Message=EngineData |
+| EngineRPM signal | Value=250.0, Unit=rpm, Raw=1000 |
+| CoolantTemp signal | Value=160.0, Unit=C, Raw=200 |
+| EngineOn signal | Value=1.0, Raw=1 |
+| Graph (after adding a signal) | Points appearing on each click |
+
+**Remove the test button before merging to main.**
+
+---
+
+### Bus Monitor Test Checklist
+
+| # | Test | Hardware | Status |
+|---|------|----------|--------|
+| — | Unit tests (39 total) | None | |
+| BM-1 | Tab exists, layout correct | None | |
+| BM-2 | DBC file assignment | None | |
+| BM-3 | Trace panel controls | None | |
+| BM-4 | Signal panel context menu | None | |
+| BM-5 | Graph panel controls | None | |
+| BM-6 | Live frame capture | CAN adapter | |
+| BM-7 | DBC signal decoding | CAN adapter | |
+| BM-8 | Signal graphing | CAN adapter | |
+| BM-9 | ID/bus filtering | CAN adapter | |
+| BM-10 | Pause/resume trace | CAN adapter | |
+| SIM | Simulated traffic (inject button) | None | |
+
+---
+
+## Project System Tests (Plan 2 — No Hardware Required)
+
+### Automated Unit Tests
+
+Included in the 39-test suite above. Specific project system tests:
+
+| Test Class | Count | What it covers |
+|------------|-------|----------------|
+| AppSettingsTests | 3 | Load defaults, save/load round-trip, recent projects cap + dedup |
+| ProjectServiceTests | 5 | Create from state, save/open round-trip, DBC embedding, timestamp update, missing file error |
+| ProjectIntegrationTests | 3 | Full lifecycle (create/save/close/reopen + DBC intact), ZIP validity, AppSettings tracking |
+
+---
+
+### Project System UI Walkthrough (No Connection Needed)
+
+#### PJ-1: File menu exists
+
+1. Launch config tool
+2. Verify menu bar at the top: **File**
+3. Click File — dropdown shows: New Project, Open Project..., Save Project, Save Project As..., Close Project
+4. Verify keyboard shortcuts shown: Ctrl+N, Ctrl+O, Ctrl+S
+
+#### PJ-2: New Project
+
+1. File > New Project (or Ctrl+N)
+2. Window title changes to "CanLinConfig — New Project *" (asterisk = unsaved)
+3. Status bar shows "New project created"
+
+#### PJ-3: Save Project As
+
+1. After creating a new project, File > Save Project As...
+2. Save dialog appears with `.clpkg` filter
+3. Save as `test-project.clpkg`
+4. Window title changes to "CanLinConfig — New Project" (no asterisk)
+5. Status bar shows "Project saved as test-project.clpkg"
+6. Verify the `.clpkg` file exists on disk
+
+#### PJ-4: DBC embedding in project
+
+1. Go to Bus Monitor tab, assign a DBC file to CAN1
+2. File > Save Project (Ctrl+S)
+3. Close the app, relaunch
+4. File > Open Project... → open the saved `.clpkg`
+5. Bus Monitor tab should show the CAN1 DB filename restored
+6. The DBC is embedded inside the .clpkg — works even if the original DBC file is moved/deleted
+
+#### PJ-5: Open Project
+
+1. File > Open Project... (or Ctrl+O)
+2. Browse to a previously saved `.clpkg` file
+3. Window title shows project name
+4. Status bar shows "Opened project: ..."
+5. Connection settings (adapter, channel, bitrate) restored from project
+6. DBC assignments restored in Bus Monitor tab
+
+#### PJ-6: Close Project
+
+1. File > Close Project
+2. Window title resets to "CanLinConfig"
+3. DBC assignments cleared in Bus Monitor tab
+4. Status bar shows "Project closed"
+
+#### PJ-7: Unsaved changes prompt
+
+1. Create or open a project
+2. Change something (e.g., assign a DBC file)
+3. Window title should show "*" (dirty indicator)
+4. Try to close the window (X button) or File > Close Project
+5. Dialog appears: "Save changes to the current project?" with Yes / No / Cancel
+6. Click Cancel → window stays open, project stays loaded
+7. Click No → project closed without saving
+8. Click Yes → project saved, then closed
+
+#### PJ-8: Keyboard shortcuts
+
+1. Ctrl+N → New Project dialog/action
+2. Ctrl+O → Open Project file dialog
+3. Ctrl+S → Save Project (Save As if never saved)
+
+#### PJ-9: Auto-load last project (optional)
+
+To test this, manually edit `%AppData%/CanLinConfig/settings.json`:
+```json
+{
+  "load_last_project": true,
+  "last_project_path": "C:\\path\\to\\your\\project.clpkg"
+}
+```
+Relaunch the app — the project should auto-load on startup.
+
+#### PJ-10: .clpkg is a valid ZIP
+
+1. Rename a saved `.clpkg` file to `.zip`
+2. Open with Windows Explorer or 7-Zip
+3. Verify contents: `project.json` at root, `databases/` folder with DBC files (if any were assigned)
+4. Open `project.json` — verify it contains readable JSON with connection, databases, bus_monitor sections
+
+---
+
+### Project System Test Checklist
+
+| # | Test | Hardware | Status |
+|---|------|----------|--------|
+| — | Unit tests (11 project-specific) | None | |
+| PJ-1 | File menu exists | None | |
+| PJ-2 | New Project | None | |
+| PJ-3 | Save Project As | None | |
+| PJ-4 | DBC embedding in project | None | |
+| PJ-5 | Open Project | None | |
+| PJ-6 | Close Project | None | |
+| PJ-7 | Unsaved changes prompt | None | |
+| PJ-8 | Keyboard shortcuts | None | |
+| PJ-9 | Auto-load last project | None | |
+| PJ-10 | .clpkg is a valid ZIP | None | |
+
+---
+
+## LDF Integration Tests (Plan 3 — No Hardware Required)
+
+### Automated Unit Tests
+
+Included in the test suite. LDF-specific tests:
+
+| Test Class | Count | What it covers |
+|------------|-------|----------------|
+| LdfIntegrationTests | 6 | LDF load, signal conversion, frame decoding, auto-detect, remove, encoding defaults |
+
+### LDF Manual Tests
+
+#### LDF-1: Assign LDF to LIN bus
+
+1. Launch config tool, go to Bus Monitor tab
+2. Verify LIN1-4 database assignment row visible
+3. Click "..." next to LIN1
+4. File dialog shows "Database Files (*.dbc;*.ldf)" filter
+5. Select an LDF file → filename appears next to "LIN1:"
+6. Click "X" → resets to "(none)"
+
+#### LDF-2: LDF in project save/load
+
+1. Assign an LDF file to LIN1
+2. File > Save Project As → save as test.clpkg
+3. Close project, reopen → LIN1 database assignment restored
+4. Rename/delete the original LDF file → reopen project → still works (embedded copy)
+
+### LDF Test Checklist
+
+| # | Test | Hardware | Status |
+|---|------|----------|--------|
+| — | Unit tests (6 LDF-specific) | None | |
+| LDF-1 | Assign LDF to LIN bus | None | |
+| LDF-2 | LDF in project save/load | None | |
+
+---
+
 ## Known Limitations
 
 | Item | Detail |
 |------|--------|
 | **Kvaser adapter** | Full implementation skeleton but untested — requires Kvaser CANlib SDK |
-| **Dirty tracking** | No unsaved-changes warning on close |
 | **Profile JSON** | LIN IDs and data are placeholder values — fill in from real device datasheets |
 | **BULK_START CRC** | 24-bit (lower 3 bytes of CRC32). Incompatible with pre-Phase 8 firmware |
+| **Recent Projects menu** | Recent projects list is tracked in settings.json but not yet exposed as a submenu in the File menu |

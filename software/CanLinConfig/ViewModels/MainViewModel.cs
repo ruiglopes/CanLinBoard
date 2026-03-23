@@ -533,6 +533,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // Update BusMonitor display paths
         BusMonitor.Can1DbPath = string.IsNullOrEmpty(state.Can1DbPath) ? "(none)" : System.IO.Path.GetFileName(state.Can1DbPath);
         BusMonitor.Can2DbPath = string.IsNullOrEmpty(state.Can2DbPath) ? "(none)" : System.IO.Path.GetFileName(state.Can2DbPath);
+        BusMonitor.Lin1DbPath = string.IsNullOrEmpty(state.Lin1DbPath) ? "(none)" : System.IO.Path.GetFileName(state.Lin1DbPath);
+        BusMonitor.Lin2DbPath = string.IsNullOrEmpty(state.Lin2DbPath) ? "(none)" : System.IO.Path.GetFileName(state.Lin2DbPath);
+        BusMonitor.Lin3DbPath = string.IsNullOrEmpty(state.Lin3DbPath) ? "(none)" : System.IO.Path.GetFileName(state.Lin3DbPath);
+        BusMonitor.Lin4DbPath = string.IsNullOrEmpty(state.Lin4DbPath) ? "(none)" : System.IO.Path.GetFileName(state.Lin4DbPath);
 
         // Graph time window
         BusMonitor.Graph.TimeWindowSeconds = state.GraphTimeWindow;

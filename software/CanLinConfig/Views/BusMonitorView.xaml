@@ -7,15 +7,35 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5">
-            <TextBlock Text="CAN1 DB:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-            <TextBlock Text="{Binding Can1DbPath}" VerticalAlignment="Center" Width="120" TextTrimming="CharacterEllipsis"/>
-            <Button Content="..." Command="{Binding AssignCan1DbCommand}" Width="25" Margin="2,0"/>
-            <Button Content="X" Command="{Binding ClearCan1DbCommand}" Width="25" Margin="0,0,15,0"/>
-            <TextBlock Text="CAN2 DB:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-            <TextBlock Text="{Binding Can2DbPath}" VerticalAlignment="Center" Width="120" TextTrimming="CharacterEllipsis"/>
-            <Button Content="..." Command="{Binding AssignCan2DbCommand}" Width="25" Margin="2,0"/>
-            <Button Content="X" Command="{Binding ClearCan2DbCommand}" Width="25"/>
+        <StackPanel Grid.Row="0" Margin="5">
+            <StackPanel Orientation="Horizontal" Margin="0,2">
+                <TextBlock Text="CAN1:" VerticalAlignment="Center" Width="40"/>
+                <TextBlock Text="{Binding Can1DbPath}" VerticalAlignment="Center" Width="120" TextTrimming="CharacterEllipsis"/>
+                <Button Content="..." Command="{Binding AssignCan1DbCommand}" Width="25" Margin="2,0"/>
+                <Button Content="X" Command="{Binding ClearCan1DbCommand}" Width="25" Margin="0,0,15,0"/>
+                <TextBlock Text="CAN2:" VerticalAlignment="Center" Width="40"/>
+                <TextBlock Text="{Binding Can2DbPath}" VerticalAlignment="Center" Width="120" TextTrimming="CharacterEllipsis"/>
+                <Button Content="..." Command="{Binding AssignCan2DbCommand}" Width="25" Margin="2,0"/>
+                <Button Content="X" Command="{Binding ClearCan2DbCommand}" Width="25"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,2">
+                <TextBlock Text="LIN1:" VerticalAlignment="Center" Width="40"/>
+                <TextBlock Text="{Binding Lin1DbPath}" VerticalAlignment="Center" Width="120" TextTrimming="CharacterEllipsis"/>
+                <Button Content="..." Command="{Binding AssignLin1DbCommand}" Width="25" Margin="2,0"/>
+                <Button Content="X" Command="{Binding ClearLin1DbCommand}" Width="25" Margin="0,0,15,0"/>
+                <TextBlock Text="LIN2:" VerticalAlignment="Center" Width="40"/>
+                <TextBlock Text="{Binding Lin2DbPath}" VerticalAlignment="Center" Width="120" TextTrimming="CharacterEllipsis"/>
+                <Button Content="..." Command="{Binding AssignLin2DbCommand}" Width="25" Margin="2,0"/>
+                <Button Content="X" Command="{Binding ClearLin2DbCommand}" Width="25" Margin="0,0,15,0"/>
+                <TextBlock Text="LIN3:" VerticalAlignment="Center" Width="40"/>
+                <TextBlock Text="{Binding Lin3DbPath}" VerticalAlignment="Center" Width="120" TextTrimming="CharacterEllipsis"/>
+                <Button Content="..." Command="{Binding AssignLin3DbCommand}" Width="25" Margin="2,0"/>
+                <Button Content="X" Command="{Binding ClearLin3DbCommand}" Width="25" Margin="0,0,15,0"/>
+                <TextBlock Text="LIN4:" VerticalAlignment="Center" Width="40"/>
+                <TextBlock Text="{Binding Lin4DbPath}" VerticalAlignment="Center" Width="120" TextTrimming="CharacterEllipsis"/>
+                <Button Content="..." Command="{Binding AssignLin4DbCommand}" Width="25" Margin="2,0"/>
+                <Button Content="X" Command="{Binding ClearLin4DbCommand}" Width="25"/>
+            </StackPanel>
         </StackPanel>
         <Grid Grid.Row="1">
             <Grid.RowDefinitions>
