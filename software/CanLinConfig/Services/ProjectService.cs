@@ -27,6 +27,20 @@ public class ProjectService
     private readonly List<string> _extractedDirs = new();
 
     // -------------------------------------------------------------------------
+    // State
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// The currently open project, or null if no project is open.
+    /// </summary>
+    public Project? CurrentProject { get; private set; }
+
+    /// <summary>
+    /// True if the project has been modified since the last Save().
+    /// </summary>
+    public bool HasUnsavedChanges { get; private set; }
+
+    // -------------------------------------------------------------------------
     // Public API
     // -------------------------------------------------------------------------
 
@@ -61,7 +75,9 @@ public class ProjectService
         manifest.Databases.Lin3 = RegisterDb(state.Lin3DbPath, "lin3");
         manifest.Databases.Lin4 = RegisterDb(state.Lin4DbPath, "lin4");
 
-        return new Project { Manifest = manifest };
+        CurrentProject = new Project { Manifest = manifest };
+        HasUnsavedChanges = true;
+        return CurrentProject;
     }
 
     /// <summary>
@@ -93,6 +109,8 @@ public class ProjectService
         }
 
         project.FilePath = filePath;
+        CurrentProject = project;
+        HasUnsavedChanges = false;
     }
 
     /// <summary>
@@ -118,12 +136,14 @@ public class ProjectService
         var manifest = JsonSerializer.Deserialize<ProjectManifest>(json, JsonOptions)
             ?? throw new InvalidDataException("Failed to deserialize project manifest.");
 
-        return new Project
+        CurrentProject = new Project
         {
             FilePath = filePath,
             Manifest = manifest,
             ExtractedDir = extractDir
         };
+        HasUnsavedChanges = false;
+        return CurrentProject;
     }
 
     /// <summary>
@@ -176,6 +196,8 @@ public class ProjectService
             catch { /* best-effort */ }
         }
         _extractedDirs.Clear();
+        CurrentProject = null;
+        HasUnsavedChanges = false;
     }
 
     // -------------------------------------------------------------------------
