@@ -15,6 +15,45 @@ This guide covers wiring, connections, and configuration for the CAN/LIN gateway
 | CAN Termination | 2x switchable 120 ohm resistors (one per bus) |
 | Button | 1x boot button (bootloader entry) |
 | Bootloader | [2350Bootloader](https://github.com/ruiglopes/2350Bootloader) — firmware flashed via CAN |
+| Connector | Molex MX120G, 12-pin |
+
+---
+
+## Connector Pinout (Molex MX120G)
+
+```
+        ┌─────────────────────────┐
+        │  1   2   3   4   5   6  │
+        │  7   8   9  10  11  12  │
+        └─────────────────────────┘
+```
+
+| Pin | Signal | Description |
+|-----|--------|-------------|
+| 1 | VBATT | Battery voltage supply (8-18V typical, 12V nominal) |
+| 2 | LIN2 | LIN bus channel 2 |
+| 3 | BOOT | Bootloader button (ground to enter bootloader on power-up) |
+| 4 | LIN4 | LIN bus channel 4 |
+| 5 | CAN2_L | CAN2 Low |
+| 6 | CAN1_L | CAN1 Low |
+| 7 | GND | Ground |
+| 8 | LIN1 | LIN bus channel 1 |
+| 9 | GND | Ground |
+| 10 | LIN3 | LIN bus channel 3 |
+| 11 | CAN2_H | CAN2 High |
+| 12 | CAN1_H | CAN1 High |
+
+### Wiring Summary
+
+| Bus | Pins | Notes |
+|-----|------|-------|
+| CAN1 | 12 (H), 6 (L), 7 or 9 (GND) | Always active, config tool + bootloader |
+| CAN2 | 11 (H), 5 (L), 7 or 9 (GND) | Must be enabled via config |
+| LIN1 | 8, 7 or 9 (GND) | + VBATT (pin 1) for LIN pull-up |
+| LIN2 | 2, 7 or 9 (GND) | + VBATT (pin 1) for LIN pull-up |
+| LIN3 | 10, 7 or 9 (GND) | + VBATT (pin 1) for LIN pull-up |
+| LIN4 | 4, 7 or 9 (GND) | + VBATT (pin 1) for LIN pull-up |
+| Power | 1 (VBATT), 7 or 9 (GND) | 12V nominal |
 
 ---
 
