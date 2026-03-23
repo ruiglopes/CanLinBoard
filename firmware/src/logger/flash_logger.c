@@ -20,6 +20,8 @@ static log_metadata_t   s_meta;
 static uint8_t  s_page_buf[NVM_PAGE_SIZE];
 static uint16_t s_page_buf_pos;  /* bytes used in s_page_buf */
 static volatile uint32_t s_drop_count;  /* frames dropped due to full queue */
+static uint32_t s_trigger_offset;          /* write_offset when trigger fired */
+static uint32_t s_post_trigger_remaining;  /* bytes left to capture after trigger */
 
 /* ---- Forward Declarations ---- */
 
@@ -186,6 +188,34 @@ static bool passes_bus_filter(uint8_t bus)
     return (s_meta.bus_mask & (1U << bus)) != 0;
 }
 
+/* ---- Trigger Check ---- */
+
+static bool check_trigger(const log_entry_t *entry)
+{
+    /* Only check on the configured bus */
+    if (entry->bus != s_meta.trigger_bus) return false;
+    if (entry->frame_id != s_meta.trigger_id) return false;
+
+    switch (s_meta.trigger_op) {
+    case LOG_TRIGGER_OP_ANY:
+        return true;
+    case LOG_TRIGGER_OP_EQ:
+        if (s_meta.trigger_byte >= entry->dlc) return false;
+        return entry->data[s_meta.trigger_byte] == s_meta.trigger_value;
+    case LOG_TRIGGER_OP_GT:
+        if (s_meta.trigger_byte >= entry->dlc) return false;
+        return entry->data[s_meta.trigger_byte] > s_meta.trigger_value;
+    case LOG_TRIGGER_OP_LT:
+        if (s_meta.trigger_byte >= entry->dlc) return false;
+        return entry->data[s_meta.trigger_byte] < s_meta.trigger_value;
+    case LOG_TRIGGER_OP_MASK:
+        if (s_meta.trigger_byte >= entry->dlc) return false;
+        return (entry->data[s_meta.trigger_byte] & s_meta.trigger_value) != 0;
+    default:
+        return false;
+    }
+}
+
 /* ---- Public API ---- */
 
 void flash_logger_init(QueueHandle_t log_queue)
@@ -206,6 +236,10 @@ void flash_logger_init(QueueHandle_t log_queue)
             s_meta.state = LOG_STATE_IDLE;
             save_metadata();
         }
+    } else if (s_meta.state == LOG_STATE_ARMED || s_meta.state == LOG_STATE_CAPTURING) {
+        /* Triggered mode — don't auto-resume, reset to idle */
+        s_meta.state = LOG_STATE_IDLE;
+        save_metadata();
     }
 }
 
@@ -221,15 +255,18 @@ void flash_logger_task(void *params)
     for (;;) {
         /* Block on queue with 100ms timeout (allows periodic metadata save) */
         if (xQueueReceive(s_log_queue, &gf, pdMS_TO_TICKS(100)) == pdTRUE) {
-            if (s_state != LOG_STATE_RECORDING) continue;
+            uint8_t state = s_state;
+            if (state != LOG_STATE_RECORDING && state != LOG_STATE_ARMED &&
+                state != LOG_STATE_CAPTURING)
+                continue;
 
             /* Check if frames were dropped since last write — insert gap marker */
             if (s_drop_count > 0) {
                 log_entry_t gap;
                 memset(&gap, 0, sizeof(gap));
                 gap.timestamp_ms = gf.timestamp - s_meta.start_timestamp;
-                gap.bus = 0xFF;  /* Gap marker sentinel */
-                gap.frame_id = s_drop_count;  /* Store drop count in frame_id */
+                gap.bus = 0xFF;
+                gap.frame_id = s_drop_count;
                 s_drop_count = 0;
                 write_entry(&gap);
             }
@@ -243,6 +280,26 @@ void flash_logger_task(void *params)
             entry.reserved = 0;
 
             write_entry(&entry);
+
+            /* Triggered mode state machine */
+            if (state == LOG_STATE_ARMED) {
+                if (check_trigger(&entry)) {
+                    s_trigger_offset = s_meta.write_offset;
+                    s_post_trigger_remaining = s_meta.post_trigger_kb * 1024;
+                    s_state = LOG_STATE_CAPTURING;
+                    s_meta.state = LOG_STATE_CAPTURING;
+                }
+            } else if (state == LOG_STATE_CAPTURING) {
+                if (s_post_trigger_remaining <= LOG_ENTRY_SIZE) {
+                    /* Post-trigger capture complete — auto-stop */
+                    s_state = LOG_STATE_IDLE;
+                    flush_page_buffer();
+                    s_meta.state = LOG_STATE_IDLE;
+                    save_metadata();
+                } else {
+                    s_post_trigger_remaining -= LOG_ENTRY_SIZE;
+                }
+            }
         }
 
         /* Periodic metadata save while recording */
@@ -259,12 +316,14 @@ void flash_logger_task(void *params)
 
 void flash_logger_enqueue_frame(const void *gf_ptr)
 {
-    if (s_state != LOG_STATE_RECORDING) return;
+    uint8_t state = s_state;
+    if (state != LOG_STATE_RECORDING && state != LOG_STATE_ARMED &&
+        state != LOG_STATE_CAPTURING)
+        return;
 
     const gateway_frame_t *gf = (const gateway_frame_t *)gf_ptr;
     if (!passes_bus_filter((uint8_t)gf->source_bus)) return;
 
-    /* Non-blocking send — track drops for gap marker */
     if (xQueueSend(s_log_queue, gf, 0) != pdTRUE) {
         s_drop_count++;
     }
@@ -286,13 +345,13 @@ void flash_logger_start(void)
 
 void flash_logger_stop(void)
 {
-    if (s_state != LOG_STATE_RECORDING) return;
+    uint8_t state = s_state;
+    if (state != LOG_STATE_RECORDING && state != LOG_STATE_ARMED &&
+        state != LOG_STATE_CAPTURING)
+        return;
 
     s_state = LOG_STATE_IDLE;
-
-    /* Flush any remaining entries in the page buffer */
     flush_page_buffer();
-
     s_meta.state = LOG_STATE_IDLE;
     save_metadata();
 }
@@ -317,7 +376,7 @@ void flash_logger_erase_all(void)
 
 uint8_t  flash_logger_get_state(void)       { return s_state; }
 uint8_t  flash_logger_get_mode(void)        { return s_meta.mode; }
-void     flash_logger_set_mode(uint8_t m)   { if (m <= LOG_MODE_CONTINUOUS) s_meta.mode = m; }
+void     flash_logger_set_mode(uint8_t m)   { if (m <= LOG_MODE_TRIGGERED) s_meta.mode = m; }
 uint8_t  flash_logger_get_bus_mask(void)    { return s_meta.bus_mask; }
 void     flash_logger_set_bus_mask(uint8_t m){ s_meta.bus_mask = m; }
 uint32_t flash_logger_get_entry_count(void) { return s_meta.entry_count; }
@@ -325,6 +384,39 @@ uint32_t flash_logger_get_wrap_count(void)  { return s_meta.wrap_count; }
 uint32_t flash_logger_get_write_offset(void){ return s_meta.write_offset; }
 uint16_t flash_logger_get_flash_errors(void){ return s_meta.flash_errors; }
 uint32_t flash_logger_get_drop_count(void)  { return s_drop_count; }
+
+void flash_logger_arm(void)
+{
+    if (s_state != LOG_STATE_IDLE) return;
+    if (s_meta.mode != LOG_MODE_TRIGGERED) return;
+
+    s_meta.start_timestamp = time_us_32() / 1000;
+    s_meta.state = LOG_STATE_ARMED;
+    s_state = LOG_STATE_ARMED;
+    s_page_buf_pos = 0;
+    s_drop_count = 0;
+    s_trigger_offset = 0;
+    s_post_trigger_remaining = 0;
+
+    save_metadata();
+}
+
+/* ---- Trigger Config Accessors ---- */
+
+void     flash_logger_set_trigger_bus(uint8_t bus)    { s_meta.trigger_bus = bus; }
+void     flash_logger_set_trigger_id(uint32_t id)     { s_meta.trigger_id = id; }
+void     flash_logger_set_trigger_byte(uint8_t idx)   { if (idx < 8) s_meta.trigger_byte = idx; }
+void     flash_logger_set_trigger_op(uint8_t op)      { if (op <= LOG_TRIGGER_OP_MASK) s_meta.trigger_op = op; }
+void     flash_logger_set_trigger_value(uint8_t val)  { s_meta.trigger_value = val; }
+void     flash_logger_set_pre_trigger_kb(uint16_t kb) { s_meta.pre_trigger_kb = kb; }
+void     flash_logger_set_post_trigger_kb(uint16_t kb){ s_meta.post_trigger_kb = kb; }
+uint8_t  flash_logger_get_trigger_bus(void)           { return s_meta.trigger_bus; }
+uint32_t flash_logger_get_trigger_id(void)            { return s_meta.trigger_id; }
+uint8_t  flash_logger_get_trigger_byte(void)          { return s_meta.trigger_byte; }
+uint8_t  flash_logger_get_trigger_op(void)            { return s_meta.trigger_op; }
+uint8_t  flash_logger_get_trigger_value(void)         { return s_meta.trigger_value; }
+uint16_t flash_logger_get_pre_trigger_kb(void)        { return (uint16_t)s_meta.pre_trigger_kb; }
+uint16_t flash_logger_get_post_trigger_kb(void)       { return (uint16_t)s_meta.post_trigger_kb; }
 
 uint16_t flash_logger_read_chunk(uint32_t offset, uint8_t *buf, uint16_t len)
 {

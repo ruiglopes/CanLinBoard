@@ -33,14 +33,13 @@ typedef struct __attribute__((packed)) {
     uint8_t  reserved;
     uint16_t flash_errors;    /* flash write/erase error counter */
     uint16_t reserved2;
-    /* Reserved for Plan 5C trigger fields — keep struct at fixed size */
-    uint32_t trigger_id;      /* reserved (Plan 5C) */
-    uint8_t  trigger_bus;     /* reserved (Plan 5C) */
-    uint8_t  trigger_byte;    /* reserved (Plan 5C) */
-    uint8_t  trigger_op;      /* reserved (Plan 5C) */
-    uint8_t  trigger_value;   /* reserved (Plan 5C) */
-    uint32_t pre_trigger_kb;  /* reserved (Plan 5C) */
-    uint32_t post_trigger_kb; /* reserved (Plan 5C) */
+    uint32_t trigger_id;      /* CAN/LIN ID to match */
+    uint8_t  trigger_bus;     /* bus to watch (0-5) */
+    uint8_t  trigger_byte;    /* data byte index to compare (0-7) */
+    uint8_t  trigger_op;      /* 0=any, 1=equals, 2=gt, 3=lt, 4=mask */
+    uint8_t  trigger_value;   /* comparison value */
+    uint32_t pre_trigger_kb;  /* KB of pre-trigger data to retain */
+    uint32_t post_trigger_kb; /* KB of post-trigger data to capture */
     uint32_t crc32;           /* metadata integrity check */
 } log_metadata_t;
 
@@ -50,13 +49,22 @@ _Static_assert(sizeof(log_metadata_t) <= 256, "log_metadata_t must fit in one pa
 
 #define LOG_STATE_IDLE          0
 #define LOG_STATE_RECORDING     1
+#define LOG_STATE_ARMED         2
+#define LOG_STATE_CAPTURING     3
 #define LOG_STATE_ERROR         4
 
-/* ---- Logger Modes (Plan 5A: manual only) ---- */
+/* ---- Logger Modes ---- */
 
 #define LOG_MODE_MANUAL         0
 #define LOG_MODE_CONTINUOUS     1
-/* LOG_MODE_TRIGGERED  = 2  (Plan 5C) */
+#define LOG_MODE_TRIGGERED      2
+
+/* ---- Trigger Operators ---- */
+#define LOG_TRIGGER_OP_ANY      0   /* any frame on trigger_bus with trigger_id */
+#define LOG_TRIGGER_OP_EQ       1   /* data[trigger_byte] == trigger_value */
+#define LOG_TRIGGER_OP_GT       2   /* data[trigger_byte] > trigger_value */
+#define LOG_TRIGGER_OP_LT       3   /* data[trigger_byte] < trigger_value */
+#define LOG_TRIGGER_OP_MASK     4   /* (data[trigger_byte] & trigger_value) != 0 */
 
 /* ---- Config Protocol Params (SectionLog = 0x07) ---- */
 
@@ -74,6 +82,13 @@ _Static_assert(sizeof(log_metadata_t) <= 256, "log_metadata_t must fit in one pa
 #define LOG_PARAM_WRITE_OFFSET  6   /* R, sub=0: low16, sub=1: high16 */
 #define LOG_PARAM_FLASH_ERRORS  7   /* R, 2 bytes */
 #define LOG_PARAM_DROP_COUNT    8   /* R, 4 bytes (sub=0/1 split) — frames dropped due to full queue */
+#define LOG_PARAM_TRIGGER_BUS   9   /* R/W, 1 byte */
+#define LOG_PARAM_TRIGGER_ID    10  /* R/W, 4 bytes (sub=0/1 split) */
+#define LOG_PARAM_TRIGGER_BYTE  11  /* R/W, 1 byte */
+#define LOG_PARAM_TRIGGER_OP    12  /* R/W, 1 byte */
+#define LOG_PARAM_TRIGGER_VALUE 13  /* R/W, 1 byte */
+#define LOG_PARAM_PRE_TRIG_KB   14  /* R/W, 2 bytes */
+#define LOG_PARAM_POST_TRIG_KB  15  /* R/W, 2 bytes */
 
 /**
  * Initialize the flash logger module.
@@ -100,6 +115,7 @@ void flash_logger_enqueue_frame(const void *gf);
 void flash_logger_start(void);
 void flash_logger_stop(void);
 void flash_logger_erase_all(void);
+void flash_logger_arm(void);
 
 /* ---- Status API (called from config_handler) ---- */
 
@@ -113,6 +129,23 @@ uint32_t flash_logger_get_wrap_count(void);
 uint32_t flash_logger_get_write_offset(void);
 uint16_t flash_logger_get_flash_errors(void);
 uint32_t flash_logger_get_drop_count(void);
+
+/* ---- Trigger Config Accessors ---- */
+
+void     flash_logger_set_trigger_bus(uint8_t bus);
+void     flash_logger_set_trigger_id(uint32_t id);
+void     flash_logger_set_trigger_byte(uint8_t idx);
+void     flash_logger_set_trigger_op(uint8_t op);
+void     flash_logger_set_trigger_value(uint8_t val);
+void     flash_logger_set_pre_trigger_kb(uint16_t kb);
+void     flash_logger_set_post_trigger_kb(uint16_t kb);
+uint8_t  flash_logger_get_trigger_bus(void);
+uint32_t flash_logger_get_trigger_id(void);
+uint8_t  flash_logger_get_trigger_byte(void);
+uint8_t  flash_logger_get_trigger_op(void);
+uint8_t  flash_logger_get_trigger_value(void);
+uint16_t flash_logger_get_pre_trigger_kb(void);
+uint16_t flash_logger_get_post_trigger_kb(void);
 
 /**
  * Read a chunk of log data from flash for download.
