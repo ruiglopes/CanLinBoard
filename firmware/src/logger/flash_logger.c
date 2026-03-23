@@ -435,9 +435,19 @@ uint16_t flash_logger_read_chunk(uint32_t offset, uint8_t *buf, uint16_t len)
     if (abs_addr + len > LOG_DATA_END)
         len = (uint16_t)(LOG_DATA_END - abs_addr);
 
-    uint32_t irq = sec_flash_acquire_bus();
-    sec_flash_read(abs_addr, buf, len);
-    sec_flash_release_bus(irq);
+    /* Read in small sub-chunks to limit interrupt-off time.
+     * Each 256-byte read takes ~0.3ms with interrupts disabled.
+     * CAN PIO IRQ runs between sub-chunks. */
+    uint16_t remaining = len;
+    uint16_t pos = 0;
+    while (remaining > 0) {
+        uint16_t chunk = (remaining > NVM_PAGE_SIZE) ? NVM_PAGE_SIZE : remaining;
+        uint32_t irq = sec_flash_acquire_bus();
+        sec_flash_read(abs_addr + pos, &buf[pos], chunk);
+        sec_flash_release_bus(irq);
+        pos += chunk;
+        remaining -= chunk;
+    }
 
     return len;
 }

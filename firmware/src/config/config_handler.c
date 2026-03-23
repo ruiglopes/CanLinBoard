@@ -982,6 +982,12 @@ static void handle_log_read_chunk(const uint8_t *data, uint8_t dlc)
     tx_frame.id = CONFIG_CAN_BULK_RESP_ID;
     tx_frame.flags = 0;
 
+    /* Reuse bulk transfer retry settings */
+    uint32_t max_retries = s_working_config.diag.bulk_tx_retries;
+    if (max_retries == 0) max_retries = CFG_BULK_TX_RETRIES;
+    uint32_t retry_delay = s_working_config.diag.bulk_tx_retry_delay_ms;
+    if (retry_delay == 0) retry_delay = CFG_BULK_TX_RETRY_DELAY_MS;
+
     uint16_t sent = 0;
     uint8_t seq = 0;
     while (sent < actual) {
@@ -989,10 +995,20 @@ static void handle_log_read_chunk(const uint8_t *data, uint8_t dlc)
         tx_frame.dlc = 1 + chunk;
         tx_frame.data[0] = seq++;
         memcpy(&tx_frame.data[1], &s_log_chunk_buffer[sent], chunk);
-        can_manager_transmit(CAN_BUS_1, &tx_frame);
+
+        /* Retry with yield if TX queue is full (same as handle_bulk_read_data) */
+        uint32_t retries = 0;
+        while (!can_manager_transmit(CAN_BUS_1, &tx_frame)) {
+            if (++retries >= max_retries) {
+                send_response(CFG_CMD_LOG_READ_CHUNK, CFG_STATUS_BUSY, NULL, 0);
+                return;
+            }
+            vTaskDelay(pdMS_TO_TICKS(retry_delay));
+        }
         sent += chunk;
 
-        if ((seq & 0x0F) == 0)
+        /* Yield every 4 frames to avoid flooding CAN TX queue */
+        if ((seq & 0x03) == 0)
             vTaskDelay(1);
     }
 
