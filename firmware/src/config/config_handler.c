@@ -432,6 +432,18 @@ static void handle_read_param(const uint8_t *data, uint8_t dlc)
             plen = 5;
             break;
         }
+        case LOG_PARAM_DROP_COUNT: {
+            uint32_t drops = flash_logger_get_drop_count();
+            if (sub == 0) {
+                payload[3] = (uint8_t)(drops);
+                payload[4] = (uint8_t)(drops >> 8);
+            } else {
+                payload[3] = (uint8_t)(drops >> 16);
+                payload[4] = (uint8_t)(drops >> 24);
+            }
+            plen = 5;
+            break;
+        }
         default:
             send_response(CFG_CMD_READ_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
             return;
