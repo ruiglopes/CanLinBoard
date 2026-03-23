@@ -17,6 +17,12 @@ public partial class MainWindow : MetroWindow
 
     private void OnClosing(object? sender, CancelEventArgs e)
     {
+        if (DataContext is MainViewModel vm && !vm.CanClose())
+        {
+            e.Cancel = true;
+            return;
+        }
+
         (DataContext as IDisposable)?.Dispose();
     }
 }

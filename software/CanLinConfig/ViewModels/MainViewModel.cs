@@ -3,8 +3,10 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CanLinConfig.Adapters;
+using CanLinConfig.Models;
 using CanLinConfig.Protocol;
 using CanLinConfig.Services;
+using Microsoft.Win32;
 
 namespace CanLinConfig.ViewModels;
 
@@ -12,7 +14,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
 {
     private ICanAdapter? _adapter;
     private ConfigProtocol? _protocol;
+    private readonly ProjectService _projectService = new();
+    private readonly AppSettings _appSettings;
+    private Project? _currentProject;
 
+    [ObservableProperty] private string _windowTitle = "CanLinConfig";
     [ObservableProperty] private string _connectionStatus = "Disconnected";
     [ObservableProperty] private string _firmwareVersion = "";
     [ObservableProperty] private string _statusBarText = "Ready";
@@ -51,7 +57,23 @@ public partial class MainViewModel : ObservableObject, IDisposable
         BusDataService = new BusDataService(dbManager);
         BusMonitor = new BusMonitorViewModel(BusDataService);
 
+        _appSettings = AppSettings.Load();
+
         RefreshChannels();
+
+        // Auto-load last project if configured
+        if (_appSettings.LoadLastProject && !string.IsNullOrEmpty(_appSettings.LastProjectPath)
+            && System.IO.File.Exists(_appSettings.LastProjectPath))
+        {
+            try
+            {
+                OpenProject(_appSettings.LastProjectPath);
+            }
+            catch
+            {
+                // Silently ignore — stale path or corrupt file
+            }
+        }
     }
 
     [RelayCommand]
@@ -329,6 +351,243 @@ public partial class MainViewModel : ObservableObject, IDisposable
             StatusBarText = "Config loaded from file - click Write All to push to device";
     }
 
+    // -------------------------------------------------------------------------
+    // Project commands
+    // -------------------------------------------------------------------------
+
+    [RelayCommand]
+    private void NewProject()
+    {
+        if (!ConfirmUnsavedChanges()) return;
+
+        CloseProjectInternal();
+
+        var state = CaptureCurrentState();
+        state.ProjectName = "Untitled";
+        _currentProject = _projectService.CreateFromState(state);
+        UpdateWindowTitle();
+        StatusBarText = "New project created";
+    }
+
+    [RelayCommand]
+    private void OpenProject()
+    {
+        if (!ConfirmUnsavedChanges()) return;
+
+        var dlg = new OpenFileDialog
+        {
+            Filter = "CanLinConfig Projects (*.clpkg)|*.clpkg|All Files (*.*)|*.*",
+            Title = "Open Project"
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        OpenProject(dlg.FileName);
+    }
+
+    private void OpenProject(string path)
+    {
+        try
+        {
+            CloseProjectInternal();
+
+            _currentProject = _projectService.Open(path);
+            var state = _projectService.ToState(_currentProject);
+            ApplyState(state);
+
+            _appSettings.LastProjectPath = path;
+            _appSettings.AddRecentProject(path);
+            _appSettings.Save();
+
+            UpdateWindowTitle();
+            StatusBarText = $"Opened project: {_currentProject.Manifest.Name}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to open project:\n{ex.Message}", "Open Project",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusBarText = "Failed to open project";
+        }
+    }
+
+    [RelayCommand]
+    private void SaveProject()
+    {
+        if (_currentProject == null)
+        {
+            NewProject();
+            if (_currentProject == null) return;
+        }
+
+        if (string.IsNullOrEmpty(_currentProject.FilePath))
+        {
+            SaveProjectAs();
+            return;
+        }
+
+        SaveProjectToFile(_currentProject.FilePath);
+    }
+
+    [RelayCommand]
+    private void SaveProjectAs()
+    {
+        if (_currentProject == null)
+        {
+            NewProject();
+            if (_currentProject == null) return;
+        }
+
+        var dlg = new SaveFileDialog
+        {
+            Filter = "CanLinConfig Projects (*.clpkg)|*.clpkg|All Files (*.*)|*.*",
+            Title = "Save Project As",
+            DefaultExt = ".clpkg",
+            FileName = _currentProject.Manifest.Name
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        SaveProjectToFile(dlg.FileName);
+    }
+
+    private void SaveProjectToFile(string filePath)
+    {
+        try
+        {
+            // Update project from current tool state
+            var state = CaptureCurrentState();
+            state.ProjectName = _currentProject!.Manifest.Name;
+            _currentProject = _projectService.CreateFromState(state);
+            _projectService.Save(_currentProject, filePath);
+
+            _appSettings.LastProjectPath = filePath;
+            _appSettings.AddRecentProject(filePath);
+            _appSettings.Save();
+
+            UpdateWindowTitle();
+            StatusBarText = $"Project saved: {System.IO.Path.GetFileName(filePath)}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to save project:\n{ex.Message}", "Save Project",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusBarText = "Failed to save project";
+        }
+    }
+
+    [RelayCommand]
+    private void CloseProject()
+    {
+        if (!ConfirmUnsavedChanges()) return;
+        CloseProjectInternal();
+        StatusBarText = "Project closed";
+    }
+
+    private void CloseProjectInternal()
+    {
+        _projectService.CloseProject();
+        _currentProject = null;
+        UpdateWindowTitle();
+    }
+
+    // -------------------------------------------------------------------------
+    // Project helpers
+    // -------------------------------------------------------------------------
+
+    private ProjectState CaptureCurrentState()
+    {
+        var dbManager = BusDataService.DatabaseManager;
+        return new ProjectState
+        {
+            AdapterType = SelectedAdapter,
+            Channel = SelectedChannel,
+            Bitrate = uint.TryParse(SelectedBitrate, out var br) ? br : 500000,
+            Can1DbPath = dbManager.GetDatabasePath(BusFrame.Bus.CAN1),
+            Can2DbPath = dbManager.GetDatabasePath(BusFrame.Bus.CAN2),
+            Lin1DbPath = dbManager.GetDatabasePath(BusFrame.Bus.LIN1),
+            Lin2DbPath = dbManager.GetDatabasePath(BusFrame.Bus.LIN2),
+            Lin3DbPath = dbManager.GetDatabasePath(BusFrame.Bus.LIN3),
+            Lin4DbPath = dbManager.GetDatabasePath(BusFrame.Bus.LIN4),
+            GraphTimeWindow = BusMonitor.Graph.TimeWindowSeconds
+        };
+    }
+
+    private void ApplyState(ProjectState state)
+    {
+        // Connection settings
+        if (!string.IsNullOrEmpty(state.AdapterType) && AvailableAdapters.Contains(state.AdapterType))
+            SelectedAdapter = state.AdapterType;
+
+        if (!string.IsNullOrEmpty(state.Channel) && AvailableChannels.Contains(state.Channel))
+            SelectedChannel = state.Channel;
+
+        SelectedBitrate = state.Bitrate.ToString();
+
+        // Database assignments
+        var dbManager = BusDataService.DatabaseManager;
+        ApplyDb(dbManager, BusFrame.Bus.CAN1, state.Can1DbPath);
+        ApplyDb(dbManager, BusFrame.Bus.CAN2, state.Can2DbPath);
+        ApplyDb(dbManager, BusFrame.Bus.LIN1, state.Lin1DbPath);
+        ApplyDb(dbManager, BusFrame.Bus.LIN2, state.Lin2DbPath);
+        ApplyDb(dbManager, BusFrame.Bus.LIN3, state.Lin3DbPath);
+        ApplyDb(dbManager, BusFrame.Bus.LIN4, state.Lin4DbPath);
+
+        // Update BusMonitor display paths
+        BusMonitor.Can1DbPath = string.IsNullOrEmpty(state.Can1DbPath) ? "(none)" : System.IO.Path.GetFileName(state.Can1DbPath);
+        BusMonitor.Can2DbPath = string.IsNullOrEmpty(state.Can2DbPath) ? "(none)" : System.IO.Path.GetFileName(state.Can2DbPath);
+
+        // Graph time window
+        BusMonitor.Graph.TimeWindowSeconds = state.GraphTimeWindow;
+    }
+
+    private static void ApplyDb(DatabaseManager dbManager, BusFrame.Bus bus, string? path)
+    {
+        if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
+            dbManager.AssignDatabase(bus, path);
+        else
+            dbManager.RemoveDatabase(bus);
+    }
+
+    private void UpdateWindowTitle()
+    {
+        if (_currentProject == null)
+        {
+            WindowTitle = "CanLinConfig";
+            return;
+        }
+
+        var name = _currentProject.Manifest.Name;
+        var dirty = _currentProject.FilePath == null ? " *" : "";
+        WindowTitle = $"CanLinConfig \u2014 {name}{dirty}";
+    }
+
+    private bool ConfirmUnsavedChanges()
+    {
+        if (_currentProject == null || _currentProject.FilePath != null)
+            return true;
+
+        // Project exists but has never been saved
+        var result = MessageBox.Show(
+            "Save changes to the current project?",
+            "Unsaved Changes",
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Question);
+
+        switch (result)
+        {
+            case MessageBoxResult.Yes:
+                SaveProject();
+                return true;
+            case MessageBoxResult.No:
+                return true;
+            default: // Cancel
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Called from MainWindow.OnClosing to allow cancellation if there are unsaved changes.
+    /// </summary>
+    public bool CanClose() => ConfirmUnsavedChanges();
+
     public bool SendRawFrame(CanFrame frame)
     {
         return _adapter?.Send(frame) ?? false;
@@ -346,6 +605,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         Disconnect();
+        _projectService.CloseProject();
         GC.SuppressFinalize(this);
     }
 }
