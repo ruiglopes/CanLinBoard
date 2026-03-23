@@ -14,6 +14,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 {
     private ICanAdapter? _adapter;
     private ConfigProtocol? _protocol;
+    private MonitorFrameDecoder? _monitorDecoder;
     private readonly ProjectService _projectService = new();
     private readonly AppSettings _appSettings;
     private Project? _currentProject;
@@ -148,6 +149,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
             Diagnostics.OnRawFrame(e.Frame);
         };
 
+        _monitorDecoder = new MonitorFrameDecoder();
+        _monitorDecoder.FrameDecoded += (_, busFrame) => BusDataService.OnFrame(busFrame);
+        _protocol.MonitorFrameReceived += (_, e) => _monitorDecoder.OnCanFrame(e.Frame);
+
         // Try firmware handshake
         var result = await _protocol.ConnectAsync();
         if (!result.Success)
@@ -193,6 +198,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private void Disconnect()
     {
         Diagnostics.StopMonitoring();
+        _monitorDecoder = null;
         _protocol?.Dispose();
         _protocol = null;
         _adapter?.Disconnect();

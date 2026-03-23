@@ -46,6 +46,21 @@ public static class ProtocolConstants
     public const byte SectionDiag = 0x03;
     public const byte SectionProfiles = 0x04;
     public const byte SectionDevice = 0x05;
+    public const byte SectionMonitor = 0x06;
+
+    // Monitor param indices (SectionMonitor READ_PARAM/WRITE_PARAM)
+    public const byte MonitorParamEnable = 0;
+    public const byte MonitorParamBusMask = 1;
+    public const byte MonitorParamFilterMode = 2;
+    public const byte MonitorParamDropCount = 3;
+
+    // Monitor filter modes
+    public const byte MonitorFilterNone = 0;
+    public const byte MonitorFilterWhitelist = 1;
+    public const byte MonitorFilterBlacklist = 2;
+
+    // Monitor limits
+    public const int MonitorMaxFilterIds = 32;
 
     // Response status codes
     public const byte StatusOk = 0x00;

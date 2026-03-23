@@ -26,6 +26,7 @@ public class ConfigProtocol : IDisposable
     private int _bulkReadSeq;
 
     public event EventHandler<CanFrameEventArgs>? RawFrameReceived;
+    public event EventHandler<CanFrameEventArgs>? MonitorFrameReceived;
 
     public ConfigProtocol(ICanAdapter adapter)
     {
@@ -35,6 +36,14 @@ public class ConfigProtocol : IDisposable
 
     private void OnFrameReceived(object? sender, CanFrameEventArgs e)
     {
+        // Monitor frames are high-frequency — route directly, don't raise RawFrameReceived
+        if (e.Frame.Id == ProtocolConstants.MonitorHeaderId ||
+            e.Frame.Id == ProtocolConstants.MonitorDataId)
+        {
+            MonitorFrameReceived?.Invoke(this, e);
+            return;
+        }
+
         RawFrameReceived?.Invoke(this, e);
 
         if (e.Frame.Id == ProtocolConstants.ConfigRespId)
