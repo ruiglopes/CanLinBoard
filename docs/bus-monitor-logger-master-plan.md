@@ -115,37 +115,77 @@ Assign LDF files to LIN buses in the Bus Monitor tab. When the firmware monitor 
 
 ---
 
-## Plan 5: On-Board Logger + Data Logger Tab
-**Status:** NOT STARTED
-**Spec sections:** 3 (Flash Logger), 5 (Data Logger Tab), 8 (Config Protocol — SectionLog)
+## Plan 5A: Logger Foundation
+**Status:** COMPLETE
+**Plan:** [`docs/superpowers/plans/2026-03-23-logger-foundation.md`](superpowers/plans/2026-03-23-logger-foundation.md)
 
-### Scope
+### What was built
 
-**Firmware side:**
-- Flash logger ring buffer driver (CS1, offset 0x020000+)
-- NVM driver bounds check (prevent writes beyond 0x01FFFF)
-- Logger metadata sector at 0x020000
-- Three recording modes: manual, continuous, triggered
-- Flash write error handling (retry, skip, error counter, gap markers)
-- Config protocol `SectionLog` (0x07) — mode, trigger config, start/stop/arm
-- Chunked log read command (0x24) for multi-MB downloads (data on 0x603)
+**Firmware:**
+- Flash logger ring buffer driver (CS1, 0x021000-0xFFFFFF, ~16 MB)
+- Logger metadata sector (0x020000) with CRC32 integrity
+- Manual recording mode (start/stop)
+- Page buffering with erase-ahead and error retry
+- Config protocol SectionLog (0x07) — mode, bus mask, start/stop, status, entry/wrap counts
+- Chunked log read (0x24) — 4 KB chunks with per-chunk CRC32 on 0x603
+- Periodic metadata save (every 30s while recording)
 
-**Config tool side:**
-- LogControlPanel — mode selector, trigger config, status, flash health
-- LogDownloadPanel — chunked read with progress bar and resume
-- LogReplayPanel — playback into BusDataService (all panels work with replayed data)
-- Data Logger tab in MainWindow
+**Config tool:**
+- Data Logger tab with LogControlPanel and LogDownloadPanel
+- Chunked download with progress bar and CRC verification
+- Export downloaded log via existing CSV/ASC/BLF exporters
+- Feed downloaded log to Bus Monitor for visualization
 
 ### Key decisions
-- 128 KB reserved for NVM config, log starts at 0x020000
-- `log_entry_t` is 20 bytes with `uint32_t frame_id` (29-bit ready)
-- Continuous mode buffers 64 entries in RAM during download; gap marker = bus=0xFF sentinel
-- Chunked download: 4 KB chunks with per-chunk CRC32
+- Logger task at priority tskIDLE_PRIORITY+1 — doesn't compete with CAN/LIN real-time tasks
+- 12 entries per 256-byte flash page (20 bytes each, 16 bytes wasted per page)
+- Metadata CRC preserves write_offset across power cycles
+- 32-bit params (entry_count, wrap_count, write_offset) read via sub=0/sub=1 split
 
 ### Dependencies
-- Plan 1 (BusDataService, Bus Monitor panels for replay)
-- Plan 4 (monitor protocol — shared firmware infrastructure)
-- Requires on-target testing
+- Plan 1 (BusDataService, export infrastructure)
+- Plan 4 (monitor protocol — shared firmware patterns)
+
+---
+
+## Plan 5B: Continuous Mode
+**Status:** NOT STARTED
+
+### Scope
+- Ring buffer wrap with erase-ahead
+- RAM queue (64 entries) for buffering during download
+- Gap marker sentinel (bus=0xFF) on overflow
+- Config tool continuous mode UI
+
+### Dependencies
+- Plan 5A (flash logger foundation)
+
+---
+
+## Plan 5C: Triggered Mode
+**Status:** NOT STARTED
+
+### Scope
+- Trigger condition matching (bus, ID, byte, operator, value)
+- Pre/post trigger KB retention
+- Armed → capturing → stopped state machine
+- Config tool trigger configuration UI
+
+### Dependencies
+- Plan 5A (flash logger foundation)
+
+---
+
+## Plan 5D: Log Replay
+**Status:** NOT STARTED
+
+### Scope
+- LogReplayPanel — playback from file into BusDataService
+- Play/pause/speed/scrub controls
+- Timeline with markers
+
+### Dependencies
+- Plan 5A (flash logger, download)
 
 ---
 
@@ -223,7 +263,10 @@ Right-click signals in the Signal panel, add to Instrument Panel, get live-updat
 | 2 | Project System | COMPLETE | 39 |
 | 3 | LDF Parser Integration | COMPLETE | 45 |
 | 4 | Firmware Monitor Protocol | COMPLETE | 117 |
-| 5 | On-Board Logger + Data Logger Tab | NOT STARTED | — |
+| 5A | Logger Foundation | COMPLETE | 112 |
+| 5B | Continuous Mode | NOT STARTED | — |
+| 5C | Triggered Mode | NOT STARTED | — |
+| 5D | Log Replay | NOT STARTED | — |
 | 6 | Export Formats | COMPLETE | 61 |
 | 7 | Instrument Panel | COMPLETE | 68 |
 | 8 | USB CDC Sideband | FUTURE | — |
