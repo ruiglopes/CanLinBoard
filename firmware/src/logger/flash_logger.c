@@ -19,6 +19,7 @@ static log_metadata_t   s_meta;
 /* Page write buffer: accumulate entries until a full page (256 bytes) */
 static uint8_t  s_page_buf[NVM_PAGE_SIZE];
 static uint16_t s_page_buf_pos;  /* bytes used in s_page_buf */
+static volatile uint32_t s_drop_count;  /* frames dropped due to full queue */
 
 /* ---- Forward Declarations ---- */
 
@@ -192,12 +193,19 @@ void flash_logger_init(QueueHandle_t log_queue)
     s_log_queue = log_queue;
     s_state = LOG_STATE_IDLE;
     s_page_buf_pos = 0;
+    s_drop_count = 0;
     load_metadata();
 
-    /* If metadata says we were recording (unclean shutdown), reset to idle */
     if (s_meta.state == LOG_STATE_RECORDING) {
-        s_meta.state = LOG_STATE_IDLE;
-        save_metadata();
+        if (s_meta.mode == LOG_MODE_CONTINUOUS) {
+            /* Continuous mode — auto-resume recording after reboot */
+            s_state = LOG_STATE_RECORDING;
+            /* Don't reset start_timestamp — keep relative timing continuous */
+        } else {
+            /* Manual mode — unclean shutdown, reset to idle */
+            s_meta.state = LOG_STATE_IDLE;
+            save_metadata();
+        }
     }
 }
 
@@ -214,6 +222,17 @@ void flash_logger_task(void *params)
         /* Block on queue with 100ms timeout (allows periodic metadata save) */
         if (xQueueReceive(s_log_queue, &gf, pdMS_TO_TICKS(100)) == pdTRUE) {
             if (s_state != LOG_STATE_RECORDING) continue;
+
+            /* Check if frames were dropped since last write — insert gap marker */
+            if (s_drop_count > 0) {
+                log_entry_t gap;
+                memset(&gap, 0, sizeof(gap));
+                gap.timestamp_ms = gf.timestamp - s_meta.start_timestamp;
+                gap.bus = 0xFF;  /* Gap marker sentinel */
+                gap.frame_id = s_drop_count;  /* Store drop count in frame_id */
+                s_drop_count = 0;
+                write_entry(&gap);
+            }
 
             log_entry_t entry;
             entry.timestamp_ms = gf.timestamp - s_meta.start_timestamp;
@@ -245,8 +264,10 @@ void flash_logger_enqueue_frame(const void *gf_ptr)
     const gateway_frame_t *gf = (const gateway_frame_t *)gf_ptr;
     if (!passes_bus_filter((uint8_t)gf->source_bus)) return;
 
-    /* Non-blocking send — drop if full */
-    xQueueSend(s_log_queue, gf, 0);
+    /* Non-blocking send — track drops for gap marker */
+    if (xQueueSend(s_log_queue, gf, 0) != pdTRUE) {
+        s_drop_count++;
+    }
 }
 
 void flash_logger_start(void)
@@ -258,6 +279,7 @@ void flash_logger_start(void)
     s_meta.state = LOG_STATE_RECORDING;
     s_state = LOG_STATE_RECORDING;
     s_page_buf_pos = 0;
+    s_drop_count = 0;
 
     save_metadata();
 }
@@ -288,19 +310,21 @@ void flash_logger_erase_all(void)
     save_metadata();
 
     s_state = LOG_STATE_IDLE;
+    s_drop_count = 0;
 }
 
 /* ---- Status Accessors ---- */
 
 uint8_t  flash_logger_get_state(void)       { return s_state; }
 uint8_t  flash_logger_get_mode(void)        { return s_meta.mode; }
-void     flash_logger_set_mode(uint8_t m)   { if (m <= LOG_MODE_MANUAL) s_meta.mode = m; }
+void     flash_logger_set_mode(uint8_t m)   { if (m <= LOG_MODE_CONTINUOUS) s_meta.mode = m; }
 uint8_t  flash_logger_get_bus_mask(void)    { return s_meta.bus_mask; }
 void     flash_logger_set_bus_mask(uint8_t m){ s_meta.bus_mask = m; }
 uint32_t flash_logger_get_entry_count(void) { return s_meta.entry_count; }
 uint32_t flash_logger_get_wrap_count(void)  { return s_meta.wrap_count; }
 uint32_t flash_logger_get_write_offset(void){ return s_meta.write_offset; }
 uint16_t flash_logger_get_flash_errors(void){ return s_meta.flash_errors; }
+uint32_t flash_logger_get_drop_count(void)  { return s_drop_count; }
 
 uint16_t flash_logger_read_chunk(uint32_t offset, uint8_t *buf, uint16_t len)
 {

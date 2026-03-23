@@ -55,7 +55,7 @@ _Static_assert(sizeof(log_metadata_t) <= 256, "log_metadata_t must fit in one pa
 /* ---- Logger Modes (Plan 5A: manual only) ---- */
 
 #define LOG_MODE_MANUAL         0
-/* LOG_MODE_CONTINUOUS = 1  (Plan 5B) */
+#define LOG_MODE_CONTINUOUS     1
 /* LOG_MODE_TRIGGERED  = 2  (Plan 5C) */
 
 /* ---- Config Protocol Params (SectionLog = 0x07) ---- */
@@ -73,6 +73,7 @@ _Static_assert(sizeof(log_metadata_t) <= 256, "log_metadata_t must fit in one pa
 #define LOG_PARAM_WRAP_COUNT    5   /* R, sub=0: low16, sub=1: high16 */
 #define LOG_PARAM_WRITE_OFFSET  6   /* R, sub=0: low16, sub=1: high16 */
 #define LOG_PARAM_FLASH_ERRORS  7   /* R, 2 bytes */
+#define LOG_PARAM_DROP_COUNT    8   /* R, 4 bytes (sub=0/1 split) — frames dropped due to full queue */
 
 /**
  * Initialize the flash logger module.
@@ -111,6 +112,7 @@ uint32_t flash_logger_get_entry_count(void);
 uint32_t flash_logger_get_wrap_count(void);
 uint32_t flash_logger_get_write_offset(void);
 uint16_t flash_logger_get_flash_errors(void);
+uint32_t flash_logger_get_drop_count(void);
 
 /**
  * Read a chunk of log data from flash for download.
