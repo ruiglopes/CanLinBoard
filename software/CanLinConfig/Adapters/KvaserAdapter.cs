@@ -7,7 +7,7 @@ namespace CanLinConfig.Adapters;
 /// </summary>
 public class KvaserAdapter : ICanAdapter
 {
-    private bool _connected;
+    private volatile bool _connected;
     private int _handle = -1;
     private Thread? _rxThread;
     private volatile bool _rxRunning;

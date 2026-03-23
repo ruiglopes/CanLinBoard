@@ -47,17 +47,16 @@ public class SlcanAdapter : ICanAdapter
         {
             _serial = new SerialPort(portName, serialBaud, Parity.None, 8, StopBits.One)
             {
-                ReadTimeout = 100,
+                ReadTimeout = 200,
                 WriteTimeout = 100,
                 NewLine = "\r",
             };
             _serial.Open();
 
-            // Close any existing connection
-            SendLine("C");
-            Thread.Sleep(50);
+            // Close any existing connection — ignore failure (device may not be in open state)
+            SendCommandAndVerify("C", 100);
 
-            // Set CAN bitrate
+            // Set CAN bitrate — must succeed
             string bitrateCmd = bitrate switch
             {
                 10000 => "S0",
@@ -69,14 +68,27 @@ public class SlcanAdapter : ICanAdapter
                 500000 => "S6",
                 800000 => "S7",
                 1000000 => "S8",
-                _ => $"S6", // default 500k
+                _ => "S6", // default 500k
             };
-            SendLine(bitrateCmd);
-            Thread.Sleep(50);
+            if (!SendCommandAndVerify(bitrateCmd))
+            {
+                _serial.Close();
+                _serial.Dispose();
+                _serial = null;
+                return Task.FromResult(false);
+            }
 
-            // Open CAN channel
-            SendLine("O");
-            Thread.Sleep(50);
+            // Open CAN channel — must succeed
+            if (!SendCommandAndVerify("O"))
+            {
+                _serial.Close();
+                _serial.Dispose();
+                _serial = null;
+                return Task.FromResult(false);
+            }
+
+            // Reset timeout for RX loop (ReadByte with InfiniteTimeout relies on TimeoutException catch)
+            _serial.ReadTimeout = 100;
 
             _rxRunning = true;
             _rxThread = new Thread(ReceiveLoop) { IsBackground = true, Name = "SLCAN_RX" };
@@ -90,6 +102,32 @@ public class SlcanAdapter : ICanAdapter
             _serial?.Dispose();
             _serial = null;
             return Task.FromResult(false);
+        }
+    }
+
+    /// <summary>
+    /// Sends a command and waits for a CR (success) or BEL (error) response.
+    /// Returns true on CR, false on BEL or timeout.
+    /// </summary>
+    private bool SendCommandAndVerify(string cmd, int timeoutMs = 200)
+    {
+        if (_serial == null || !_serial.IsOpen) return false;
+
+        // Clear any pending data before sending
+        _serial.DiscardInBuffer();
+
+        SendLine(cmd);
+
+        // Wait for response: CR ('\r') = success, BEL (0x07) = error
+        try
+        {
+            _serial.ReadTimeout = timeoutMs;
+            int b = _serial.ReadByte();
+            return b == '\r';
+        }
+        catch (TimeoutException)
+        {
+            return false; // No response = failure
         }
     }
 
