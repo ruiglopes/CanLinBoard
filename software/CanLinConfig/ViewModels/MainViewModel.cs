@@ -33,6 +33,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public DiagConfigViewModel DiagConfig { get; }
     public DiagnosticsViewModel Diagnostics { get; }
     public ProfilesViewModel Profiles { get; }
+    public BusDataService BusDataService { get; }
+    public BusMonitorViewModel BusMonitor { get; }
 
     public ConfigProtocol? Protocol => _protocol;
 
@@ -44,6 +46,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         DiagConfig = new DiagConfigViewModel(this);
         Diagnostics = new DiagnosticsViewModel(this);
         Profiles = new ProfilesViewModel(this);
+
+        var dbManager = new DatabaseManager();
+        BusDataService = new BusDataService(dbManager);
+        BusMonitor = new BusMonitorViewModel(BusDataService);
 
         RefreshChannels();
     }
@@ -114,7 +120,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
 
         _protocol = new ConfigProtocol(_adapter);
-        _protocol.RawFrameReceived += (_, e) => Diagnostics.OnRawFrame(e.Frame);
+        _protocol.RawFrameReceived += (_, e) =>
+        {
+            BusDataService.OnCanFrame(e.Frame);
+            Diagnostics.OnRawFrame(e.Frame);
+        };
 
         // Try firmware handshake
         var result = await _protocol.ConnectAsync();

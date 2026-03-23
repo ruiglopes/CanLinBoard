@@ -60,6 +60,9 @@
             <TabItem Header="Diagnostics Settings">
                 <views:DiagConfigView DataContext="{Binding DiagConfig}" />
             </TabItem>
+            <TabItem Header="Bus Monitor">
+                <views:BusMonitorView DataContext="{Binding BusMonitor}"/>
+            </TabItem>
             <TabItem Header="Live Diagnostics">
                 <views:DiagnosticsView DataContext="{Binding Diagnostics}" />
             </TabItem>

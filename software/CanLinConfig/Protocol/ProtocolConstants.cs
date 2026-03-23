@@ -18,6 +18,10 @@ public static class ProtocolConstants
     public const uint DiagCrashId = 0x7F3;
     public const uint DiagSysHealthId = 0x7F4;
 
+    // Bus Monitor CAN IDs
+    public const uint MonitorHeaderId = 0x604;
+    public const uint MonitorDataId = 0x605;
+
     // Bootloader
     public const uint BlCmdId = 0x700;
 
