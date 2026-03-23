@@ -149,13 +149,15 @@ Assign LDF files to LIN buses in the Bus Monitor tab. When the firmware monitor 
 ---
 
 ## Plan 5B: Continuous Mode
-**Status:** NOT STARTED
+**Status:** COMPLETE
+**Plan:** [`docs/superpowers/plans/2026-03-23-continuous-mode.md`](superpowers/plans/2026-03-23-continuous-mode.md)
 
-### Scope
-- Ring buffer wrap with erase-ahead
-- RAM queue (64 entries) for buffering during download
-- Gap marker sentinel (bus=0xFF) on overflow
-- Config tool continuous mode UI
+### What was built
+- Continuous recording mode (ring wraps indefinitely, auto-resumes on boot)
+- Gap marker entries (bus=0xFF sentinel) with drop count when queue overflows
+- Drop counter readable via config protocol (LOG_PARAM_DROP_COUNT)
+- Config tool: mode selector ComboBox (Manual/Continuous), drop count display
+- Config tool: gap marker reporting in log download with total dropped frame count
 
 ### Dependencies
 - Plan 5A (flash logger foundation)
@@ -264,7 +266,7 @@ Right-click signals in the Signal panel, add to Instrument Panel, get live-updat
 | 3 | LDF Parser Integration | COMPLETE | 45 |
 | 4 | Firmware Monitor Protocol | COMPLETE | 117 |
 | 5A | Logger Foundation | COMPLETE | 112 |
-| 5B | Continuous Mode | NOT STARTED | — |
+| 5B | Continuous Mode | COMPLETE | 113 |
 | 5C | Triggered Mode | NOT STARTED | — |
 | 5D | Log Replay | NOT STARTED | — |
 | 6 | Export Formats | COMPLETE | 61 |
