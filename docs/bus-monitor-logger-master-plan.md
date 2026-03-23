@@ -183,15 +183,17 @@ Assign LDF files to LIN buses in the Bus Monitor tab. When the firmware monitor 
 ---
 
 ## Plan 5D: Log Replay
-**Status:** NOT STARTED
+**Status:** COMPLETE
+**Plan:** [`docs/superpowers/plans/2026-03-23-log-replay.md`](superpowers/plans/2026-03-23-log-replay.md)
 
-### Scope
-- LogReplayPanel — playback from file into BusDataService
-- Play/pause/speed/scrub controls
-- Timeline with markers
+### What was built
+- CsvLogImporter — parses CSV log files back into BusFrame lists (handles CAN1/2, LIN1-4, hex IDs/data)
+- LogReplayViewModel — load CSV, play/pause/stop with DispatcherTimer, speed control (1x/2x/5x/10x)
+- LogReplayPanel — UI in Data Logger tab with progress bar, frame counter, speed selector
+- All existing Bus Monitor panels (trace, signals, graph, instruments) work with replayed data via BusDataService
 
 ### Dependencies
-- Plan 5A (flash logger, download)
+- Plan 5A (flash logger, download, BusDataService)
 
 ---
 
@@ -272,7 +274,7 @@ Right-click signals in the Signal panel, add to Instrument Panel, get live-updat
 | 5A | Logger Foundation | COMPLETE | 112 |
 | 5B | Continuous Mode | COMPLETE | 113 |
 | 5C | Triggered Mode | COMPLETE | 113 |
-| 5D | Log Replay | NOT STARTED | — |
+| 5D | Log Replay | COMPLETE | 118 |
 | 6 | Export Formats | COMPLETE | 61 |
 | 7 | Instrument Panel | COMPLETE | 68 |
 | 8 | USB CDC Sideband | FUTURE | — |
