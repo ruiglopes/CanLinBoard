@@ -1,3 +1,4 @@
+using System.IO;
 using CanLinConfig.Models;
 using CanLinConfig.Parsers;
 
@@ -13,12 +14,19 @@ public class DatabaseManager
 
     public void AssignDatabase(BusFrame.Bus bus, string filePath)
     {
-        var dbc = DbcParser.Parse(filePath);
-        lock (_lock)
+        if (string.Equals(Path.GetExtension(filePath), ".ldf", StringComparison.OrdinalIgnoreCase))
         {
-            _databases[bus] = dbc;
-            _dbPaths[bus] = filePath;
-            RebuildCache(bus, dbc);
+            AssignLdfDatabase(bus, filePath);
+        }
+        else
+        {
+            var dbc = DbcParser.Parse(filePath);
+            lock (_lock)
+            {
+                _databases[bus] = dbc;
+                _dbPaths[bus] = filePath;
+                RebuildCache(bus, dbc);
+            }
         }
     }
 
@@ -76,6 +84,61 @@ public class DatabaseManager
     public IReadOnlyDictionary<BusFrame.Bus, string> GetAssignments()
     {
         lock (_lock) return new Dictionary<BusFrame.Bus, string>(_dbPaths);
+    }
+
+    private void AssignLdfDatabase(BusFrame.Bus bus, string filePath)
+    {
+        var ldf = LdfParser.Parse(filePath);
+        lock (_lock)
+        {
+            _dbPaths[bus] = filePath;
+            RebuildCacheFromLdf(bus, ldf);
+        }
+    }
+
+    private void RebuildCacheFromLdf(BusFrame.Bus bus, LdfFile ldf)
+    {
+        ClearCache(bus);
+        foreach (var frame in ldf.Frames)
+        {
+            var signals = new List<DbcSignal>(frame.Signals.Count);
+            foreach (var frameSig in frame.Signals)
+            {
+                var sigDef = LdfParser.GetSignal(ldf, frameSig.Name);
+                int bitLength = sigDef?.BitSize ?? 8;
+
+                double factor = 1.0;
+                double offset = 0.0;
+                string unit = "";
+
+                var encoding = LdfParser.GetEncodingForSignal(ldf, frameSig.Name);
+                if (encoding != null)
+                {
+                    var physVal = encoding.Values.FirstOrDefault(v => v.IsPhysical);
+                    if (physVal != null)
+                    {
+                        factor = physVal.Factor;
+                        offset = physVal.Offset;
+                        unit = physVal.Description;
+                    }
+                }
+
+                signals.Add(new DbcSignal
+                {
+                    Name = frameSig.Name,
+                    StartBit = frameSig.BitOffset,
+                    BitLength = bitLength,
+                    IsLittleEndian = true,
+                    IsSigned = false,
+                    Factor = factor,
+                    Offset = offset,
+                    Unit = unit,
+                });
+            }
+
+            _signalCache[(bus, (uint)frame.Id)] = signals;
+            _nameCache[(bus, (uint)frame.Id)] = frame.Name;
+        }
     }
 
     private void RebuildCache(BusFrame.Bus bus, DbcFile dbc)
