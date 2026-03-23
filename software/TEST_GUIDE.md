@@ -667,6 +667,90 @@ Included in the test suite. LDF-specific tests:
 
 ---
 
+## Monitor Protocol Tests (Plan 4 — Firmware Required for On-Target)
+
+### Automated Unit Tests
+
+```bash
+cd software
+dotnet test CanLinConfig.Tests --filter "MonitorFrameDecoder" -v n
+```
+
+10 tests covering:
+- Standard CAN2 frame decode (header + data pairing)
+- DLC=8 with data[7] nibble in header
+- DLC=0 header-only (no data frame)
+- LIN bus IDs (LIN1, LIN4)
+- Extended frame flag (29-bit)
+- Sequence gap detection
+- Sequence wrap (255 → 0)
+- Mismatched data sequence discard
+- Non-monitor frames ignored
+- Consecutive headers (pending overwrite)
+
+### Monitor UI Walkthrough (No Connection Needed)
+
+#### MON-1: Monitor control panel visible
+
+1. Launch config tool
+2. Go to Bus Monitor tab
+3. Verify monitor control bar visible between database bar and trace panel
+4. "Monitor:" label, "Enable" checkbox (disabled — not connected), bus checkboxes (CAN1-CAN2, LIN1-4), "Gaps: 0 Drops: 0"
+
+#### MON-2: Enable disabled without connection
+
+1. Verify the Enable checkbox is grayed out when not connected
+2. Bus checkboxes should still be checkable (they're state-only until connected)
+
+### Monitor Live Tests (Firmware v0.3.0+ Required)
+
+#### MON-3: Enable monitor
+
+1. Connect to board
+2. Enable checkbox becomes active
+3. Check "Enable" — sends WRITE_PARAM to firmware
+4. If CAN2 has traffic, frames should appear in trace panel with "CAN2" bus tag
+
+#### MON-4: Bus filter
+
+1. Uncheck CAN1, keep CAN2 checked
+2. Verify only CAN2 frames appear in monitor stream
+3. Re-check CAN1, verify CAN1 frames also appear
+
+#### MON-5: Gap and drop counters
+
+1. Under high traffic load, observe "Gaps:" counter incrementing
+2. Click near Drops display (or implement refresh) — shows firmware-side drop count
+3. Counters reset when monitor is re-enabled
+
+#### MON-6: Signal decode from monitored frames
+
+1. Assign a DBC file to CAN2
+2. Enable monitor with CAN2 traffic
+3. Signal panel should show decoded signals from CAN2 frames
+4. Graph panel should plot CAN2 signals in real-time
+
+#### MON-7: Export includes monitored frames
+
+1. Enable monitor, capture some CAN2/LIN frames
+2. Click Export, save as CSV
+3. Open CSV — verify CAN2/LIN frames present with correct bus tag
+
+### Monitor Protocol Test Checklist
+
+| # | Test | Hardware | Status |
+|---|------|----------|--------|
+| — | Unit tests (10 MonitorFrameDecoder) | None | |
+| MON-1 | Control panel visible | None | |
+| MON-2 | Enable disabled without connection | None | |
+| MON-3 | Enable monitor | Board + CAN2 traffic | |
+| MON-4 | Bus filter | Board + CAN2 traffic | |
+| MON-5 | Gap and drop counters | Board + high traffic | |
+| MON-6 | Signal decode from monitored frames | Board + CAN2 + DBC | |
+| MON-7 | Export includes monitored frames | Board + CAN2 traffic | |
+
+---
+
 ## Known Limitations
 
 | Item | Detail |

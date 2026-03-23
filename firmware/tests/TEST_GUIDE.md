@@ -404,6 +404,76 @@ python tests/phase6/test_diag_host.py --channel PCAN_USBBUS1
 
 ---
 
+## Phase 7: Bus Monitor Protocol (On-Target + Host)
+
+**Hardware:** Board + PCAN on CAN1 + second CAN adapter or signal source on CAN2 (for multi-bus tests).
+
+Phase 7 validates the bus monitor streaming protocol — firmware mirrors CAN/LIN frames
+to the config tool on CAN IDs 0x604 (header) / 0x605 (data), with config protocol control.
+
+**No test firmware needed** — monitor runs in the main firmware. All tests use the main
+firmware binary with the config tool or Python host scripts.
+
+### Prerequisites
+
+- Main firmware (v0.3.0+) flashed on board
+- CAN1 connected to host adapter at 500 kbps
+- CAN2 connected to a second adapter or traffic source (for T7.3, T7.5, T7.8)
+
+### Test Matrix
+
+**A — Enable/Disable & Basic Streaming:**
+
+| Test | What it checks | Method |
+|------|---------------|--------|
+| T7.1 | Monitor starts disabled | Host: `READ_PARAM(0x06, 0, 0)` returns 0 |
+| T7.2 | Enable monitor | Host: `WRITE_PARAM(0x06, 0, 0, 1)`, confirm `READ_PARAM` returns 1 |
+| T7.3 | CAN2 frame mirrored | Send a frame on CAN2, verify 0x604+0x605 pair on CAN1 with correct bus=1, ID, data |
+| T7.4 | Sequence number increments | Send 3 frames, verify seq 0, 1, 2 in header bytes |
+| T7.5 | DLC=0 header-only | Send DLC=0 frame on CAN2, verify only 0x604 received (no 0x605) |
+| T7.6 | DLC=8 data[7] in header | Send 8-byte frame, verify data[0-6] in 0x605 and data[7] lower nibble in 0x604 byte 6 |
+| T7.7 | Disable monitor | Host: `WRITE_PARAM(0x06, 0, 0, 0)`, send CAN2 frame, verify no 0x604/0x605 |
+
+**B — Filtering:**
+
+| Test | What it checks | Method |
+|------|---------------|--------|
+| T7.8 | Bus mask filter | Set bus mask to CAN2 only (0x02), send frames on CAN1 and CAN2, verify only CAN2 mirrored |
+| T7.9 | Config frames excluded | Enable monitor with CAN1 in mask, send normal frame on CAN1 (ID 0x100) — mirrored. 0x600-0x605 never mirrored. |
+| T7.10 | Diag frames excluded | Verify 0x7F0-0x7F4 heartbeat frames never appear as monitor frames |
+| T7.11 | ID whitelist | Bulk write [0x123] to SectionMonitor, set filter mode=1 (whitelist), verify only ID 0x123 mirrored |
+| T7.12 | ID blacklist | Set filter mode=2 (blacklist) with [0x123], verify 0x123 NOT mirrored but other IDs are |
+| T7.13 | Filter mode clear | Set filter mode=0 (none), verify all IDs mirrored again |
+
+**C — Backpressure & Priority:**
+
+| Test | What it checks | Method |
+|------|---------------|--------|
+| T7.14 | Application traffic priority | Flood CAN2 frames + send config READ_PARAM, verify config response arrives within timeout |
+| T7.15 | Drop count | Flood monitor queue (high-rate CAN2 traffic), read `MONITOR_PARAM_DROP_COUNT`, verify > 0 |
+| T7.16 | Sequence gap on drop | During overload, verify config tool sees sequence number gaps (non-consecutive seq in headers) |
+
+**D — LIN Monitoring (requires LIN traffic source):**
+
+| Test | What it checks | Method |
+|------|---------------|--------|
+| T7.17 | LIN1 frame mirrored | Configure LIN1 master with schedule, verify monitor frames with bus=2 (LIN1) |
+| T7.18 | LIN bus mask | Set bus mask to exclude LIN1, verify LIN1 frames not mirrored |
+
+### Troubleshooting
+
+| Symptom | Likely cause |
+|---------|-------------|
+| No 0x604/0x605 after enable | Monitor not enabled — check WRITE_PARAM response. Or bus mask excludes all buses. |
+| 0x604 received but no 0x605 | DLC=0 frame (expected) or monitor queue overflow dropped the data frame |
+| Wrong bus ID in header | Check byte 1 of 0x604 — CAN1=0, CAN2=1, LIN1=2, LIN2=3, LIN3=4, LIN4=5 |
+| Config responses slow during flood | Normal — monitor TX has lower priority. Increase config timeout if needed. |
+| Drop count stays 0 despite high traffic | Monitor TX queue depth (16) may be sufficient for the traffic rate. Increase send rate. |
+
+**Gate:** T7.1-T7.16 pass. T7.17-T7.18 require LIN traffic source (can defer).
+
+---
+
 ## Test Firmware Build Targets
 
 | Target | CMake Command | Define |
