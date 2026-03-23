@@ -152,6 +152,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _monitorDecoder = new MonitorFrameDecoder();
         _monitorDecoder.FrameDecoded += (_, busFrame) => BusDataService.OnFrame(busFrame);
         _protocol.MonitorFrameReceived += (_, e) => _monitorDecoder.OnCanFrame(e.Frame);
+        BusMonitor.MonitorControl.SetProtocol(_protocol, _monitorDecoder);
 
         // Try firmware handshake
         var result = await _protocol.ConnectAsync();
@@ -198,6 +199,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private void Disconnect()
     {
         Diagnostics.StopMonitoring();
+        BusMonitor.MonitorControl.SetProtocol(null, null);
         _monitorDecoder = null;
         _protocol?.Dispose();
         _protocol = null;

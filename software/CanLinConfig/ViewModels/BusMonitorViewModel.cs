@@ -19,6 +19,7 @@ public partial class BusMonitorViewModel : ObservableObject
     public SignalPanelViewModel Signals { get; }
     public GraphPanelViewModel Graph { get; }
     public InstrumentPanelViewModel Instruments { get; }
+    public MonitorControlViewModel MonitorControl { get; }
 
     [ObservableProperty] private string _can1DbPath = "(none)";
     [ObservableProperty] private string _can2DbPath = "(none)";
@@ -36,6 +37,7 @@ public partial class BusMonitorViewModel : ObservableObject
         Signals = new SignalPanelViewModel();
         Graph = new GraphPanelViewModel();
         Instruments = new InstrumentPanelViewModel();
+        MonitorControl = new MonitorControlViewModel();
 
         _busDataService.FrameReceived += OnFrameReceived;
         _busDataService.SignalsDecoded += OnSignalsDecoded;

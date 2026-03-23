@@ -5,6 +5,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0" Margin="5">
@@ -38,7 +39,8 @@
                 <Button Content="X" Command="{Binding ClearLin4DbCommand}" Width="25"/>
             </StackPanel>
         </StackPanel>
-        <Grid Grid.Row="1">
+        <local:MonitorControlPanel Grid.Row="1" DataContext="{Binding MonitorControl}"/>
+        <Grid Grid.Row="2">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" MinHeight="100"/>
                 <RowDefinition Height="5"/>
