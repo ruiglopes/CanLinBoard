@@ -22,4 +22,10 @@
     <ProjectReference Include="..\CanLinConfig\CanLinConfig.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="TestData\test.dbc">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
