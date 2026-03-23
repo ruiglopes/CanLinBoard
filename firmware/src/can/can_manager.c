@@ -3,6 +3,7 @@
 #include "hal/hal_gpio.h"
 #include "diag/bus_watchdog.h"
 #include "monitor/bus_monitor.h"
+#include "logger/flash_logger.h"
 
 #include "can2040.h"
 #include "hardware/irq.h"
@@ -304,6 +305,7 @@ void can_task_entry(void *params)
                 xQueueSend(s_gateway_queue, &gf, 0);
             }
             bus_monitor_enqueue_frame(&gf);
+            flash_logger_enqueue_frame(&gf);
         }
         if (had_frames) bus_watchdog_feed(BUS_CAN1);
 
@@ -313,6 +315,7 @@ void can_task_entry(void *params)
             had_frames = true;
             xQueueSend(s_gateway_queue, &gf, 0);
             bus_monitor_enqueue_frame(&gf);
+            flash_logger_enqueue_frame(&gf);
         }
         if (had_frames) bus_watchdog_feed(BUS_CAN2);
 

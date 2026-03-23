@@ -21,6 +21,7 @@
 #include "config/config_handler.h"
 #include "config/nvm_config.h"
 #include "monitor/bus_monitor.h"
+#include "logger/flash_logger.h"
 
 #include <string.h>
 
@@ -142,11 +143,13 @@ int main(void)
     g_lin_tx_queue        = xQueueCreate(QUEUE_DEPTH_LIN_TX,     sizeof(gateway_frame_t));
     g_config_rx_queue     = xQueueCreate(QUEUE_DEPTH_CONFIG_RX,  sizeof(gateway_frame_t));
     QueueHandle_t g_monitor_tx_queue = xQueueCreate(QUEUE_DEPTH_MONITOR_TX, sizeof(gateway_frame_t));
+    QueueHandle_t g_log_queue        = xQueueCreate(QUEUE_DEPTH_LOG_WRITE,  sizeof(gateway_frame_t));
     ASSERT_ALLOC(g_gateway_input_queue);
     ASSERT_ALLOC(g_can_tx_queue);
     ASSERT_ALLOC(g_lin_tx_queue);
     ASSERT_ALLOC(g_config_rx_queue);
     ASSERT_ALLOC(g_monitor_tx_queue);
+    ASSERT_ALLOC(g_log_queue);
 
     /* Initialize config handler — loads config from NVM (or defaults) */
     config_handler_init(g_config_rx_queue, g_can_tx_queue);
@@ -155,6 +158,7 @@ int main(void)
     /* Initialize subsystems */
     can_manager_init(g_gateway_input_queue, g_config_rx_queue, g_can_tx_queue, g_monitor_tx_queue);
     bus_monitor_init(g_monitor_tx_queue);
+    flash_logger_init(g_log_queue);
     lin_manager_init(g_gateway_input_queue, g_lin_tx_queue);
 
     /* Start CAN1 with config bitrate */
@@ -176,6 +180,7 @@ int main(void)
     ASSERT_ALLOC(xTaskCreate(gateway_task,     "GW",   TASK_STACK_GATEWAY, NULL, TASK_PRIORITY_GATEWAY, &s_task_handles[2]) == pdPASS);
     ASSERT_ALLOC(xTaskCreate(config_task,      "CFG",  TASK_STACK_CONFIG,  NULL, TASK_PRIORITY_CONFIG,  &s_task_handles[3]) == pdPASS);
     ASSERT_ALLOC(xTaskCreate(diagnostics_task, "DIAG", TASK_STACK_DIAG,   NULL, TASK_PRIORITY_DIAG,    &s_task_handles[4]) == pdPASS);
+    xTaskCreate(flash_logger_task, "LOG", TASK_STACK_LOG, NULL, tskIDLE_PRIORITY + 1, NULL);
 
     /* Enable hardware watchdog (5 second timeout, pause on debug) */
     watchdog_enable(HW_WATCHDOG_TIMEOUT_MS, true);
