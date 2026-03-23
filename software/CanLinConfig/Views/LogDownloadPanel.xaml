@@ -1,0 +1,31 @@
+<UserControl x:Class="CanLinConfig.Views.LogDownloadPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <GroupBox Header="Log Download" Margin="5">
+        <StackPanel>
+            <!-- Progress -->
+            <ProgressBar Height="20" Minimum="0" Maximum="100"
+                         Value="{Binding DownloadProgress, Mode=OneWay}"
+                         Margin="0,0,0,5"
+                         Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVisConverter}}"/>
+
+            <!-- Status -->
+            <TextBlock Text="{Binding DownloadStatus}" Margin="0,0,0,8"/>
+
+            <!-- Download info -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8"
+                        Visibility="{Binding HasDownloadedData, Converter={StaticResource BoolToVisConverter}}">
+                <TextBlock Text="Downloaded Entries:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <TextBlock Text="{Binding DownloadedEntries}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            </StackPanel>
+
+            <!-- Controls -->
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Download" Command="{Binding DownloadCommand}" Width="80" Margin="0,0,5,0"/>
+                <Button Content="Cancel" Command="{Binding CancelDownloadCommand}" Width="70" Margin="0,0,5,0"/>
+                <Button Content="Export..." Command="{Binding ExportLogCommand}" Width="70" Margin="0,0,5,0"/>
+                <Button Content="Feed to Bus Monitor" Command="{Binding FeedToBusMonitorCommand}" Width="130"/>
+            </StackPanel>
+        </StackPanel>
+    </GroupBox>
+</UserControl>

@@ -1,0 +1,38 @@
+<UserControl x:Class="CanLinConfig.Views.LogControlPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <GroupBox Header="Logger Control" Margin="5">
+        <StackPanel>
+            <!-- Status -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="Status:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                <TextBlock Text="Entries:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <TextBlock Text="{Binding EntryCount}" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                <TextBlock Text="Wraps:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <TextBlock Text="{Binding WrapCount}" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                <TextBlock Text="Flash Errors:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <TextBlock Text="{Binding FlashErrors}" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Bus Filter -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="Buses:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <CheckBox Content="CAN1" IsChecked="{Binding LogCan1}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <CheckBox Content="CAN2" IsChecked="{Binding LogCan2}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <CheckBox Content="LIN1" IsChecked="{Binding LogLin1}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <CheckBox Content="LIN2" IsChecked="{Binding LogLin2}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <CheckBox Content="LIN3" IsChecked="{Binding LogLin3}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <CheckBox Content="LIN4" IsChecked="{Binding LogLin4}" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Controls -->
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Start" Command="{Binding StartCommand}" Width="70" Margin="0,0,5,0"/>
+                <Button Content="Stop" Command="{Binding StopCommand}" Width="70" Margin="0,0,5,0"/>
+                <Button Content="Erase All" Command="{Binding EraseAllCommand}" Width="80" Margin="0,0,5,0"/>
+                <Button Content="Refresh" Command="{Binding RefreshStatusCommand}" Width="70"/>
+            </StackPanel>
+        </StackPanel>
+    </GroupBox>
+</UserControl>
