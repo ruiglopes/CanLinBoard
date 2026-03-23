@@ -102,14 +102,14 @@ public class LogDownloadViewModelTests
     }
 
     [Fact]
-    public void ParseLogEntriesWithGaps_skips_page_padding()
+    public void ParseLogEntriesWithGaps_skips_write_chunk_padding()
     {
-        // Simulate one full 256-byte page: 12 entries (240 bytes) + 16 bytes 0xFF padding
-        // Then 1 entry at start of next page
-        var data = new byte[256 + 20]; // 276 bytes = 1 page + 1 entry
+        // Firmware writes 64-byte chunks: 3 entries (60 bytes) + 4 bytes 0xFF padding
+        // Simulate 2 chunks (128 bytes) + 1 entry from 3rd chunk
+        var data = new byte[128 + 20]; // 148 bytes
 
-        // Fill 12 entries in first page (all CAN1, ID=0x100)
-        for (int e = 0; e < 12; e++)
+        // Chunk 0 (bytes 0-63): 3 entries, CAN1, ID=0x100
+        for (int e = 0; e < 3; e++)
         {
             int off = e * 20;
             data[off] = 0x01; // timestamp_ms = 1
@@ -118,25 +118,33 @@ public class LogDownloadViewModelTests
             data[off + 9] = 0x02; // dlc = 2
             data[off + 10] = 0xAA; data[off + 11] = 0xBB;
         }
+        // Bytes 60-63: 0xFF padding
+        for (int p = 60; p < 64; p++) data[p] = 0xFF;
 
-        // Bytes 240-255: 0xFF padding (already zero in array, set to 0xFF)
-        for (int p = 240; p < 256; p++)
-            data[p] = 0xFF;
+        // Chunk 1 (bytes 64-127): 3 entries, CAN1, ID=0x100
+        for (int e = 0; e < 3; e++)
+        {
+            int off = 64 + e * 20;
+            data[off] = 0x02; // timestamp_ms = 2
+            data[off + 4] = 0x00; data[off + 5] = 0x01; // ID = 0x100
+            data[off + 8] = 0x00; // bus = CAN1
+            data[off + 9] = 0x02; // dlc = 2
+        }
+        // Bytes 124-127: 0xFF padding
+        for (int p = 124; p < 128; p++) data[p] = 0xFF;
 
-        // Entry 13 at byte 256 (start of page 2): CAN2, ID=0x200
-        data[256] = 0x02; // timestamp_ms = 2
-        data[256 + 4] = 0x00; data[256 + 5] = 0x02; // ID = 0x200
-        data[256 + 8] = 0x01; // bus = CAN2
-        data[256 + 9] = 0x03; // dlc = 3
+        // Chunk 2 first entry (bytes 128-147): CAN2, ID=0x200
+        data[128] = 0x03; // timestamp_ms = 3
+        data[128 + 4] = 0x00; data[128 + 5] = 0x02; // ID = 0x200
+        data[128 + 8] = 0x01; // bus = CAN2
+        data[128 + 9] = 0x03; // dlc = 3
 
         var (entries, _) = LogDownloadViewModel.ParseLogEntriesWithGaps(data);
 
-        Assert.Equal(13, entries.Count);
-        // First 12 should be CAN1, ID=0x100
-        Assert.All(entries.Take(12), e => Assert.Equal(0x100u, e.FrameId));
-        // 13th should be CAN2, ID=0x200
-        Assert.Equal(0x200u, entries[12].FrameId);
-        Assert.Equal(1, entries[12].Bus); // CAN2
+        Assert.Equal(7, entries.Count); // 3 + 3 + 1
+        Assert.All(entries.Take(6), e => Assert.Equal(0x100u, e.FrameId));
+        Assert.Equal(0x200u, entries[6].FrameId);
+        Assert.Equal(1, entries[6].Bus); // CAN2
     }
 
     [Fact]

@@ -134,8 +134,10 @@
 #define LOG_DATA_END            SECONDARY_FLASH_SIZE  /* 0x1000000 (16 MB) */
 #define LOG_DATA_SIZE           (LOG_DATA_END - LOG_DATA_OFFSET) /* ~16,252 KB */
 #define LOG_ENTRY_SIZE          20U         /* sizeof(log_entry_t), packed */
-#define LOG_PAGE_ENTRIES        (NVM_PAGE_SIZE / LOG_ENTRY_SIZE) /* 12 per 256-byte page, 16 bytes wasted */
-#define LOG_SECTOR_ENTRIES      ((NVM_SECTOR_SIZE / NVM_PAGE_SIZE) * LOG_PAGE_ENTRIES) /* 192 per 4 KB sector */
+#define LOG_WRITE_SIZE          64U         /* bytes per flash write (3 entries + 4 pad) */
+#define LOG_WRITE_ENTRIES       (LOG_WRITE_SIZE / LOG_ENTRY_SIZE) /* 3 entries per 64-byte write */
+#define LOG_WRITES_PER_PAGE     (NVM_PAGE_SIZE / LOG_WRITE_SIZE)  /* 4 writes fill one 256-byte page */
+#define LOG_SECTOR_ENTRIES      ((NVM_SECTOR_SIZE / LOG_WRITE_SIZE) * LOG_WRITE_ENTRIES) /* 192 per 4 KB sector */
 #define LOG_META_MAGIC          0x4C4F4701U /* "LOG\x01" */
 
 #define QUEUE_DEPTH_LOG_WRITE   32

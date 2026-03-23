@@ -260,20 +260,19 @@ public partial class LogDownloadViewModel : ObservableObject
         var entries = new List<LogEntry>();
         uint gapDrops = 0;
         const int entrySize = 20;
-        const int entriesPerPage = 12;  // 12 × 20 = 240 bytes per 256-byte page
-        const int pageSize = 256;
-        const int usablePerPage = entriesPerPage * entrySize; // 240
+        const int writeSize = 64;     // firmware writes 64-byte chunks (3 entries + 4 pad)
+        const int usablePerWrite = 60; // 3 × 20 = 60 usable bytes per 64-byte write
 
         int i = 0;
         while (i + entrySize <= data.Length)
         {
-            // Calculate position within the current page
-            int pageOffset = i % pageSize;
+            // Calculate position within the current 64-byte write chunk
+            int writeOffset = i % writeSize;
 
-            // Skip page padding region (bytes 240-255 of each page)
-            if (pageOffset >= usablePerPage)
+            // Skip padding region (bytes 60-63 of each 64-byte chunk)
+            if (writeOffset >= usablePerWrite)
             {
-                i = (i / pageSize + 1) * pageSize; // Jump to next page
+                i = (i / writeSize + 1) * writeSize; // Jump to next chunk
                 continue;
             }
 

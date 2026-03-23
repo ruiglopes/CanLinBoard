@@ -16,8 +16,10 @@ static QueueHandle_t s_log_queue;
 static volatile uint8_t s_state = LOG_STATE_IDLE;
 static log_metadata_t   s_meta;
 
-/* Page write buffer: accumulate entries until a full page (256 bytes) */
-static uint8_t  s_page_buf[NVM_PAGE_SIZE];
+/* Write buffer: accumulate 3 entries (60 bytes) then flush 64 bytes.
+ * Smaller than a full 256-byte page to minimize interrupt-off time
+ * during SPI transfer (~100us vs ~500us for full page). */
+static uint8_t  s_page_buf[LOG_WRITE_SIZE];
 static uint16_t s_page_buf_pos;  /* bytes used in s_page_buf */
 static volatile uint32_t s_drop_count;  /* frames dropped due to full queue */
 static uint32_t s_trigger_offset;          /* write_offset when trigger fired */
@@ -148,8 +150,8 @@ static void flush_page_buffer(void)
     if (s_page_buf_pos == 0) return;
 
     /* Pad remainder with 0xFF (erased state) */
-    if (s_page_buf_pos < NVM_PAGE_SIZE) {
-        memset(&s_page_buf[s_page_buf_pos], 0xFF, NVM_PAGE_SIZE - s_page_buf_pos);
+    if (s_page_buf_pos < LOG_WRITE_SIZE) {
+        memset(&s_page_buf[s_page_buf_pos], 0xFF, LOG_WRITE_SIZE - s_page_buf_pos);
     }
 
     /* Erase sector if at boundary */
@@ -164,9 +166,9 @@ static void flush_page_buffer(void)
         return;
     }
 
-    /* Start page program — brief interrupt disable for SPI transfer */
+    /* Start page program — brief interrupt disable for 64-byte SPI transfer (~100us) */
     uint32_t irq = sec_flash_acquire_bus();
-    sec_flash_page_program_start(s_meta.write_offset, s_page_buf, NVM_PAGE_SIZE);
+    sec_flash_page_program_start(s_meta.write_offset, s_page_buf, LOG_WRITE_SIZE);
     sec_flash_release_bus(irq);
 
     /* Poll with interrupts enabled (~0.7ms typical, 10ms max) */
@@ -179,8 +181,8 @@ static void flush_page_buffer(void)
         }
     }
 
-    /* Advance write offset */
-    s_meta.write_offset += NVM_PAGE_SIZE;
+    /* Advance write offset by 64 bytes (not full 256-byte page) */
+    s_meta.write_offset += LOG_WRITE_SIZE;
     if (s_meta.write_offset >= LOG_DATA_END) {
         s_meta.write_offset = LOG_DATA_OFFSET;
         s_meta.wrap_count++;
@@ -195,9 +197,9 @@ static void write_entry(const log_entry_t *entry)
     memcpy(&s_page_buf[s_page_buf_pos], entry, LOG_ENTRY_SIZE);
     s_page_buf_pos += LOG_ENTRY_SIZE;
 
-    /* 12 entries per page (12 * 20 = 240 bytes), 16 bytes wasted.
+    /* 3 entries per 64-byte write (3 * 20 = 60 bytes, 4 bytes pad).
      * Flush when we can't fit another entry. */
-    if (s_page_buf_pos + LOG_ENTRY_SIZE > NVM_PAGE_SIZE) {
+    if (s_page_buf_pos + LOG_ENTRY_SIZE > LOG_WRITE_SIZE) {
         flush_page_buffer();
     }
 
