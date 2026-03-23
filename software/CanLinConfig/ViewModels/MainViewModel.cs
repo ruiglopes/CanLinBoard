@@ -42,6 +42,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public ProfilesViewModel Profiles { get; }
     public BusDataService BusDataService { get; }
     public BusMonitorViewModel BusMonitor { get; }
+    public DataLoggerViewModel DataLogger { get; }
 
     public ConfigProtocol? Protocol => _protocol;
 
@@ -57,6 +58,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var dbManager = new DatabaseManager();
         BusDataService = new BusDataService(dbManager);
         BusMonitor = new BusMonitorViewModel(BusDataService);
+        DataLogger = new DataLoggerViewModel();
 
         _appSettings = AppSettings.Load();
 
@@ -153,6 +155,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _monitorDecoder.FrameDecoded += (_, busFrame) => BusDataService.OnFrame(busFrame);
         _protocol.MonitorFrameReceived += (_, e) => _monitorDecoder.OnCanFrame(e.Frame);
         BusMonitor.MonitorControl.SetProtocol(_protocol, _monitorDecoder);
+        DataLogger.SetProtocol(_protocol, BusDataService);
 
         // Try firmware handshake
         var result = await _protocol.ConnectAsync();
@@ -200,6 +203,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         Diagnostics.StopMonitoring();
         BusMonitor.MonitorControl.SetProtocol(null, null);
+        DataLogger.SetProtocol(null, null);
         _monitorDecoder = null;
         _protocol?.Dispose();
         _protocol = null;

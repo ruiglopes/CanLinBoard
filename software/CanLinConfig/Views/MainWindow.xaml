@@ -83,6 +83,9 @@
             <TabItem Header="Bus Monitor">
                 <views:BusMonitorView DataContext="{Binding BusMonitor}"/>
             </TabItem>
+            <TabItem Header="Data Logger">
+                <views:DataLoggerView DataContext="{Binding DataLogger}"/>
+            </TabItem>
             <TabItem Header="Live Diagnostics">
                 <views:DiagnosticsView DataContext="{Binding Diagnostics}" />
             </TabItem>
