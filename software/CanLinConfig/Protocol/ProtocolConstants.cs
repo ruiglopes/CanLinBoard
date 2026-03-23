@@ -62,6 +62,38 @@ public static class ProtocolConstants
     // Monitor limits
     public const int MonitorMaxFilterIds = 32;
 
+    // ---- Logger (SectionLog = 0x07) ----
+    public const byte SectionLog = 0x07;
+
+    // Logger param indices (single-byte params)
+    public const byte LogParamMode = 0;
+    public const byte LogParamBusMask = 1;
+    public const byte LogParamStateCmd = 2;
+    public const byte LogParamStatus = 3;
+
+    // Logger param indices (32-bit params, read via sub=0/sub=1 for low/high 16 bits)
+    public const byte LogParamEntryCount = 4;
+    public const byte LogParamWrapCount = 5;
+    public const byte LogParamWriteOffset = 6;
+    public const byte LogParamFlashErrors = 7;
+
+    // Logger states
+    public const byte LogStateIdle = 0;
+    public const byte LogStateRecording = 1;
+    public const byte LogStateError = 4;
+
+    // Logger modes
+    public const byte LogModeManual = 0;
+
+    // Logger state commands
+    public const byte LogCmdStop = 0;
+    public const byte LogCmdStart = 1;
+    public const byte LogCmdEraseAll = 0xFF;
+
+    // Chunked log read
+    public const byte CmdLogReadChunk = 0x24;
+    public const ushort LogChunkSize = 4096;
+
     // Response status codes
     public const byte StatusOk = 0x00;
     public const byte StatusUnknownCmd = 0x01;
