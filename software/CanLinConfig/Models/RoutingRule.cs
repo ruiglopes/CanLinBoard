@@ -24,21 +24,12 @@ public partial class RoutingRule : ObservableObject
     public ObservableCollection<ByteMapping> Mappings { get; } = [];
 
     // Software-only fields (not serialized to firmware)
-    [JsonIgnore] public string ProfileTag { get; set; } = "";
+    public string ProfileTag { get; set; } = "";
     [ObservableProperty] private bool _bitMode;
     public ObservableCollection<BitMapping> BitMappings { get; } = [];
 
-    public string SrcBusName => BusName(SrcBus);
-    public string DstBusName => BusName(DstBus);
     public string SrcIdHex => $"0x{SrcId:X3}";
     public string DstIdHex => DstId == 0xFFFFFFFF ? "Passthrough" : $"0x{DstId:X3}";
-
-    public static string BusName(byte bus) => bus switch
-    {
-        0 => "CAN1", 1 => "CAN2",
-        2 => "LIN1", 3 => "LIN2", 4 => "LIN3", 5 => "LIN4",
-        _ => $"Bus{bus}",
-    };
 
     /// <summary>
     /// Serialize to match firmware routing_rule_t memory layout.

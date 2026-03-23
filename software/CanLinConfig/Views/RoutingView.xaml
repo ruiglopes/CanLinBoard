@@ -4,10 +4,6 @@
              xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
              xmlns:views="clr-namespace:CanLinConfig.Views">
     <UserControl.Resources>
-        <views:HexUInt32Converter x:Key="Hex3Converter" Digits="3" />
-        <views:HexUInt32Converter x:Key="Hex2Converter" Digits="2" />
-        <BooleanToVisibilityConverter x:Key="BoolToVis" />
-        <views:InverseBoolToVisConverter x:Key="InverseBoolToVis" />
         <ObjectDataProvider x:Key="BusItems" ObjectType="{x:Type views:BusItem}" MethodName="get_All" />
     </UserControl.Resources>
 
