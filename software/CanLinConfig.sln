@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CanBus.Adapters", "..\lib\C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CanBus.Protocol", "..\lib\CanBus.Protocol\CanBus.Protocol.csproj", "{75A8B154-AEC4-4FBD-8D25-AD0F0D320248}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CanLinConfig.Tests", "CanLinConfig.Tests\CanLinConfig.Tests.csproj", "{B997EF7D-268A-4CBE-BBBC-902285AB74F4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,18 @@ Global
 		{75A8B154-AEC4-4FBD-8D25-AD0F0D320248}.Release|x64.Build.0 = Release|Any CPU
 		{75A8B154-AEC4-4FBD-8D25-AD0F0D320248}.Release|x86.ActiveCfg = Release|Any CPU
 		{75A8B154-AEC4-4FBD-8D25-AD0F0D320248}.Release|x86.Build.0 = Release|Any CPU
+		{B997EF7D-268A-4CBE-BBBC-902285AB74F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B997EF7D-268A-4CBE-BBBC-902285AB74F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B997EF7D-268A-4CBE-BBBC-902285AB74F4}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B997EF7D-268A-4CBE-BBBC-902285AB74F4}.Debug|x64.Build.0 = Debug|Any CPU
+		{B997EF7D-268A-4CBE-BBBC-902285AB74F4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B997EF7D-268A-4CBE-BBBC-902285AB74F4}.Debug|x86.Build.0 = Debug|Any CPU
+		{B997EF7D-268A-4CBE-BBBC-902285AB74F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B997EF7D-268A-4CBE-BBBC-902285AB74F4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B997EF7D-268A-4CBE-BBBC-902285AB74F4}.Release|x64.ActiveCfg = Release|Any CPU
+		{B997EF7D-268A-4CBE-BBBC-902285AB74F4}.Release|x64.Build.0 = Release|Any CPU
+		{B997EF7D-268A-4CBE-BBBC-902285AB74F4}.Release|x86.ActiveCfg = Release|Any CPU
+		{B997EF7D-268A-4CBE-BBBC-902285AB74F4}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
