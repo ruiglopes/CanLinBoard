@@ -30,6 +30,7 @@ static void save_metadata(void);
 static void write_entry(const log_entry_t *entry);
 static void flush_page_buffer(void);
 static bool erase_sector_if_needed(uint32_t addr);
+static bool wait_flash_done(uint32_t max_polls);
 
 /* ---- Metadata ---- */
 
@@ -75,11 +76,26 @@ static void save_metadata(void)
     s_meta.crc32 = crc32_compute((const uint8_t *)&s_meta,
                                sizeof(s_meta) - sizeof(uint32_t));
 
-    /* Erase metadata sector and write */
-    uint32_t irq = sec_flash_acquire_bus();
-    sec_flash_sector_erase(LOG_META_OFFSET);
-    sec_flash_page_program(LOG_META_OFFSET, (const uint8_t *)&s_meta, sizeof(s_meta));
-    sec_flash_release_bus(irq);
+    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+        /* Non-blocking path — keep CAN PIO IRQ alive */
+        uint32_t irq = sec_flash_acquire_bus();
+        sec_flash_sector_erase_start(LOG_META_OFFSET);
+        sec_flash_release_bus(irq);
+
+        wait_flash_done(500); /* ~45ms erase, poll with vTaskDelay */
+
+        irq = sec_flash_acquire_bus();
+        sec_flash_page_program_start(LOG_META_OFFSET, (const uint8_t *)&s_meta, sizeof(s_meta));
+        sec_flash_release_bus(irq);
+
+        wait_flash_done(20); /* ~0.7ms program */
+    } else {
+        /* Blocking path — called from init before scheduler starts */
+        uint32_t irq = sec_flash_acquire_bus();
+        sec_flash_sector_erase(LOG_META_OFFSET);
+        sec_flash_page_program(LOG_META_OFFSET, (const uint8_t *)&s_meta, sizeof(s_meta));
+        sec_flash_release_bus(irq);
+    }
 }
 
 /* ---- Non-blocking Flash Helpers ---- */
