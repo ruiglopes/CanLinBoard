@@ -20,6 +20,7 @@
 #include "diag/diagnostics.h"
 #include "config/config_handler.h"
 #include "config/nvm_config.h"
+#include "monitor/bus_monitor.h"
 
 #include <string.h>
 
@@ -140,17 +141,20 @@ int main(void)
     g_can_tx_queue        = xQueueCreate(QUEUE_DEPTH_CAN_TX,     sizeof(gateway_frame_t));
     g_lin_tx_queue        = xQueueCreate(QUEUE_DEPTH_LIN_TX,     sizeof(gateway_frame_t));
     g_config_rx_queue     = xQueueCreate(QUEUE_DEPTH_CONFIG_RX,  sizeof(gateway_frame_t));
+    QueueHandle_t g_monitor_tx_queue = xQueueCreate(QUEUE_DEPTH_MONITOR_TX, sizeof(gateway_frame_t));
     ASSERT_ALLOC(g_gateway_input_queue);
     ASSERT_ALLOC(g_can_tx_queue);
     ASSERT_ALLOC(g_lin_tx_queue);
     ASSERT_ALLOC(g_config_rx_queue);
+    ASSERT_ALLOC(g_monitor_tx_queue);
 
     /* Initialize config handler — loads config from NVM (or defaults) */
     config_handler_init(g_config_rx_queue, g_can_tx_queue);
     const nvm_config_t *cfg = config_handler_get_config();
 
     /* Initialize subsystems */
-    can_manager_init(g_gateway_input_queue, g_config_rx_queue, g_can_tx_queue);
+    can_manager_init(g_gateway_input_queue, g_config_rx_queue, g_can_tx_queue, g_monitor_tx_queue);
+    bus_monitor_init(g_monitor_tx_queue);
     lin_manager_init(g_gateway_input_queue, g_lin_tx_queue);
 
     /* Start CAN1 with config bitrate */

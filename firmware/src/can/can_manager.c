@@ -2,6 +2,7 @@
 #include "board_config.h"
 #include "hal/hal_gpio.h"
 #include "diag/bus_watchdog.h"
+#include "monitor/bus_monitor.h"
 
 #include "can2040.h"
 #include "hardware/irq.h"
@@ -57,6 +58,7 @@ static can_bus_stats_t can_stats[2];
 static QueueHandle_t  s_gateway_queue;
 static QueueHandle_t  s_config_queue;
 static QueueHandle_t  s_can_tx_queue;
+static QueueHandle_t  s_monitor_tx_queue;
 
 static TaskHandle_t   s_can_task_handle;
 
@@ -136,11 +138,13 @@ static void pio1_irq_handler(void)
 
 void can_manager_init(QueueHandle_t gateway_queue,
                       QueueHandle_t config_queue,
-                      QueueHandle_t can_tx_queue)
+                      QueueHandle_t can_tx_queue,
+                      QueueHandle_t monitor_tx_queue)
 {
-    s_gateway_queue = gateway_queue;
-    s_config_queue  = config_queue;
-    s_can_tx_queue  = can_tx_queue;
+    s_gateway_queue    = gateway_queue;
+    s_config_queue     = config_queue;
+    s_can_tx_queue     = can_tx_queue;
+    s_monitor_tx_queue = monitor_tx_queue;
 
     memset(can_rx_ring, 0, sizeof(can_rx_ring));
     memset(can_stats, 0, sizeof(can_stats));
@@ -267,6 +271,11 @@ static void check_bootloader_cmd(const gateway_frame_t *gf)
     hal_request_bootloader();  /* noreturn */
 }
 
+static bool can_manager_transmit_can1(const can_frame_t *frame)
+{
+    return can_manager_transmit(CAN_BUS_1, frame);
+}
+
 void can_task_entry(void *params)
 {
     (void)params;
@@ -294,6 +303,7 @@ void can_task_entry(void *params)
             } else {
                 xQueueSend(s_gateway_queue, &gf, 0);
             }
+            bus_monitor_enqueue_frame(&gf);
         }
         if (had_frames) bus_watchdog_feed(BUS_CAN1);
 
@@ -302,6 +312,7 @@ void can_task_entry(void *params)
             can_stats[1].rx_count++;
             had_frames = true;
             xQueueSend(s_gateway_queue, &gf, 0);
+            bus_monitor_enqueue_frame(&gf);
         }
         if (had_frames) bus_watchdog_feed(BUS_CAN2);
 
@@ -311,5 +322,8 @@ void can_task_entry(void *params)
             can_bus_id_t bus = (tx_gf.source_bus == BUS_CAN1) ? CAN_BUS_1 : CAN_BUS_2;
             can_manager_transmit(bus, &tx_gf.frame);
         }
+
+        /* Drain monitor TX queue (lower priority than application traffic) */
+        bus_monitor_drain(&can_manager_transmit_can1, 4);
     }
 }
