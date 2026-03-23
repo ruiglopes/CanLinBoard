@@ -562,6 +562,56 @@ Included in the test suite. LDF-specific tests:
 
 ---
 
+## Export Format Tests (Plan 6 — No Hardware Required)
+
+### Automated Unit Tests
+
+| Test Class | Count | What it covers |
+|------------|-------|----------------|
+| CsvExporterTests | 4 | Header/rows, signal columns, empty frames, file extension |
+| AscExporterTests | 4 | ASC header, frame line format, bus-to-channel mapping, file extension |
+| BlfExporterTests | 4 | BLF signature, file size, multi-frame scaling, file extension |
+| ExportIntegrationTests | 4 | All exporters with mixed bus frames, CSV with LDF signal decode |
+
+### Export Manual Tests
+
+#### EXP-1: Export CSV from Bus Monitor
+
+1. Capture some frames in the Bus Monitor (live or simulated)
+2. Click "Export" button
+3. Select CSV format, save
+4. Open in Excel/text editor — verify header row, data rows with timestamps, bus, ID, data
+5. If DBC loaded: signal columns should be present with physical values
+
+#### EXP-2: Export ASC from Bus Monitor
+
+1. Capture frames, click Export, select ASC format
+2. Open in text editor — verify ASC header (date, base hex, timestamps absolute)
+3. Verify frame lines: timestamp, channel, ID, Rx, d, DLC, data
+4. If available: open in PCAN-View or CANalyzer to validate
+
+#### EXP-3: Export BLF from Bus Monitor
+
+1. Capture frames, click Export, select BLF format
+2. Open in PCAN-View or CANalyzer — verify frames are readable
+3. Verify timestamps and channel mapping are correct
+
+#### EXP-4: Export with no frames
+
+1. Click Export with empty trace → info dialog "No frames to export"
+
+### Export Test Checklist
+
+| # | Test | Hardware | Status |
+|---|------|----------|--------|
+| — | Unit tests (16 export-specific) | None | |
+| EXP-1 | CSV export | None | |
+| EXP-2 | ASC export | None | |
+| EXP-3 | BLF export validation | PCAN-View/CANalyzer | |
+| EXP-4 | Export with no frames | None | |
+
+---
+
 ## Known Limitations
 
 | Item | Detail |

@@ -1,9 +1,11 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CanLinConfig.Models;
 using CanLinConfig.Services;
+using CanLinConfig.Services.Export;
 using Microsoft.Win32;
 
 namespace CanLinConfig.ViewModels;
@@ -56,6 +58,44 @@ public partial class BusMonitorViewModel : ObservableObject
     private void OnAddToGraph(object? sender, SignalEntry entry)
     {
         Graph.AddSignal(entry.MessageKey, entry.Name, entry.Unit);
+    }
+
+    [RelayCommand]
+    private void ExportFrames()
+    {
+        var frames = _busDataService.FrameHistory;
+        if (frames.Count == 0)
+        {
+            System.Windows.MessageBox.Show("No frames to export.", "Export",
+                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Filter = "CSV Files (*.csv)|*.csv|ASC Files (*.asc)|*.asc|BLF Files (*.blf)|*.blf|All Files (*.*)|*.*",
+            Title = "Export Frames",
+            FileName = $"capture_{DateTime.Now:yyyyMMdd_HHmmss}"
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        IFrameExporter exporter = System.IO.Path.GetExtension(dlg.FileName).ToLowerInvariant() switch
+        {
+            ".asc" => new AscExporter(),
+            ".blf" => new BlfExporter(),
+            _ => new CsvExporter()
+        };
+
+        try
+        {
+            using var fs = File.Create(dlg.FileName);
+            exporter.Export(fs, frames, _busDataService.DatabaseManager);
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"Export failed: {ex.Message}", "Export Error",
+                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+        }
     }
 
     [RelayCommand] private void AssignCan1Db() => AssignDb(BusFrame.Bus.CAN1, v => Can1DbPath = v);

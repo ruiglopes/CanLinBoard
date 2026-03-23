@@ -17,6 +17,7 @@
                 <TextBlock Text="{Binding Can2DbPath}" VerticalAlignment="Center" Width="120" TextTrimming="CharacterEllipsis"/>
                 <Button Content="..." Command="{Binding AssignCan2DbCommand}" Width="25" Margin="2,0"/>
                 <Button Content="X" Command="{Binding ClearCan2DbCommand}" Width="25"/>
+                <Button Content="Export" Command="{Binding ExportFramesCommand}" Margin="15,0,0,0" Padding="10,2"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" Margin="0,2">
                 <TextBlock Text="LIN1:" VerticalAlignment="Center" Width="40"/>
