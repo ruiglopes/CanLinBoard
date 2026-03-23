@@ -82,7 +82,26 @@ static void save_metadata(void)
     sec_flash_release_bus(irq);
 }
 
-/* ---- Flash Write Helpers ---- */
+/* ---- Non-blocking Flash Helpers ---- */
+
+/*
+ * Poll flash busy flag with interrupts ENABLED between polls.
+ * Each poll: acquire bus (~us) → read status → release bus (~us).
+ * Between polls: vTaskDelay(1) lets CAN PIO IRQ run freely.
+ * This avoids the critical bug where blocking flash ops (sector erase
+ * up to 400ms) mask CAN PIO IRQ and cause BUSHEAVY.
+ */
+static bool wait_flash_done(uint32_t max_polls)
+{
+    for (uint32_t i = 0; i < max_polls; i++) {
+        vTaskDelay(1);  /* ~1ms with interrupts enabled — CAN IRQ runs */
+        uint32_t irq = sec_flash_acquire_bus();
+        bool busy = sec_flash_is_busy();
+        sec_flash_release_bus(irq);
+        if (!busy) return true;
+    }
+    return false;
+}
 
 static bool erase_sector_if_needed(uint32_t addr)
 {
@@ -90,24 +109,20 @@ static bool erase_sector_if_needed(uint32_t addr)
     if ((addr & (NVM_SECTOR_SIZE - 1)) != 0)
         return true;  /* Not at sector boundary, no erase needed */
 
+    /* Start erase — brief interrupt disable for SPI command only */
     uint32_t irq = sec_flash_acquire_bus();
-    bool ok = sec_flash_sector_erase(addr);
+    sec_flash_sector_erase_start(addr);
     sec_flash_release_bus(irq);
 
-    if (!ok) {
-        /* Retry once */
-        irq = sec_flash_acquire_bus();
-        ok = sec_flash_sector_erase(addr);
-        sec_flash_release_bus(irq);
-        if (!ok) {
-            s_meta.flash_errors++;
-            if (s_meta.flash_errors >= LOG_MAX_FLASH_ERRORS) {
-                s_state = LOG_STATE_ERROR;
-                s_meta.state = LOG_STATE_ERROR;
-                save_metadata();
-            }
-            return false;
+    /* Poll with interrupts enabled (~45ms typical, 400ms max) */
+    if (!wait_flash_done(500)) {
+        s_meta.flash_errors++;
+        if (s_meta.flash_errors >= LOG_MAX_FLASH_ERRORS) {
+            s_state = LOG_STATE_ERROR;
+            s_meta.state = LOG_STATE_ERROR;
+            save_metadata();
         }
+        return false;
     }
     return true;
 }
@@ -133,23 +148,18 @@ static void flush_page_buffer(void)
         return;
     }
 
-    /* Write the page */
+    /* Start page program — brief interrupt disable for SPI transfer */
     uint32_t irq = sec_flash_acquire_bus();
-    bool ok = sec_flash_page_program(s_meta.write_offset, s_page_buf, NVM_PAGE_SIZE);
+    sec_flash_page_program_start(s_meta.write_offset, s_page_buf, NVM_PAGE_SIZE);
     sec_flash_release_bus(irq);
 
-    if (!ok) {
-        /* Retry once */
-        irq = sec_flash_acquire_bus();
-        ok = sec_flash_page_program(s_meta.write_offset, s_page_buf, NVM_PAGE_SIZE);
-        sec_flash_release_bus(irq);
-        if (!ok) {
-            s_meta.flash_errors++;
-            if (s_meta.flash_errors >= LOG_MAX_FLASH_ERRORS) {
-                s_state = LOG_STATE_ERROR;
-                s_meta.state = LOG_STATE_ERROR;
-                save_metadata();
-            }
+    /* Poll with interrupts enabled (~0.7ms typical, 10ms max) */
+    if (!wait_flash_done(20)) {
+        s_meta.flash_errors++;
+        if (s_meta.flash_errors >= LOG_MAX_FLASH_ERRORS) {
+            s_state = LOG_STATE_ERROR;
+            s_meta.state = LOG_STATE_ERROR;
+            save_metadata();
         }
     }
 

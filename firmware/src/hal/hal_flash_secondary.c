@@ -275,3 +275,72 @@ bool __no_inline_not_in_flash_func(sec_flash_sector_erase)(uint32_t addr) {
 
     return sec_flash_wait_busy(WAIT_SECTOR_ERASE);
 }
+
+/* ====================================================================
+ * Non-blocking variants for logger (minimize interrupt-off time)
+ * ==================================================================== */
+
+void __no_inline_not_in_flash_func(sec_flash_sector_erase_start)(uint32_t addr) {
+    sec_flash_write_enable();
+
+    uint8_t tx[4] = {
+        0x20,
+        (addr >> 16) & 0xFF,
+        (addr >> 8) & 0xFF,
+        addr & 0xFF
+    };
+    uint8_t rx[4];
+    sec_flash_do_cmd(tx, rx, 4);
+    /* Returns immediately — flash is now erasing internally */
+}
+
+void __no_inline_not_in_flash_func(sec_flash_page_program_start)(uint32_t addr, const uint8_t *data, size_t len) {
+    sec_flash_write_enable();
+
+    hw_set_bits(&qmi_hw->direct_csr, QMI_DIRECT_CSR_ASSERT_CS1N_BITS);
+    hw_set_bits(&qmi_hw->direct_csr, QMI_DIRECT_CSR_EN_BITS);
+
+    uint8_t hdr[4] = {
+        0x02,
+        (addr >> 16) & 0xFF,
+        (addr >> 8) & 0xFF,
+        addr & 0xFF
+    };
+
+    size_t tx_remaining = 4;
+    size_t rx_remaining = 4;
+    while (tx_remaining || rx_remaining) {
+        uint32_t flags = qmi_hw->direct_csr;
+        if (!(flags & QMI_DIRECT_CSR_TXFULL_BITS) && tx_remaining) {
+            qmi_hw->direct_tx = hdr[4 - tx_remaining];
+            --tx_remaining;
+        }
+        if (!(flags & QMI_DIRECT_CSR_RXEMPTY_BITS) && rx_remaining) {
+            (void)qmi_hw->direct_rx;
+            --rx_remaining;
+        }
+    }
+
+    tx_remaining = len;
+    rx_remaining = len;
+    size_t tx_idx = 0;
+    while (tx_remaining || rx_remaining) {
+        uint32_t flags = qmi_hw->direct_csr;
+        if (!(flags & QMI_DIRECT_CSR_TXFULL_BITS) && tx_remaining) {
+            qmi_hw->direct_tx = data[tx_idx++];
+            --tx_remaining;
+        }
+        if (!(flags & QMI_DIRECT_CSR_RXEMPTY_BITS) && rx_remaining) {
+            (void)qmi_hw->direct_rx;
+            --rx_remaining;
+        }
+    }
+
+    hw_clear_bits(&qmi_hw->direct_csr, QMI_DIRECT_CSR_EN_BITS);
+    hw_clear_bits(&qmi_hw->direct_csr, QMI_DIRECT_CSR_ASSERT_CS1N_BITS);
+    /* Returns immediately — flash is now programming internally */
+}
+
+bool __no_inline_not_in_flash_func(sec_flash_is_busy)(void) {
+    return (sec_flash_read_status() & 0x01) != 0;
+}
