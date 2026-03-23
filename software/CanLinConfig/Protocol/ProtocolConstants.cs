@@ -76,6 +76,7 @@ public static class ProtocolConstants
     public const byte LogParamWrapCount = 5;
     public const byte LogParamWriteOffset = 6;
     public const byte LogParamFlashErrors = 7;
+    public const byte LogParamDropCount = 8;
 
     // Logger states
     public const byte LogStateIdle = 0;
@@ -84,6 +85,7 @@ public static class ProtocolConstants
 
     // Logger modes
     public const byte LogModeManual = 0;
+    public const byte LogModeContinuous = 1;
 
     // Logger state commands
     public const byte LogCmdStop = 0;

@@ -15,6 +15,10 @@ public partial class LogControlViewModel : ObservableObject
     [ObservableProperty] private uint _wrapCount;
     [ObservableProperty] private ushort _flashErrors;
     [ObservableProperty] private string _statusText = "Idle";
+    [ObservableProperty] private int _selectedModeIndex; // 0=Manual, 1=Continuous
+    [ObservableProperty] private uint _dropCount;
+
+    public string[] ModeNames { get; } = ["Manual", "Continuous"];
 
     // Bus filter
     [ObservableProperty] private bool _logCan1 = true;
@@ -24,6 +28,17 @@ public partial class LogControlViewModel : ObservableObject
     [ObservableProperty] private bool _logLin3 = true;
     [ObservableProperty] private bool _logLin4 = true;
 
+    partial void OnSelectedModeIndexChanged(int value) => _ = SendModeAsync();
+
+    private async Task SendModeAsync()
+    {
+        if (_protocol == null) return;
+        await _protocol.WriteParamAsync(
+            ProtocolConstants.SectionLog,
+            ProtocolConstants.LogParamMode, 0,
+            [(byte)SelectedModeIndex]);
+    }
+
     public void SetProtocol(ConfigProtocol? protocol)
     {
         _protocol = protocol;
@@ -32,6 +47,10 @@ public partial class LogControlViewModel : ObservableObject
         {
             IsRecording = false;
             StatusText = "Disconnected";
+#pragma warning disable MVVMTK0034 // Set backing field to avoid triggering SendModeAsync on disconnect
+            _selectedModeIndex = 0;
+#pragma warning restore MVVMTK0034
+            OnPropertyChanged(nameof(SelectedModeIndex));
         }
         else
         {
@@ -111,7 +130,7 @@ public partial class LogControlViewModel : ObservableObject
             StatusText = LoggerStatus switch
             {
                 ProtocolConstants.LogStateIdle => "Idle",
-                ProtocolConstants.LogStateRecording => "Recording",
+                ProtocolConstants.LogStateRecording => SelectedModeIndex == 1 ? "Recording (Continuous)" : "Recording",
                 ProtocolConstants.LogStateError => "Error — flash failures",
                 _ => $"Unknown ({LoggerStatus})"
             };
@@ -129,6 +148,20 @@ public partial class LogControlViewModel : ObservableObject
         if (errors.Success && errors.Value.Length >= 2)
         {
             FlashErrors = (ushort)(errors.Value[0] | (errors.Value[1] << 8));
+        }
+
+        // Read drop count (32-bit, split)
+        DropCount = await ReadUint32ParamAsync(ProtocolConstants.LogParamDropCount);
+
+        // Read current mode
+        var mode = await _protocol.ReadParamAsync(
+            ProtocolConstants.SectionLog, ProtocolConstants.LogParamMode, 0);
+        if (mode.Success && mode.Value.Length > 0)
+        {
+#pragma warning disable MVVMTK0034 // Set backing field to avoid triggering SendModeAsync on refresh
+            _selectedModeIndex = mode.Value[0];
+#pragma warning restore MVVMTK0034
+            OnPropertyChanged(nameof(SelectedModeIndex));
         }
 
         StartCommand.NotifyCanExecuteChanged();

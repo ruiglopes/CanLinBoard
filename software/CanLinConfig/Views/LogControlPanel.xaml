@@ -13,6 +13,17 @@
                 <TextBlock Text="{Binding WrapCount}" VerticalAlignment="Center" Margin="0,0,15,0"/>
                 <TextBlock Text="Flash Errors:" VerticalAlignment="Center" Margin="0,0,5,0"/>
                 <TextBlock Text="{Binding FlashErrors}" VerticalAlignment="Center"/>
+                <TextBlock Text="  Drops:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <TextBlock Text="{Binding DropCount}" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Mode Selector -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="Mode:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <ComboBox ItemsSource="{Binding ModeNames}"
+                          SelectedIndex="{Binding SelectedModeIndex}"
+                          IsEnabled="{Binding IsConnected}"
+                          Width="120" VerticalAlignment="Center"/>
             </StackPanel>
 
             <!-- Bus Filter -->
