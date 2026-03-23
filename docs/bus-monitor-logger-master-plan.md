@@ -165,13 +165,17 @@ Assign LDF files to LIN buses in the Bus Monitor tab. When the firmware monitor 
 ---
 
 ## Plan 5C: Triggered Mode
-**Status:** NOT STARTED
+**Status:** COMPLETE
+**Plan:** [`docs/superpowers/plans/2026-03-23-triggered-mode.md`](superpowers/plans/2026-03-23-triggered-mode.md)
 
-### Scope
-- Trigger condition matching (bus, ID, byte, operator, value)
-- Pre/post trigger KB retention
-- Armed → capturing → stopped state machine
-- Config tool trigger configuration UI
+### What was built
+- Triggered recording mode with armed → capturing → idle state machine
+- Trigger condition matching: bus + frame ID + byte comparison (any/eq/gt/lt/mask)
+- Pre/post trigger KB configuration for capture window control
+- Auto-stop after post-trigger capture completes
+- Boot recovery: armed/capturing states reset to idle on reboot
+- Config protocol: 7 trigger params (bus, ID, byte, op, value, pre_kb, post_kb) + arm command
+- Config tool: trigger config panel (visible in Triggered mode), Arm button, armed/capturing status display
 
 ### Dependencies
 - Plan 5A (flash logger foundation)
@@ -267,7 +271,7 @@ Right-click signals in the Signal panel, add to Instrument Panel, get live-updat
 | 4 | Firmware Monitor Protocol | COMPLETE | 117 |
 | 5A | Logger Foundation | COMPLETE | 112 |
 | 5B | Continuous Mode | COMPLETE | 113 |
-| 5C | Triggered Mode | NOT STARTED | — |
+| 5C | Triggered Mode | COMPLETE | 113 |
 | 5D | Log Replay | NOT STARTED | — |
 | 6 | Export Formats | COMPLETE | 61 |
 | 7 | Instrument Panel | COMPLETE | 68 |
