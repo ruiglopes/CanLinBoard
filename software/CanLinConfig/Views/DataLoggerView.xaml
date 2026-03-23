@@ -6,9 +6,11 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <local:LogControlPanel Grid.Row="0" DataContext="{Binding LogControl}"/>
         <local:LogDownloadPanel Grid.Row="1" DataContext="{Binding LogDownload}"/>
+        <local:LogReplayPanel Grid.Row="2" DataContext="{Binding LogReplay}"/>
     </Grid>
 </UserControl>
