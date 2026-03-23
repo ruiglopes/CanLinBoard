@@ -25,14 +25,15 @@
             <TextBox Text="{Binding IdFilter, UpdateSourceTrigger=PropertyChanged}" Width="80" VerticalAlignment="Center"/>
             <Separator/>
             <TextBlock Text="Bus:" VerticalAlignment="Center" Margin="5,0"/>
-            <ComboBox SelectedItem="{Binding BusFilter}" Width="80">
-                <ComboBoxItem Content="All"/>
-                <ComboBoxItem Content="CAN1"/>
-                <ComboBoxItem Content="CAN2"/>
-                <ComboBoxItem Content="LIN1"/>
-                <ComboBoxItem Content="LIN2"/>
-                <ComboBoxItem Content="LIN3"/>
-                <ComboBoxItem Content="LIN4"/>
+            <ComboBox SelectedItem="{Binding BusFilter}" Width="80"
+                      xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                <sys:String>All</sys:String>
+                <sys:String>CAN1</sys:String>
+                <sys:String>CAN2</sys:String>
+                <sys:String>LIN1</sys:String>
+                <sys:String>LIN2</sys:String>
+                <sys:String>LIN3</sys:String>
+                <sys:String>LIN4</sys:String>
             </ComboBox>
         </ToolBar>
         <DataGrid Grid.Row="1" ItemsSource="{Binding Entries}"

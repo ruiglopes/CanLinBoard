@@ -11,7 +11,7 @@ public partial class MonitorControlViewModel : ObservableObject
     private MonitorFrameDecoder? _decoder;
 
     [ObservableProperty] private bool _isEnabled;
-    [ObservableProperty] private bool _monitorCan1 = true;
+    [ObservableProperty] private bool _monitorCan1; // off by default — tool sees CAN1 natively
     [ObservableProperty] private bool _monitorCan2 = true;
     [ObservableProperty] private bool _monitorLin1 = true;
     [ObservableProperty] private bool _monitorLin2 = true;

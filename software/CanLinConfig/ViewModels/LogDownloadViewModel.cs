@@ -38,6 +38,10 @@ public partial class LogDownloadViewModel : ObservableObject
             IsDownloading = false;
             DownloadStatus = "";
         }
+        DownloadCommand.NotifyCanExecuteChanged();
+        CancelDownloadCommand.NotifyCanExecuteChanged();
+        ExportLogCommand.NotifyCanExecuteChanged();
+        FeedToBusMonitorCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand(CanExecute = nameof(CanDownload))]

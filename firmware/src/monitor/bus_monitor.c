@@ -122,7 +122,7 @@ void bus_monitor_init(QueueHandle_t monitor_tx_queue)
 {
     s_monitor_tx_queue = monitor_tx_queue;
     s_enabled = false;
-    s_bus_mask = 0x3F;   /* All buses enabled by default */
+    s_bus_mask = 0x3E;   /* CAN2+LIN1-4 by default (CAN1 excluded — tool sees it natively) */
     s_filter_mode = MONITOR_FILTER_NONE;
     s_drop_count = 0;
     s_sequence = 0;
