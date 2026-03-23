@@ -4,6 +4,7 @@
 #include "hal/hal_clock.h"
 #include "hal/hal_gpio.h"
 #include "diag/bus_watchdog.h"
+#include "monitor/bus_monitor.h"
 #include "config/config_handler.h"
 #include "board_config.h"
 
@@ -121,6 +122,7 @@ static void process_channel_interrupt(uint8_t ch)
             memcpy(gf.frame.data, frame.data, frame.dlc);
 
             xQueueSend(s_gateway_queue, &gf, 0);
+            bus_monitor_enqueue_frame(&gf);
         }
     }
 
