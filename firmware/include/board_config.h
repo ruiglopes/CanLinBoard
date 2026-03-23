@@ -5,8 +5,8 @@
 
 /* ---- Firmware Version ---- */
 #define FW_VERSION_MAJOR    0
-#define FW_VERSION_MINOR    2
-#define FW_VERSION_PATCH    3
+#define FW_VERSION_MINOR    3
+#define FW_VERSION_PATCH    0
 #define FW_VERSION_PACKED   ((FW_VERSION_MAJOR << 16) | (FW_VERSION_MINOR << 8) | FW_VERSION_PATCH)
 
 /* ---- System Clock ---- */

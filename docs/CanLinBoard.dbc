@@ -140,6 +140,19 @@ BO_ 2045 TEST_Diag: 8 Board
  SG_ DiagData_6 : 48|8@1+ (1,0) [0|255] "" Host
  SG_ DiagData_7 : 56|8@1+ (1,0) [0|255] "" Host
 
+BO_ 1540 MonitorHeader: 8 Gateway
+ SG_ Sequence : 0|8@1+ (1,0) [0|255] "" Tool
+ SG_ SourceBus : 8|4@1+ (1,0) [0|5] "" Tool
+ SG_ ExtendedFlag : 12|1@1+ (1,0) [0|1] "" Tool
+ SG_ OriginalId : 16|32@1+ (1,0) [0|536870911] "" Tool
+ SG_ OriginalDlc : 48|4@1+ (1,0) [0|8] "" Tool
+ SG_ Data7Nibble : 52|4@1+ (1,0) [0|15] "" Tool
+ SG_ TimestampDelta : 56|8@1+ (1,0) [0|255] "ms" Tool
+
+BO_ 1541 MonitorData: 8 Gateway
+ SG_ Sequence : 0|8@1+ (1,0) [0|255] "" Tool
+ SG_ Payload : 8|56@1+ (1,0) [0|0] "" Tool
+
 
 CM_ BU_ Board "CAN/LIN gateway board (RP2350, FreeRTOS). CAN1 always on, CAN2 switchable.";
 CM_ BU_ Host "External host tool (Windows config app or PCAN test script).";
