@@ -12,3 +12,10 @@ cmake-build-*/
 __pycache__/
 *.pyc
 firmware/lib/FreeRTOS-Kernel/
+
+# .NET build output
+software/**/bin/
+software/**/obj/
+
+# Brainstorm visual companion
+.superpowers/

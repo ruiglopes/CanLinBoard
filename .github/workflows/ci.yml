@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, 'feature/**']
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  firmware:
+    name: Firmware Build + Phase 0 Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install ARM GCC toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi
+
+      - name: Install build tools
+        run: sudo apt-get install -y cmake ninja-build python3
+
+      - name: Install Pico SDK
+        run: |
+          git clone --depth 1 --branch 2.1.1 https://github.com/raspberrypi/pico-sdk.git /tmp/pico-sdk
+          cd /tmp/pico-sdk && git submodule update --init
+          echo "PICO_SDK_PATH=/tmp/pico-sdk" >> $GITHUB_ENV
+
+      - name: Install FreeRTOS Kernel
+        run: |
+          if [ ! -d "firmware/lib/FreeRTOS-Kernel/include" ]; then
+            git clone --depth 1 https://github.com/raspberrypi/FreeRTOS-Kernel.git firmware/lib/FreeRTOS-Kernel
+          fi
+
+      - name: Configure firmware
+        run: |
+          cd firmware
+          cmake -B build -S . -G Ninja
+
+      - name: Build firmware
+        run: |
+          cd firmware
+          cmake --build build
+
+      - name: Run Phase 0 tests
+        run: |
+          cd firmware
+          python3 tests/phase0/test_build.py
+
+  config-tool:
+    name: Config Tool Build + Tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore software/CanLinConfig.sln
+
+      - name: Build
+        run: dotnet build software/CanLinConfig.sln --no-restore --configuration Release
+
+      - name: Run tests
+        run: dotnet test software/CanLinConfig.Tests/CanLinConfig.Tests.csproj --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: software/CanLinConfig.Tests/TestResults/test-results.trx

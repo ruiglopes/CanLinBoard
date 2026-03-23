@@ -14,7 +14,7 @@ public class AppSettingsTests
         return _tempDir;
     }
 
-    public void Cleanup()
+    private void Cleanup()
     {
         if (_tempDir != null && Directory.Exists(_tempDir))
             Directory.Delete(_tempDir, true);
