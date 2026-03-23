@@ -83,4 +83,21 @@ public class LogDownloadViewModelTests
         Assert.Equal(0x200u, entries[1].FrameId);
         Assert.Equal(0x3Cu, entries[2].FrameId);
     }
+
+    [Fact]
+    public void ParseLogEntries_reports_gap_marker_drop_count()
+    {
+        var data = new byte[40]; // 2 entries
+        // Entry 0: normal frame, CAN1, ID=0x100
+        data[4] = 0x00; data[5] = 0x01; data[8] = 0x00; data[9] = 0x03;
+
+        // Entry 1: gap marker (bus = 0xFF, frame_id = drop count = 5)
+        data[24] = 0x05; data[25] = 0x00; data[26] = 0x00; data[27] = 0x00; // frame_id = 5
+        data[28] = 0xFF; // bus = gap marker
+
+        var (entries, gapCount) = LogDownloadViewModel.ParseLogEntriesWithGaps(data);
+
+        Assert.Single(entries); // gap marker not included as entry
+        Assert.Equal(5u, gapCount); // 5 frames were dropped
+    }
 }

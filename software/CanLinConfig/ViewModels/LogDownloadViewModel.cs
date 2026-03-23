@@ -133,10 +133,13 @@ public partial class LogDownloadViewModel : ObservableObject
             }
 
             // Parse entries
-            _downloadedLog = ParseLogEntries(allData.ToArray());
+            var (entries, gapDrops) = ParseLogEntriesWithGaps(allData.ToArray());
+            _downloadedLog = entries;
             DownloadedEntries = _downloadedLog.Count;
             HasDownloadedData = _downloadedLog.Count > 0;
-            DownloadStatus = $"Complete — {_downloadedLog.Count} entries";
+            DownloadStatus = gapDrops > 0
+                ? $"Complete — {_downloadedLog.Count} entries ({gapDrops} frames dropped)"
+                : $"Complete — {_downloadedLog.Count} entries";
         }
         catch (OperationCanceledException)
         {
@@ -247,6 +250,44 @@ public partial class LogDownloadViewModel : ObservableObject
     }
 
     /* ---- Log Entry Parsing (public static for testability) ---- */
+
+    public static (List<LogEntry> Entries, uint GapDropCount) ParseLogEntriesWithGaps(byte[] data)
+    {
+        var entries = new List<LogEntry>();
+        uint gapDrops = 0;
+        const int entrySize = 20;
+
+        for (int i = 0; i + entrySize <= data.Length; i += entrySize)
+        {
+            byte bus = data[i + 8];
+
+            // Gap marker: bus = 0xFF, frame_id contains drop count
+            if (bus == 0xFF)
+            {
+                uint dropCount = (uint)(data[i + 4] | (data[i + 5] << 8)
+                                | (data[i + 6] << 16) | (data[i + 7] << 24));
+                gapDrops += dropCount;
+                continue;
+            }
+
+            // Skip erased flash
+            if (data[i] == 0xFF && data[i + 1] == 0xFF &&
+                data[i + 2] == 0xFF && data[i + 3] == 0xFF)
+                continue;
+
+            uint timestampMs = (uint)(data[i] | (data[i + 1] << 8)
+                             | (data[i + 2] << 16) | (data[i + 3] << 24));
+            uint frameId = (uint)(data[i + 4] | (data[i + 5] << 8)
+                          | (data[i + 6] << 16) | (data[i + 7] << 24));
+            byte dlc = data[i + 9];
+            var payload = new byte[8];
+            Array.Copy(data, i + 10, payload, 0, 8);
+
+            entries.Add(new LogEntry(timestampMs, frameId, bus, dlc, payload));
+        }
+
+        return (entries, gapDrops);
+    }
 
     public static List<LogEntry> ParseLogEntries(byte[] data)
     {
