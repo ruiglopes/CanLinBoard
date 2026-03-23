@@ -260,9 +260,23 @@ public partial class LogDownloadViewModel : ObservableObject
         var entries = new List<LogEntry>();
         uint gapDrops = 0;
         const int entrySize = 20;
+        const int entriesPerPage = 12;  // 12 × 20 = 240 bytes per 256-byte page
+        const int pageSize = 256;
+        const int usablePerPage = entriesPerPage * entrySize; // 240
 
-        for (int i = 0; i + entrySize <= data.Length; i += entrySize)
+        int i = 0;
+        while (i + entrySize <= data.Length)
         {
+            // Calculate position within the current page
+            int pageOffset = i % pageSize;
+
+            // Skip page padding region (bytes 240-255 of each page)
+            if (pageOffset >= usablePerPage)
+            {
+                i = (i / pageSize + 1) * pageSize; // Jump to next page
+                continue;
+            }
+
             byte bus = data[i + 8];
 
             // Gap marker: bus = 0xFF, frame_id contains drop count
@@ -271,23 +285,45 @@ public partial class LogDownloadViewModel : ObservableObject
                 uint dropCount = (uint)(data[i + 4] | (data[i + 5] << 8)
                                 | (data[i + 6] << 16) | (data[i + 7] << 24));
                 gapDrops += dropCount;
+                i += entrySize;
                 continue;
             }
 
-            // Skip erased flash
+            // Skip erased flash (all 0xFF)
             if (data[i] == 0xFF && data[i + 1] == 0xFF &&
                 data[i + 2] == 0xFF && data[i + 3] == 0xFF)
+            {
+                i += entrySize;
                 continue;
+            }
+
+            // Skip zero-filled entries (all zeros = unwritten)
+            if (data[i] == 0 && data[i + 1] == 0 && data[i + 2] == 0 && data[i + 3] == 0 &&
+                data[i + 4] == 0 && data[i + 5] == 0 && data[i + 6] == 0 && data[i + 7] == 0 &&
+                data[i + 8] == 0 && data[i + 9] == 0)
+            {
+                i += entrySize;
+                continue;
+            }
 
             uint timestampMs = (uint)(data[i] | (data[i + 1] << 8)
                              | (data[i + 2] << 16) | (data[i + 3] << 24));
             uint frameId = (uint)(data[i + 4] | (data[i + 5] << 8)
                           | (data[i + 6] << 16) | (data[i + 7] << 24));
             byte dlc = data[i + 9];
+
+            // Validate: bus must be 0-5, dlc must be 0-8
+            if (bus > 5 || dlc > 8)
+            {
+                i += entrySize;
+                continue;
+            }
+
             var payload = new byte[8];
             Array.Copy(data, i + 10, payload, 0, 8);
 
             entries.Add(new LogEntry(timestampMs, frameId, bus, dlc, payload));
+            i += entrySize;
         }
 
         return (entries, gapDrops);
