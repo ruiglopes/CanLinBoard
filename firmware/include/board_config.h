@@ -120,6 +120,12 @@
 #define QUEUE_DEPTH_CAN_TX      16
 #define QUEUE_DEPTH_LIN_TX      16
 #define QUEUE_DEPTH_CONFIG_RX   8
+#define QUEUE_DEPTH_MONITOR_TX  16
+
+/* ---- Bus Monitor Protocol ---- */
+#define MONITOR_HEADER_CAN_ID   0x604U
+#define MONITOR_DATA_CAN_ID     0x605U
+#define MONITOR_MAX_FILTER_IDS  32
 
 /* ---- Ring Buffer Sizes (must be power of 2) ---- */
 #define CAN_RX_RING_SIZE        32

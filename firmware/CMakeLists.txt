@@ -90,6 +90,8 @@ add_executable(${PROJECT_NAME}
     src/util/crc32.c
     src/config/nvm_config.c
     src/config/config_handler.c
+    # Bus Monitor Protocol
+    src/monitor/bus_monitor.c
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -154,6 +156,7 @@ set(COMMON_SOURCES
     src/util/crc32.c
     src/config/nvm_config.c
     src/config/config_handler.c
+    src/monitor/bus_monitor.c
 )
 
 set(COMMON_INCLUDES

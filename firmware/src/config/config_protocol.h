@@ -22,6 +22,7 @@
 #define CFG_SECTION_DIAG            0x03
 #define CFG_SECTION_PROFILES        0x04
 #define CFG_SECTION_DEVICE          0x05
+#define CFG_SECTION_MONITOR         0x06
 
 /* ---- Response Status Codes ---- */
 #define CFG_STATUS_OK               0x00
