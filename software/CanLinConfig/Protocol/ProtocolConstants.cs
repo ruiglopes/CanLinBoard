@@ -86,11 +86,26 @@ public static class ProtocolConstants
     // Logger modes
     public const byte LogModeManual = 0;
     public const byte LogModeContinuous = 1;
+    public const byte LogModeTriggered = 2;
+
+    // Logger states
+    public const byte LogStateArmed = 2;
+    public const byte LogStateCapturing = 3;
 
     // Logger state commands
     public const byte LogCmdStop = 0;
     public const byte LogCmdStart = 1;
+    public const byte LogCmdArm = 2;
     public const byte LogCmdEraseAll = 0xFF;
+
+    // Trigger params
+    public const byte LogParamTriggerBus = 9;
+    public const byte LogParamTriggerId = 10;
+    public const byte LogParamTriggerByte = 11;
+    public const byte LogParamTriggerOp = 12;
+    public const byte LogParamTriggerValue = 13;
+    public const byte LogParamPreTrigKb = 14;
+    public const byte LogParamPostTrigKb = 15;
 
     // Chunked log read
     public const byte CmdLogReadChunk = 0x24;

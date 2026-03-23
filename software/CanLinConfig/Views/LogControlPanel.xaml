@@ -37,9 +37,35 @@
                 <CheckBox Content="LIN4" IsChecked="{Binding LogLin4}" VerticalAlignment="Center"/>
             </StackPanel>
 
+            <!-- Trigger Config (visible in Triggered mode) -->
+            <StackPanel Margin="0,0,0,8"
+                        Visibility="{Binding IsTriggeredMode, Converter={StaticResource BoolToVisConverter}}">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                    <TextBlock Text="Trigger Bus:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <ComboBox ItemsSource="{Binding BusNames}" SelectedIndex="{Binding TriggerBus}"
+                              Width="80" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Text="ID:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox Text="{Binding TriggerId}" Width="80" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Text="Op:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <ComboBox ItemsSource="{Binding TriggerOpNames}" SelectedIndex="{Binding SelectedTriggerOpIndex}"
+                              Width="110" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Byte:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox Text="{Binding TriggerByteIndex}" Width="40" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Text="Value:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox Text="{Binding TriggerValue}" Width="50" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Text="Pre (KB):" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox Text="{Binding PreTriggerKb}" Width="50" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Text="Post (KB):" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox Text="{Binding PostTriggerKb}" Width="50" VerticalAlignment="Center"/>
+                </StackPanel>
+            </StackPanel>
+
             <!-- Controls -->
             <StackPanel Orientation="Horizontal">
                 <Button Content="Start" Command="{Binding StartCommand}" Width="70" Margin="0,0,5,0"/>
+                <Button Content="Arm" Command="{Binding ArmCommand}" Width="70" Margin="0,0,5,0"/>
                 <Button Content="Stop" Command="{Binding StopCommand}" Width="70" Margin="0,0,5,0"/>
                 <Button Content="Erase All" Command="{Binding EraseAllCommand}" Width="80" Margin="0,0,5,0"/>
                 <Button Content="Refresh" Command="{Binding RefreshStatusCommand}" Width="70"/>

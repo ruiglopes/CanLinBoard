@@ -15,10 +15,23 @@ public partial class LogControlViewModel : ObservableObject
     [ObservableProperty] private uint _wrapCount;
     [ObservableProperty] private ushort _flashErrors;
     [ObservableProperty] private string _statusText = "Idle";
-    [ObservableProperty] private int _selectedModeIndex; // 0=Manual, 1=Continuous
+    [ObservableProperty] private int _selectedModeIndex; // 0=Manual, 1=Continuous, 2=Triggered
     [ObservableProperty] private uint _dropCount;
 
-    public string[] ModeNames { get; } = ["Manual", "Continuous"];
+    public string[] ModeNames { get; } = ["Manual", "Continuous", "Triggered"];
+
+    // Trigger config
+    [ObservableProperty] private byte _triggerBus;
+    [ObservableProperty] private string _triggerId = "0x100";
+    [ObservableProperty] private byte _triggerByteIndex;
+    [ObservableProperty] private int _selectedTriggerOpIndex; // 0=Any,1=Eq,2=GT,3=LT,4=Mask
+    [ObservableProperty] private byte _triggerValue;
+    [ObservableProperty] private ushort _preTriggerKb = 64;
+    [ObservableProperty] private ushort _postTriggerKb = 64;
+    [ObservableProperty] private bool _isTriggeredMode;
+
+    public string[] TriggerOpNames { get; } = ["Any Match", "Equals", "Greater Than", "Less Than", "Bit Mask"];
+    public string[] BusNames { get; } = ["CAN1", "CAN2", "LIN1", "LIN2", "LIN3", "LIN4"];
 
     // Bus filter
     [ObservableProperty] private bool _logCan1 = true;
@@ -28,7 +41,11 @@ public partial class LogControlViewModel : ObservableObject
     [ObservableProperty] private bool _logLin3 = true;
     [ObservableProperty] private bool _logLin4 = true;
 
-    partial void OnSelectedModeIndexChanged(int value) => _ = SendModeAsync();
+    partial void OnSelectedModeIndexChanged(int value)
+    {
+        IsTriggeredMode = value == 2;
+        _ = SendModeAsync();
+    }
 
     private async Task SendModeAsync()
     {
@@ -78,7 +95,62 @@ public partial class LogControlViewModel : ObservableObject
         await RefreshStatusAsync();
     }
 
-    private bool CanStart() => IsConnected && !IsRecording;
+    private bool CanStart() => IsConnected && !IsRecording && !IsTriggeredMode;
+
+    [RelayCommand(CanExecute = nameof(CanArm))]
+    private async Task Arm()
+    {
+        if (_protocol == null) return;
+
+        // Send trigger config first
+        await SendTriggerConfigAsync();
+
+        // Send bus mask
+        await _protocol.WriteParamAsync(
+            ProtocolConstants.SectionLog,
+            ProtocolConstants.LogParamBusMask, 0,
+            [BuildBusMask()]);
+
+        // Send arm command
+        await _protocol.WriteParamAsync(
+            ProtocolConstants.SectionLog,
+            ProtocolConstants.LogParamStateCmd, 0,
+            [ProtocolConstants.LogCmdArm]);
+
+        await RefreshStatusAsync();
+    }
+
+    private bool CanArm() => IsConnected && !IsRecording && IsTriggeredMode;
+
+    private async Task SendTriggerConfigAsync()
+    {
+        if (_protocol == null) return;
+
+        await _protocol.WriteParamAsync(ProtocolConstants.SectionLog,
+            ProtocolConstants.LogParamTriggerBus, 0, [TriggerBus]);
+
+        // Parse trigger ID from hex string
+        if (uint.TryParse(TriggerId.Replace("0x", "").Replace("0X", ""),
+            System.Globalization.NumberStyles.HexNumber, null, out uint id))
+        {
+            await _protocol.WriteParamAsync(ProtocolConstants.SectionLog,
+                ProtocolConstants.LogParamTriggerId, 0,
+                [(byte)id, (byte)(id >> 8), (byte)(id >> 16), (byte)(id >> 24)]);
+        }
+
+        await _protocol.WriteParamAsync(ProtocolConstants.SectionLog,
+            ProtocolConstants.LogParamTriggerByte, 0, [TriggerByteIndex]);
+        await _protocol.WriteParamAsync(ProtocolConstants.SectionLog,
+            ProtocolConstants.LogParamTriggerOp, 0, [(byte)SelectedTriggerOpIndex]);
+        await _protocol.WriteParamAsync(ProtocolConstants.SectionLog,
+            ProtocolConstants.LogParamTriggerValue, 0, [TriggerValue]);
+        await _protocol.WriteParamAsync(ProtocolConstants.SectionLog,
+            ProtocolConstants.LogParamPreTrigKb, 0,
+            [(byte)PreTriggerKb, (byte)(PreTriggerKb >> 8)]);
+        await _protocol.WriteParamAsync(ProtocolConstants.SectionLog,
+            ProtocolConstants.LogParamPostTrigKb, 0,
+            [(byte)PostTriggerKb, (byte)(PostTriggerKb >> 8)]);
+    }
 
     [RelayCommand(CanExecute = nameof(CanStop))]
     private async Task Stop()
@@ -126,11 +198,15 @@ public partial class LogControlViewModel : ObservableObject
         if (status.Success && status.Value.Length > 0)
         {
             LoggerStatus = status.Value[0];
-            IsRecording = LoggerStatus == ProtocolConstants.LogStateRecording;
+            IsRecording = LoggerStatus == ProtocolConstants.LogStateRecording
+                       || LoggerStatus == ProtocolConstants.LogStateArmed
+                       || LoggerStatus == ProtocolConstants.LogStateCapturing;
             StatusText = LoggerStatus switch
             {
                 ProtocolConstants.LogStateIdle => "Idle",
                 ProtocolConstants.LogStateRecording => SelectedModeIndex == 1 ? "Recording (Continuous)" : "Recording",
+                ProtocolConstants.LogStateArmed => "Armed — waiting for trigger",
+                ProtocolConstants.LogStateCapturing => "Triggered — capturing post-trigger data",
                 ProtocolConstants.LogStateError => "Error — flash failures",
                 _ => $"Unknown ({LoggerStatus})"
             };
@@ -167,6 +243,7 @@ public partial class LogControlViewModel : ObservableObject
         StartCommand.NotifyCanExecuteChanged();
         StopCommand.NotifyCanExecuteChanged();
         EraseAllCommand.NotifyCanExecuteChanged();
+        ArmCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnLogCan1Changed(bool value) => _ = SendBusMaskAsync();
