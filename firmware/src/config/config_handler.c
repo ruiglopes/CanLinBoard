@@ -8,6 +8,7 @@
 #include "diag/diagnostics.h"
 #include "diag/bus_watchdog.h"
 #include "monitor/bus_monitor.h"
+#include "logger/flash_logger.h"
 #include "hal/hal_gpio.h"
 #include "util/crc32.h"
 #include "board_config.h"
@@ -374,6 +375,69 @@ static void handle_read_param(const uint8_t *data, uint8_t dlc)
         }
         break;
 
+    case CFG_SECTION_LOG:
+        switch (param) {
+        case LOG_PARAM_MODE:
+            payload[3] = flash_logger_get_mode();
+            plen = 4;
+            break;
+        case LOG_PARAM_BUS_MASK:
+            payload[3] = flash_logger_get_bus_mask();
+            plen = 4;
+            break;
+        case LOG_PARAM_STATUS:
+            payload[3] = flash_logger_get_state();
+            plen = 4;
+            break;
+        case LOG_PARAM_ENTRY_COUNT: {
+            uint32_t count = flash_logger_get_entry_count();
+            if (sub == 0) {
+                payload[3] = (uint8_t)(count);
+                payload[4] = (uint8_t)(count >> 8);
+            } else {
+                payload[3] = (uint8_t)(count >> 16);
+                payload[4] = (uint8_t)(count >> 24);
+            }
+            plen = 5;
+            break;
+        }
+        case LOG_PARAM_WRAP_COUNT: {
+            uint32_t wraps = flash_logger_get_wrap_count();
+            if (sub == 0) {
+                payload[3] = (uint8_t)(wraps);
+                payload[4] = (uint8_t)(wraps >> 8);
+            } else {
+                payload[3] = (uint8_t)(wraps >> 16);
+                payload[4] = (uint8_t)(wraps >> 24);
+            }
+            plen = 5;
+            break;
+        }
+        case LOG_PARAM_WRITE_OFFSET: {
+            uint32_t off = flash_logger_get_write_offset();
+            if (sub == 0) {
+                payload[3] = (uint8_t)(off);
+                payload[4] = (uint8_t)(off >> 8);
+            } else {
+                payload[3] = (uint8_t)(off >> 16);
+                payload[4] = (uint8_t)(off >> 24);
+            }
+            plen = 5;
+            break;
+        }
+        case LOG_PARAM_FLASH_ERRORS: {
+            uint16_t errors = flash_logger_get_flash_errors();
+            payload[3] = (uint8_t)(errors);
+            payload[4] = (uint8_t)(errors >> 8);
+            plen = 5;
+            break;
+        }
+        default:
+            send_response(CFG_CMD_READ_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        break;
+
     default:
         send_response(CFG_CMD_READ_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
         return;
@@ -531,6 +595,34 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
             break;
         case MONITOR_PARAM_FILTER_MODE:
             bus_monitor_set_filter_mode(data[4]);
+            break;
+        default:
+            send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_OK, NULL, 0);
+        return;
+
+    case CFG_SECTION_LOG:
+        if (dlc < 5) {
+            send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        switch (param) {
+        case LOG_PARAM_MODE:
+            flash_logger_set_mode(data[4]);
+            break;
+        case LOG_PARAM_BUS_MASK:
+            flash_logger_set_bus_mask(data[4]);
+            break;
+        case LOG_PARAM_STATE_CMD:
+            if (data[4] == 1) {
+                flash_logger_start();
+            } else if (data[4] == 0) {
+                flash_logger_stop();
+            } else if (data[4] == 0xFF) {
+                flash_logger_erase_all();
+            }
             break;
         default:
             send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
@@ -773,6 +865,60 @@ static void handle_bulk_read_data(void)
     s_bulk_read_size = 0;
 }
 
+/* ---- Chunked Log Read (0x24) ---- */
+
+static uint8_t s_log_chunk_buffer[NVM_SECTOR_SIZE];
+
+static void handle_log_read_chunk(const uint8_t *data, uint8_t dlc)
+{
+    if (dlc < 6) {
+        send_response(CFG_CMD_LOG_READ_CHUNK, CFG_STATUS_INVALID_PARAM, NULL, 0);
+        return;
+    }
+
+    uint32_t offset = (uint32_t)data[1]
+                    | ((uint32_t)data[2] << 8)
+                    | ((uint32_t)data[3] << 16);
+    uint16_t length = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+
+    if (length > NVM_SECTOR_SIZE) length = NVM_SECTOR_SIZE;
+
+    uint16_t actual = flash_logger_read_chunk(offset, s_log_chunk_buffer, length);
+    if (actual == 0) {
+        send_response(CFG_CMD_LOG_READ_CHUNK, CFG_STATUS_INVALID_PARAM, NULL, 0);
+        return;
+    }
+
+    uint32_t crc = crc32_compute(s_log_chunk_buffer, actual);
+
+    can_frame_t tx_frame;
+    tx_frame.id = CONFIG_CAN_BULK_RESP_ID;
+    tx_frame.flags = 0;
+
+    uint16_t sent = 0;
+    uint8_t seq = 0;
+    while (sent < actual) {
+        uint8_t chunk = (actual - sent > 7) ? 7 : (uint8_t)(actual - sent);
+        tx_frame.dlc = 1 + chunk;
+        tx_frame.data[0] = seq++;
+        memcpy(&tx_frame.data[1], &s_log_chunk_buffer[sent], chunk);
+        can_manager_transmit(CAN_BUS_1, &tx_frame);
+        sent += chunk;
+
+        if ((seq & 0x0F) == 0)
+            vTaskDelay(1);
+    }
+
+    uint8_t ack_payload[6];
+    ack_payload[0] = (uint8_t)(actual);
+    ack_payload[1] = (uint8_t)(actual >> 8);
+    ack_payload[2] = (uint8_t)(crc);
+    ack_payload[3] = (uint8_t)(crc >> 8);
+    ack_payload[4] = (uint8_t)(crc >> 16);
+    ack_payload[5] = (uint8_t)(crc >> 24);
+    send_response(CFG_CMD_LOG_READ_CHUNK, CFG_STATUS_OK, ack_payload, 6);
+}
+
 /* ---- Command Dispatch ---- */
 
 static void dispatch_command(const gateway_frame_t *gf)
@@ -803,6 +949,7 @@ static void dispatch_command(const gateway_frame_t *gf)
     case CFG_CMD_BULK_END:          handle_bulk_end(data, dlc); break;
     case CFG_CMD_BULK_READ:         handle_bulk_read(data, dlc); break;
     case CFG_CMD_BULK_READ_DATA:    handle_bulk_read_data(); break;
+    case CFG_CMD_LOG_READ_CHUNK:    handle_log_read_chunk(data, dlc); break;
     default:
         send_response(cmd, CFG_STATUS_UNKNOWN_CMD, NULL, 0);
         break;
