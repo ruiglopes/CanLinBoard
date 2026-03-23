@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "board_config.h"
 
 /*
  * Secondary flash driver: W25Q128 on CS1 (GPIO0).
@@ -40,5 +41,16 @@ bool sec_flash_sector_erase(uint32_t addr);
 
 /* Read status register */
 uint8_t sec_flash_read_status(void);
+
+/**
+ * Check if an address range falls within the NVM-reserved region.
+ * @param addr  Start address
+ * @param len   Length in bytes
+ * @return true if the range is within [0, LOG_NVM_BOUNDARY)
+ */
+static inline bool sec_flash_is_nvm_region(uint32_t addr, size_t len)
+{
+    return (addr + len) <= LOG_NVM_BOUNDARY;
+}
 
 #endif /* HAL_FLASH_SECONDARY_H */

@@ -127,6 +127,22 @@
 #define MONITOR_DATA_CAN_ID     0x605U
 #define MONITOR_MAX_FILTER_IDS  32
 
+/* ---- Flash Logger ---- */
+#define LOG_NVM_BOUNDARY        0x020000U   /* NVM config reserved up to here */
+#define LOG_META_OFFSET         0x020000U   /* Logger metadata sector (4 KB) */
+#define LOG_DATA_OFFSET         0x021000U   /* Log data ring buffer start */
+#define LOG_DATA_END            SECONDARY_FLASH_SIZE  /* 0x1000000 (16 MB) */
+#define LOG_DATA_SIZE           (LOG_DATA_END - LOG_DATA_OFFSET) /* ~16,252 KB */
+#define LOG_ENTRY_SIZE          20U         /* sizeof(log_entry_t), packed */
+#define LOG_PAGE_ENTRIES        (NVM_PAGE_SIZE / LOG_ENTRY_SIZE) /* 12 per 256-byte page, 16 bytes wasted */
+#define LOG_SECTOR_ENTRIES      ((NVM_SECTOR_SIZE / NVM_PAGE_SIZE) * LOG_PAGE_ENTRIES) /* 192 per 4 KB sector */
+#define LOG_META_MAGIC          0x4C4F4701U /* "LOG\x01" */
+
+#define QUEUE_DEPTH_LOG_WRITE   32
+#define TASK_STACK_LOG          512         /* words */
+
+#define LOG_MAX_FLASH_ERRORS    10          /* stop logging after this many */
+
 /* ---- Ring Buffer Sizes (must be power of 2) ---- */
 #define CAN_RX_RING_SIZE        32
 
