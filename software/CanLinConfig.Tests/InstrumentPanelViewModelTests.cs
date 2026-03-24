@@ -88,4 +88,53 @@ public class InstrumentPanelViewModelTests
         Assert.Equal(WidgetType.Gauge, vm2.Widgets[0].Type);
         Assert.Equal(8000, vm2.Widgets[0].RangeMax);
     }
+
+    [Fact]
+    public void ToLayouts_includes_position_and_bitpanel_fields()
+    {
+        var vm = new InstrumentPanelViewModel();
+        vm.AddWidget("0:256:Status", "Status", "", WidgetType.BitPanel, 0, 255);
+        vm.Widgets[0].BitCount = 4;
+        vm.Widgets[0].BitLabels = ["Error", "Active", "Ready", "Run"];
+        vm.Widgets[0].X = 100;
+        vm.Widgets[0].Y = 50;
+
+        var layouts = vm.ToLayouts();
+        Assert.Equal(4, layouts[0].BitCount);
+        Assert.Equal(["Error", "Active", "Ready", "Run"], layouts[0].BitLabels);
+        Assert.Equal(100, layouts[0].X);
+        Assert.Equal(50, layouts[0].Y);
+    }
+
+    [Fact]
+    public void FromLayouts_restores_position_and_bitpanel_fields()
+    {
+        var layout = new WidgetLayout
+        {
+            SignalKey = "0:256:Status", SignalName = "Status", Unit = "",
+            Type = "BitPanel", BitCount = 3, BitLabels = ["A", "B", "C"],
+            X = 200, Y = 75
+        };
+        var vm = new InstrumentPanelViewModel();
+        vm.FromLayouts([layout]);
+
+        Assert.Equal(WidgetType.BitPanel, vm.Widgets[0].Type);
+        Assert.Equal(3, vm.Widgets[0].BitCount);
+        Assert.Equal(["A", "B", "C"], vm.Widgets[0].BitLabels);
+        Assert.Equal(200, vm.Widgets[0].X);
+        Assert.Equal(75, vm.Widgets[0].Y);
+    }
+
+    [Fact]
+    public void FromLayouts_generates_default_bit_labels_when_empty()
+    {
+        var layout = new WidgetLayout
+        {
+            SignalKey = "0:256:Flags", SignalName = "Flags", Unit = "",
+            Type = "BitPanel", BitCount = 4, BitLabels = []
+        };
+        var vm = new InstrumentPanelViewModel();
+        vm.FromLayouts([layout]);
+        Assert.Equal(["Bit 0", "Bit 1", "Bit 2", "Bit 3"], vm.Widgets[0].BitLabels);
+    }
 }

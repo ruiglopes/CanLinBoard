@@ -3,7 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace CanLinConfig.Models;
 
-public enum WidgetType { Numeric, Bar, Gauge, Boolean, Enum }
+public enum WidgetType { Numeric, Bar, Gauge, Boolean, Enum, BitPanel }
 
 public partial class InstrumentWidget : ObservableObject
 {
@@ -13,8 +13,12 @@ public partial class InstrumentWidget : ObservableObject
     public WidgetType Type { get; set; } = WidgetType.Numeric;
     public double RangeMin { get; set; }
     public double RangeMax { get; set; } = 100;
+    public int BitCount { get; set; } = 8;
+    public List<string> BitLabels { get; set; } = [];
 
     [ObservableProperty] private double _value;
+    [ObservableProperty] private double _x;
+    [ObservableProperty] private double _y;
     [ObservableProperty] private double _minSeen = double.MaxValue;
     [ObservableProperty] private double _maxSeen = double.MinValue;
 
@@ -44,4 +48,8 @@ public class WidgetLayout
     [JsonPropertyName("type")] public string Type { get; set; } = "Numeric";
     [JsonPropertyName("range_min")] public double RangeMin { get; set; }
     [JsonPropertyName("range_max")] public double RangeMax { get; set; } = 100;
+    [JsonPropertyName("bit_count")] public int BitCount { get; set; } = 8;
+    [JsonPropertyName("bit_labels")] public List<string> BitLabels { get; set; } = [];
+    [JsonPropertyName("x")] public double X { get; set; }
+    [JsonPropertyName("y")] public double Y { get; set; }
 }

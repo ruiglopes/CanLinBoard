@@ -41,9 +41,18 @@ public partial class InstrumentPanelViewModel : ObservableObject
             WidgetType.Bar => WidgetType.Gauge,
             WidgetType.Gauge => WidgetType.Boolean,
             WidgetType.Boolean => WidgetType.Enum,
-            WidgetType.Enum => WidgetType.Numeric,
+            WidgetType.Enum => WidgetType.BitPanel,
+            WidgetType.BitPanel => WidgetType.Numeric,
             _ => WidgetType.Numeric
         };
+
+        // Force ItemTemplateSelector re-evaluation by removing and re-inserting
+        var index = Widgets.IndexOf(widget);
+        if (index >= 0)
+        {
+            Widgets.RemoveAt(index);
+            Widgets.Insert(index, widget);
+        }
     }
 
     public void OnSignalValues(IReadOnlyList<SignalValue> values)
@@ -62,6 +71,8 @@ public partial class InstrumentPanelViewModel : ObservableObject
         {
             SignalKey = w.SignalKey, SignalName = w.SignalName, Unit = w.Unit,
             Type = w.Type.ToString(), RangeMin = w.RangeMin, RangeMax = w.RangeMax,
+            BitCount = w.BitCount, BitLabels = new List<string>(w.BitLabels),
+            X = w.X, Y = w.Y,
         }).ToList();
     }
 
@@ -73,7 +84,17 @@ public partial class InstrumentPanelViewModel : ObservableObject
         {
             var type = System.Enum.TryParse<WidgetType>(l.Type, out var t) ? t : WidgetType.Numeric;
             AddWidget(l.SignalKey, l.SignalName, l.Unit, type, l.RangeMin, l.RangeMax);
+            var widget = _widgetMap[l.SignalKey];
+            widget.BitCount = l.BitCount;
+            widget.BitLabels = l.BitLabels.Count > 0 ? new List<string>(l.BitLabels) : DefaultBitLabels(l.BitCount);
+            widget.X = l.X;
+            widget.Y = l.Y;
         }
+    }
+
+    private static List<string> DefaultBitLabels(int count)
+    {
+        return Enumerable.Range(0, count).Select(i => $"Bit {i}").ToList();
     }
 
     [RelayCommand]
