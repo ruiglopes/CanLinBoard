@@ -203,10 +203,19 @@ public static class ConfigFileService
         };
         if (dlg.ShowDialog() != true) return false;
 
-        var data = ExportFromViewModel(vm);
-        var json = JsonSerializer.Serialize(data, JsonOpts);
-        File.WriteAllText(dlg.FileName, json);
-        return true;
+        try
+        {
+            var data = ExportFromViewModel(vm);
+            var json = JsonSerializer.Serialize(data, JsonOpts);
+            File.WriteAllText(dlg.FileName, json);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"Failed to save config file:\n{ex.Message}",
+                "Export Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            return false;
+        }
     }
 
     public static bool LoadFromFile(MainViewModel vm)
@@ -218,11 +227,31 @@ public static class ConfigFileService
         };
         if (dlg.ShowDialog() != true) return false;
 
-        var json = File.ReadAllText(dlg.FileName);
-        var data = JsonSerializer.Deserialize<ConfigFileData>(json);
-        if (data == null) return false;
+        try
+        {
+            var json = File.ReadAllText(dlg.FileName);
+            var data = JsonSerializer.Deserialize<ConfigFileData>(json);
+            if (data == null)
+            {
+                System.Windows.MessageBox.Show("Config file is empty or invalid.",
+                    "Import Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                return false;
+            }
 
-        ImportToViewModel(data, vm);
-        return true;
+            ImportToViewModel(data, vm);
+            return true;
+        }
+        catch (JsonException ex)
+        {
+            System.Windows.MessageBox.Show($"Malformed JSON config file:\n{ex.Message}",
+                "Import Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"Failed to load config file:\n{ex.Message}",
+                "Import Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            return false;
+        }
     }
 }

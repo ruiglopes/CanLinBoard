@@ -5,8 +5,8 @@
 
 /* ---- Firmware Version ---- */
 #define FW_VERSION_MAJOR    0
-#define FW_VERSION_MINOR    1
-#define FW_VERSION_PATCH    2
+#define FW_VERSION_MINOR    3
+#define FW_VERSION_PATCH    0
 #define FW_VERSION_PACKED   ((FW_VERSION_MAJOR << 16) | (FW_VERSION_MINOR << 8) | FW_VERSION_PATCH)
 
 /* ---- System Clock ---- */
@@ -120,6 +120,30 @@
 #define QUEUE_DEPTH_CAN_TX      16
 #define QUEUE_DEPTH_LIN_TX      16
 #define QUEUE_DEPTH_CONFIG_RX   8
+#define QUEUE_DEPTH_MONITOR_TX  16
+
+/* ---- Bus Monitor Protocol ---- */
+#define MONITOR_HEADER_CAN_ID   0x604U
+#define MONITOR_DATA_CAN_ID     0x605U
+#define MONITOR_MAX_FILTER_IDS  32
+
+/* ---- Flash Logger ---- */
+#define LOG_NVM_BOUNDARY        0x020000U   /* NVM config reserved up to here */
+#define LOG_META_OFFSET         0x020000U   /* Logger metadata sector (4 KB) */
+#define LOG_DATA_OFFSET         0x021000U   /* Log data ring buffer start */
+#define LOG_DATA_END            SECONDARY_FLASH_SIZE  /* 0x1000000 (16 MB) */
+#define LOG_DATA_SIZE           (LOG_DATA_END - LOG_DATA_OFFSET) /* ~16,252 KB */
+#define LOG_ENTRY_SIZE          20U         /* sizeof(log_entry_t), packed */
+#define LOG_WRITE_SIZE          64U         /* bytes per flash write (3 entries + 4 pad) */
+#define LOG_WRITE_ENTRIES       (LOG_WRITE_SIZE / LOG_ENTRY_SIZE) /* 3 entries per 64-byte write */
+#define LOG_WRITES_PER_PAGE     (NVM_PAGE_SIZE / LOG_WRITE_SIZE)  /* 4 writes fill one 256-byte page */
+#define LOG_SECTOR_ENTRIES      ((NVM_SECTOR_SIZE / LOG_WRITE_SIZE) * LOG_WRITE_ENTRIES) /* 192 per 4 KB sector */
+#define LOG_META_MAGIC          0x4C4F4701U /* "LOG\x01" */
+
+#define QUEUE_DEPTH_LOG_WRITE   32
+#define TASK_STACK_LOG          512         /* words */
+
+#define LOG_MAX_FLASH_ERRORS    10          /* stop logging after this many */
 
 /* ---- Ring Buffer Sizes (must be power of 2) ---- */
 #define CAN_RX_RING_SIZE        32

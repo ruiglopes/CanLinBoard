@@ -31,6 +31,10 @@ python tests/phase1/test_hal_host.py --channel PCAN_USBBUS1
 python tests/phase2/test_can_host.py --channel PCAN_USBBUS1
 python tests/phase3/test_lin_host.py --channel PCAN_USBBUS1
 python tests/phase4/test_gateway_host.py --channel PCAN_USBBUS1
+
+# Phase 7-8 use main firmware (no dedicated test firmware needed)
+python tests/phase7/test_monitor_host.py --channel PCAN_USBBUS1
+python tests/phase8/test_logger_host.py --channel PCAN_USBBUS1
 ```
 
 ---
@@ -404,6 +408,148 @@ python tests/phase6/test_diag_host.py --channel PCAN_USBBUS1
 
 ---
 
+## Phase 7: Bus Monitor Protocol (On-Target + Host)
+
+**Hardware:** Board + PCAN on CAN1 + second CAN adapter or signal source on CAN2 (for multi-bus tests).
+
+Phase 7 validates the bus monitor streaming protocol — firmware mirrors CAN/LIN frames
+to the config tool on CAN IDs 0x604 (header) / 0x605 (data), with config protocol control.
+
+**No test firmware needed** — monitor runs in the main firmware. All tests use the main
+firmware binary with the config tool or Python host scripts.
+
+### Prerequisites
+
+- Main firmware (v0.3.0+) flashed on board
+- CAN1 connected to host adapter at 500 kbps
+- CAN2 connected to a second adapter or traffic source (for T7.3, T7.5, T7.8)
+
+### Test Matrix
+
+**A — Enable/Disable & Basic Streaming:**
+
+| Test | What it checks | Method |
+|------|---------------|--------|
+| T7.1 | Monitor starts disabled | Host: `READ_PARAM(0x06, 0, 0)` returns 0 |
+| T7.2 | Enable monitor | Host: `WRITE_PARAM(0x06, 0, 0, 1)`, confirm `READ_PARAM` returns 1 |
+| T7.3 | CAN2 frame mirrored | Send a frame on CAN2, verify 0x604+0x605 pair on CAN1 with correct bus=1, ID, data |
+| T7.4 | Sequence number increments | Send 3 frames, verify seq 0, 1, 2 in header bytes |
+| T7.5 | DLC=0 header-only | Send DLC=0 frame on CAN2, verify only 0x604 received (no 0x605) |
+| T7.6 | DLC=8 data[7] in header | Send 8-byte frame, verify data[0-6] in 0x605 and data[7] lower nibble in 0x604 byte 6 |
+| T7.7 | Disable monitor | Host: `WRITE_PARAM(0x06, 0, 0, 0)`, send CAN2 frame, verify no 0x604/0x605 |
+
+**B — Filtering:**
+
+| Test | What it checks | Method |
+|------|---------------|--------|
+| T7.8 | Bus mask filter | Set bus mask to CAN2 only (0x02), send frames on CAN1 and CAN2, verify only CAN2 mirrored |
+| T7.9 | Config frames excluded | Enable monitor with CAN1 in mask, send normal frame on CAN1 (ID 0x100) — mirrored. 0x600-0x605 never mirrored. |
+| T7.10 | Diag frames excluded | Verify 0x7F0-0x7F4 heartbeat frames never appear as monitor frames |
+| T7.11 | ID whitelist | Bulk write [0x123] to SectionMonitor, set filter mode=1 (whitelist), verify only ID 0x123 mirrored |
+| T7.12 | ID blacklist | Set filter mode=2 (blacklist) with [0x123], verify 0x123 NOT mirrored but other IDs are |
+| T7.13 | Filter mode clear | Set filter mode=0 (none), verify all IDs mirrored again |
+
+**C — Backpressure & Priority:**
+
+| Test | What it checks | Method |
+|------|---------------|--------|
+| T7.14 | Application traffic priority | Flood CAN2 frames + send config READ_PARAM, verify config response arrives within timeout |
+| T7.15 | Drop count | Flood monitor queue (high-rate CAN2 traffic), read `MONITOR_PARAM_DROP_COUNT`, verify > 0 |
+| T7.16 | Sequence gap on drop | During overload, verify config tool sees sequence number gaps (non-consecutive seq in headers) |
+
+**D — LIN Monitoring (requires LIN traffic source):**
+
+| Test | What it checks | Method |
+|------|---------------|--------|
+| T7.17 | LIN1 frame mirrored | Configure LIN1 master with schedule, verify monitor frames with bus=2 (LIN1) |
+| T7.18 | LIN bus mask | Set bus mask to exclude LIN1, verify LIN1 frames not mirrored |
+
+### Troubleshooting
+
+| Symptom | Likely cause |
+|---------|-------------|
+| No 0x604/0x605 after enable | Monitor not enabled — check WRITE_PARAM response. Or bus mask excludes all buses. |
+| 0x604 received but no 0x605 | DLC=0 frame (expected) or monitor queue overflow dropped the data frame |
+| Wrong bus ID in header | Check byte 1 of 0x604 — CAN1=0, CAN2=1, LIN1=2, LIN2=3, LIN3=4, LIN4=5 |
+| Config responses slow during flood | Normal — monitor TX has lower priority. Increase config timeout if needed. |
+| Drop count stays 0 despite high traffic | Monitor TX queue depth (16) may be sufficient for the traffic rate. Increase send rate. |
+
+**Gate:** T7.1-T7.16 pass. T7.17-T7.18 require LIN traffic source (can defer).
+
+---
+
+## Phase 8: Flash Logger (On-Target + Config Tool)
+
+**Hardware:** Board + PCAN on CAN1 at 500 kbps. Config tool connected.
+
+Phase 8 validates the flash data logger: manual start/stop, metadata persistence
+across reboot, chunked log download, CSV export, bus mask filtering, flash error
+recovery, and both continuous and triggered recording modes.
+
+**No dedicated test firmware** — all tests use the main firmware with the config
+tool's Data Logger tab and/or Python host scripts.
+
+### Prerequisites
+
+- Main firmware (v0.3.0+) flashed on board
+- CAN1 connected to host adapter at 500 kbps
+- Config tool open and connected
+- Data Logger tab visible in the config tool
+
+---
+
+### A — Logger Foundation
+
+| Test | What it checks | Pass criteria |
+|------|---------------|---------------|
+| T8.1 | Manual start/stop | Start recording, send 100 frames on 0x200, stop; verify entry count in UI matches 100 |
+| T8.2 | Metadata persistence | Start/stop recording, reboot board, reconnect; verify entry count preserved (non-zero, matches pre-reboot value) |
+| T8.3 | Chunked download | Record 500 frames, download via Data Logger tab; verify CRC passes and downloaded entry count matches recorded count |
+| T8.4 | CSV export | Download log, export as CSV; verify only logged frame IDs present in file (no garbage rows or IDs not transmitted) |
+| T8.5 | Bus mask filter | Set bus mask to CAN1 only; send frames on CAN1 and CAN2; verify only CAN1 frame IDs appear in downloaded log |
+| T8.6 | Flash error recovery | Verify flash error counter is readable (initial value 0); logger stops recording after `LOG_MAX_FLASH_ERRORS` consecutive write failures |
+| T8.7 | Erase all | Issue erase command from Data Logger tab; verify entry count resets to 0 and subsequent download returns empty log |
+| T8.8 | CAN bus health | Start recording; verify PCAN tool shows no BUSLIGHT/BUSHEAVY events and CAN1 error count stays at 0 throughout |
+
+---
+
+### B — Continuous Mode
+
+| Test | What it checks | Pass criteria |
+|------|---------------|---------------|
+| T8.9 | Continuous recording | Set mode to continuous, start, send frames until flash wraps; verify `wrap_count > 0` reported in logger status |
+| T8.10 | Auto-resume on boot | Set continuous mode, start recording, reboot board; verify recording resumes automatically without host intervention |
+| T8.11 | Gap markers | Flood logger queue beyond queue depth; verify drop counter increments in UI; download log and verify gap marker count > 0 in report |
+
+---
+
+### C — Triggered Mode
+
+| Test | What it checks | Pass criteria |
+|------|---------------|---------------|
+| T8.12 | Arm and trigger | Set triggered mode; configure trigger (bus=CAN1, ID=0x200, op=any); arm logger; send a frame on 0x200; verify state transitions armed → capturing → idle |
+| T8.13 | Pre/post trigger window | Configure `pre_trigger_kb=16` and `post_trigger_kb=16`; arm, send background traffic, send trigger frame; verify captured window size ≥ 32 KB |
+| T8.14 | Trigger operators | Step through equals, greater-than, less-than, and mask operators on trigger byte; for each, verify trigger fires only on a matching byte value and does not fire on a non-matching value |
+| T8.15 | Stop while armed | Arm logger; issue stop command before any trigger frame is sent; verify logger returns to idle state without capturing any data |
+
+---
+
+### Troubleshooting
+
+| Symptom | Likely cause |
+|---------|-------------|
+| Entry count stays 0 after recording | Logger not started, or bus mask excludes all buses — check mode and mask params |
+| CRC fails on download | Chunked download interrupted or reassembly out of order — retry; check for sequence gaps in download log |
+| CSV contains garbage rows | Log not erased before test; entries from a prior session in flash — erase first (T8.7) |
+| Auto-resume does not trigger (T8.10) | Continuous mode or auto-resume flag not persisted to NVM — issue save command before rebooting |
+| Wrap count stays 0 (T8.9) | Flash not full yet — send more frames or use a smaller pre-allocated log region |
+| State does not reach capturing (T8.12) | Trigger condition mismatch — verify bus, ID, and operator fields match exactly what was sent |
+| Pre/post window smaller than expected (T8.13) | Log region smaller than 32 KB or pre-trigger buffer not yet full — allow more background traffic before triggering |
+
+**Gate:** T8.1–T8.8 pass before testing continuous and triggered modes. T8.9–T8.15 can run once foundation tests pass.
+
+---
+
 ## Test Firmware Build Targets
 
 | Target | CMake Command | Define |
@@ -416,3 +562,5 @@ python tests/phase6/test_diag_host.py --channel PCAN_USBBUS1
 | Phase 4.5 tests | `cmake --build build --target test_phase4_5` | `TEST_PHASE4_5` |
 | Phase 5 tests | `cmake --build build --target test_phase5` | `TEST_PHASE5` |
 | Phase 6 tests | `cmake --build build --target test_phase6` | `TEST_PHASE6` |
+| Phase 7 tests | Main firmware + `python tests/phase7/test_monitor_host.py` | (none — uses main FW) |
+| Phase 8 tests | Main firmware + `python tests/phase8/test_logger_host.py` | (none — uses main FW) |

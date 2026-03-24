@@ -6,6 +6,7 @@
 #include "config/nvm_config.h"
 #include "FreeRTOS.h"
 #include "queue.h"
+#include "semphr.h"
 
 /**
  * Initialize the config handler.
@@ -23,5 +24,14 @@ void config_handler_task(void *params);
  * Valid after config_handler_init().
  */
 const nvm_config_t *config_handler_get_config(void);
+
+/**
+ * Lock the config mutex. Must be held while reading multi-byte fields
+ * from the config returned by config_handler_get_config().
+ * Copy fields to locals and unlock immediately — do NOT hold across
+ * vTaskDelay() or any blocking call. Non-recursive.
+ */
+void config_handler_lock(void);
+void config_handler_unlock(void);
 
 #endif /* CONFIG_HANDLER_H */

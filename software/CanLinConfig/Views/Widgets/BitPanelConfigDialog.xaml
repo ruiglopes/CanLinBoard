@@ -1,0 +1,20 @@
+<Window x:Class="CanLinConfig.Views.Widgets.BitPanelConfigDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Configure BitPanel" Width="320" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="#2D2D30">
+    <StackPanel Margin="16">
+        <TextBlock Text="Number of bits:" Foreground="#CCC" Margin="0,0,0,4"/>
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+            <TextBox x:Name="BitCountBox" Width="50" Text="8" VerticalContentAlignment="Center"/>
+            <TextBlock Text="(1-8)" Foreground="#888" VerticalAlignment="Center" Margin="8,0,0,0"/>
+        </StackPanel>
+        <TextBlock Text="Bit labels (bit 0 at top):" Foreground="#CCC" Margin="0,0,0,4"/>
+        <StackPanel x:Name="LabelPanel"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="OK" Width="75" Margin="0,0,8,0" Click="OnOk" IsDefault="True"/>
+            <Button Content="Cancel" Width="75" Click="OnCancel" IsCancel="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

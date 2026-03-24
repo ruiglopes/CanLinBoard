@@ -14,6 +14,7 @@
 #define CFG_CMD_BULK_END            0x21
 #define CFG_CMD_BULK_READ           0x22
 #define CFG_CMD_BULK_READ_DATA      0x23
+#define CFG_CMD_LOG_READ_CHUNK      0x24
 
 /* ---- Section IDs (byte[1] for READ/WRITE) ---- */
 #define CFG_SECTION_CAN             0x00
@@ -22,6 +23,8 @@
 #define CFG_SECTION_DIAG            0x03
 #define CFG_SECTION_PROFILES        0x04
 #define CFG_SECTION_DEVICE          0x05
+#define CFG_SECTION_MONITOR         0x06
+#define CFG_SECTION_LOG             0x07
 
 /* ---- Response Status Codes ---- */
 #define CFG_STATUS_OK               0x00

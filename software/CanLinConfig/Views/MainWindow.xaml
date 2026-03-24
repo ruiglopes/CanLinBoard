@@ -4,23 +4,43 @@
         xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
         xmlns:vm="clr-namespace:CanLinConfig.ViewModels"
         xmlns:views="clr-namespace:CanLinConfig.Views"
-        Title="CanLinConfig" Height="750" Width="1100"
+        Title="{Binding WindowTitle, FallbackValue='CanLinConfig'}" Height="750" Width="1100"
         WindowStartupLocation="CenterScreen"
         Closing="OnClosing">
     <mah:MetroWindow.DataContext>
         <vm:MainViewModel />
     </mah:MetroWindow.DataContext>
 
+    <mah:MetroWindow.InputBindings>
+        <KeyBinding Gesture="Ctrl+N" Command="{Binding NewProjectCommand}"/>
+        <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenProjectCommand}"/>
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveProjectCommand}"/>
+    </mah:MetroWindow.InputBindings>
+
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <!-- Menu Bar -->
+        <Menu Grid.Row="0">
+            <MenuItem Header="_File">
+                <MenuItem Header="_New Project" Command="{Binding NewProjectCommand}" InputGestureText="Ctrl+N"/>
+                <MenuItem Header="_Open Project..." Command="{Binding OpenProjectCommand}" InputGestureText="Ctrl+O"/>
+                <Separator/>
+                <MenuItem Header="_Save Project" Command="{Binding SaveProjectCommand}" InputGestureText="Ctrl+S"/>
+                <MenuItem Header="Save Project _As..." Command="{Binding SaveProjectAsCommand}"/>
+                <Separator/>
+                <MenuItem Header="_Close Project" Command="{Binding CloseProjectCommand}"/>
+            </MenuItem>
+        </Menu>
+
         <!-- Connection Bar -->
-        <Border Grid.Row="0" Background="{DynamicResource MahApps.Brushes.Window.Background}" Padding="8">
+        <Border Grid.Row="1" Background="{DynamicResource MahApps.Brushes.Window.Background}" Padding="8">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Adapter:" VerticalAlignment="Center" Margin="0,0,5,0" />
                 <ComboBox ItemsSource="{Binding AvailableAdapters}" SelectedItem="{Binding SelectedAdapter}"
@@ -47,7 +67,7 @@
         </Border>
 
         <!-- Tab Control -->
-        <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}" Margin="5">
+        <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedTabIndex}" Margin="5">
             <TabItem Header="CAN">
                 <views:CanConfigView DataContext="{Binding CanConfig}" />
             </TabItem>
@@ -60,6 +80,12 @@
             <TabItem Header="Diagnostics Settings">
                 <views:DiagConfigView DataContext="{Binding DiagConfig}" />
             </TabItem>
+            <TabItem Header="Bus Monitor">
+                <views:BusMonitorView DataContext="{Binding BusMonitor}"/>
+            </TabItem>
+            <TabItem Header="Data Logger">
+                <views:DataLoggerView DataContext="{Binding DataLogger}"/>
+            </TabItem>
             <TabItem Header="Live Diagnostics">
                 <views:DiagnosticsView DataContext="{Binding Diagnostics}" />
             </TabItem>
@@ -69,7 +95,7 @@
         </TabControl>
 
         <!-- Bottom Action Bar -->
-        <Border Grid.Row="2" Background="{DynamicResource MahApps.Brushes.Window.Background}" Padding="8">
+        <Border Grid.Row="3" Background="{DynamicResource MahApps.Brushes.Window.Background}" Padding="8">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <Button Content="Read All" Command="{Binding ReadAllCommand}" Width="90" Margin="5,0"
                         IsEnabled="{Binding IsConnected}" />
@@ -87,7 +113,7 @@
         </Border>
 
         <!-- Status Bar -->
-        <StatusBar Grid.Row="3">
+        <StatusBar Grid.Row="4">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusBarText}" />
             </StatusBarItem>

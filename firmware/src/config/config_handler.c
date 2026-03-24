@@ -7,6 +7,8 @@
 #include "gateway/gateway_engine.h"
 #include "diag/diagnostics.h"
 #include "diag/bus_watchdog.h"
+#include "monitor/bus_monitor.h"
+#include "logger/flash_logger.h"
 #include "hal/hal_gpio.h"
 #include "util/crc32.h"
 #include "board_config.h"
@@ -15,6 +17,7 @@
 #include "hardware/watchdog.h"
 #include "FreeRTOS.h"
 #include "queue.h"
+#include "semphr.h"
 
 #include <string.h>
 
@@ -23,6 +26,7 @@
 static nvm_config_t s_working_config;
 static QueueHandle_t s_config_rx_queue;
 static QueueHandle_t s_can_tx_queue;
+static SemaphoreHandle_t s_config_mutex;
 
 /* Bulk transfer state */
 static bool     s_bulk_active;
@@ -137,7 +141,9 @@ static void handle_save(void)
 
 static void handle_defaults(void)
 {
+    config_handler_lock();
     nvm_config_defaults(&s_working_config);
+    config_handler_unlock();
     send_response(CFG_CMD_DEFAULTS, CFG_STATUS_OK, NULL, 0);
 }
 
@@ -345,6 +351,147 @@ static void handle_read_param(const uint8_t *data, uint8_t dlc)
         }
         break;
 
+    case CFG_SECTION_MONITOR:
+        switch (param) {
+        case MONITOR_PARAM_ENABLE:
+            payload[3] = bus_monitor_get_enabled() ? 1 : 0;
+            plen = 4;
+            break;
+        case MONITOR_PARAM_BUS_MASK:
+            payload[3] = bus_monitor_get_bus_mask();
+            plen = 4;
+            break;
+        case MONITOR_PARAM_FILTER_MODE:
+            payload[3] = bus_monitor_get_filter_mode();
+            plen = 4;
+            break;
+        case MONITOR_PARAM_DROP_COUNT:
+            payload[3] = bus_monitor_get_drop_count();
+            plen = 4;
+            break;
+        default:
+            send_response(CFG_CMD_READ_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        break;
+
+    case CFG_SECTION_LOG:
+        switch (param) {
+        case LOG_PARAM_MODE:
+            payload[3] = flash_logger_get_mode();
+            plen = 4;
+            break;
+        case LOG_PARAM_BUS_MASK:
+            payload[3] = flash_logger_get_bus_mask();
+            plen = 4;
+            break;
+        case LOG_PARAM_STATUS:
+            payload[3] = flash_logger_get_state();
+            plen = 4;
+            break;
+        case LOG_PARAM_ENTRY_COUNT: {
+            uint32_t count = flash_logger_get_entry_count();
+            if (sub == 0) {
+                payload[3] = (uint8_t)(count);
+                payload[4] = (uint8_t)(count >> 8);
+            } else {
+                payload[3] = (uint8_t)(count >> 16);
+                payload[4] = (uint8_t)(count >> 24);
+            }
+            plen = 5;
+            break;
+        }
+        case LOG_PARAM_WRAP_COUNT: {
+            uint32_t wraps = flash_logger_get_wrap_count();
+            if (sub == 0) {
+                payload[3] = (uint8_t)(wraps);
+                payload[4] = (uint8_t)(wraps >> 8);
+            } else {
+                payload[3] = (uint8_t)(wraps >> 16);
+                payload[4] = (uint8_t)(wraps >> 24);
+            }
+            plen = 5;
+            break;
+        }
+        case LOG_PARAM_WRITE_OFFSET: {
+            uint32_t off = flash_logger_get_write_offset();
+            if (sub == 0) {
+                payload[3] = (uint8_t)(off);
+                payload[4] = (uint8_t)(off >> 8);
+            } else {
+                payload[3] = (uint8_t)(off >> 16);
+                payload[4] = (uint8_t)(off >> 24);
+            }
+            plen = 5;
+            break;
+        }
+        case LOG_PARAM_FLASH_ERRORS: {
+            uint16_t errors = flash_logger_get_flash_errors();
+            payload[3] = (uint8_t)(errors);
+            payload[4] = (uint8_t)(errors >> 8);
+            plen = 5;
+            break;
+        }
+        case LOG_PARAM_DROP_COUNT: {
+            uint32_t drops = flash_logger_get_drop_count();
+            if (sub == 0) {
+                payload[3] = (uint8_t)(drops);
+                payload[4] = (uint8_t)(drops >> 8);
+            } else {
+                payload[3] = (uint8_t)(drops >> 16);
+                payload[4] = (uint8_t)(drops >> 24);
+            }
+            plen = 5;
+            break;
+        }
+        case LOG_PARAM_TRIGGER_BUS:
+            payload[3] = flash_logger_get_trigger_bus();
+            plen = 4;
+            break;
+        case LOG_PARAM_TRIGGER_ID: {
+            uint32_t tid = flash_logger_get_trigger_id();
+            if (sub == 0) {
+                payload[3] = (uint8_t)(tid);
+                payload[4] = (uint8_t)(tid >> 8);
+            } else {
+                payload[3] = (uint8_t)(tid >> 16);
+                payload[4] = (uint8_t)(tid >> 24);
+            }
+            plen = 5;
+            break;
+        }
+        case LOG_PARAM_TRIGGER_BYTE:
+            payload[3] = flash_logger_get_trigger_byte();
+            plen = 4;
+            break;
+        case LOG_PARAM_TRIGGER_OP:
+            payload[3] = flash_logger_get_trigger_op();
+            plen = 4;
+            break;
+        case LOG_PARAM_TRIGGER_VALUE:
+            payload[3] = flash_logger_get_trigger_value();
+            plen = 4;
+            break;
+        case LOG_PARAM_PRE_TRIG_KB: {
+            uint16_t pre = flash_logger_get_pre_trigger_kb();
+            payload[3] = (uint8_t)(pre);
+            payload[4] = (uint8_t)(pre >> 8);
+            plen = 5;
+            break;
+        }
+        case LOG_PARAM_POST_TRIG_KB: {
+            uint16_t post = flash_logger_get_post_trigger_kb();
+            payload[3] = (uint8_t)(post);
+            payload[4] = (uint8_t)(post >> 8);
+            plen = 5;
+            break;
+        }
+        default:
+            send_response(CFG_CMD_READ_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        break;
+
     default:
         send_response(CFG_CMD_READ_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
         return;
@@ -375,13 +522,20 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
                           ((uint32_t)data[5] << 8) |
                           ((uint32_t)data[6] << 16);
             if (br < 10000 || br > 1000000) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            config_handler_lock();
             s_working_config.can[sub].bitrate = br;
+            config_handler_unlock();
             break;
         }
         case 1: /* termination */
             s_working_config.can[sub].termination = data[4] ? 1 : 0;
             break;
         case 2: /* enabled */
+            if (sub == 0 && data[4] == 0) {
+                /* Prevent disabling CAN1 — it carries the config protocol */
+                send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+                return;
+            }
             s_working_config.can[sub].enabled = data[4] ? 1 : 0;
             break;
         default:
@@ -405,7 +559,9 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
                            ((uint32_t)data[5] << 8) |
                            ((uint32_t)data[6] << 16);
             if (lbr < 1000 || lbr > 20000) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            config_handler_lock();
             s_working_config.lin[sub].baudrate = lbr;
+            config_handler_unlock();
             break;
         }
         default:
@@ -416,15 +572,22 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
 
     case CFG_SECTION_DIAG:
         switch (param) {
-        case 0: /* can_id */
+        case 0: /* can_id */ {
             if (dlc < 7) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
-            s_working_config.diag.can_id = (uint32_t)data[4] |
-                                            ((uint32_t)data[5] << 8) |
-                                            ((uint32_t)data[6] << 16);
+            uint32_t new_id = (uint32_t)data[4] |
+                              ((uint32_t)data[5] << 8) |
+                              ((uint32_t)data[6] << 16);
+            if (new_id > 0x7FF) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            config_handler_lock();
+            s_working_config.diag.can_id = new_id;
+            config_handler_unlock();
+        }
             break;
         case 1: /* interval_ms */
             if (dlc < 6) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            config_handler_lock();
             s_working_config.diag.interval_ms = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+            config_handler_unlock();
             break;
         case 2: /* enabled */
             s_working_config.diag.enabled = data[4] ? 1 : 0;
@@ -434,11 +597,15 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
             break;
         case 4: /* can_watchdog_ms */
             if (dlc < 6) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            config_handler_lock();
             s_working_config.diag.can_watchdog_ms = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+            config_handler_unlock();
             break;
         case 5: /* lin_watchdog_ms */
             if (dlc < 6) { send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0); return; }
+            config_handler_lock();
             s_working_config.diag.lin_watchdog_ms = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+            config_handler_unlock();
             break;
         case 6: /* bulk_tx_retries */
             s_working_config.diag.bulk_tx_retries = data[4];
@@ -467,6 +634,89 @@ static void handle_write_param(const uint8_t *data, uint8_t dlc)
             return;
         }
         break;
+
+    case CFG_SECTION_MONITOR:
+        if (dlc < 5) {
+            send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        switch (param) {
+        case MONITOR_PARAM_ENABLE:
+            bus_monitor_set_enabled(data[4] != 0);
+            break;
+        case MONITOR_PARAM_BUS_MASK:
+            bus_monitor_set_bus_mask(data[4]);
+            break;
+        case MONITOR_PARAM_FILTER_MODE:
+            bus_monitor_set_filter_mode(data[4]);
+            break;
+        default:
+            send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_OK, NULL, 0);
+        return;
+
+    case CFG_SECTION_LOG:
+        if (dlc < 5) {
+            send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        switch (param) {
+        case LOG_PARAM_MODE:
+            flash_logger_set_mode(data[4]);
+            break;
+        case LOG_PARAM_BUS_MASK:
+            flash_logger_set_bus_mask(data[4]);
+            break;
+        case LOG_PARAM_STATE_CMD:
+            if (data[4] == 1) {
+                flash_logger_start();
+            } else if (data[4] == 0) {
+                flash_logger_stop();
+            } else if (data[4] == 2) {
+                flash_logger_arm();
+            } else if (data[4] == 0xFF) {
+                flash_logger_erase_all();
+            }
+            break;
+        case LOG_PARAM_TRIGGER_BUS:
+            flash_logger_set_trigger_bus(data[4]);
+            break;
+        case LOG_PARAM_TRIGGER_ID:
+            if (dlc >= 8) {
+                uint32_t tid = (uint32_t)data[4] | ((uint32_t)data[5] << 8)
+                             | ((uint32_t)data[6] << 16) | ((uint32_t)data[7] << 24);
+                flash_logger_set_trigger_id(tid);
+            }
+            break;
+        case LOG_PARAM_TRIGGER_BYTE:
+            flash_logger_set_trigger_byte(data[4]);
+            break;
+        case LOG_PARAM_TRIGGER_OP:
+            flash_logger_set_trigger_op(data[4]);
+            break;
+        case LOG_PARAM_TRIGGER_VALUE:
+            flash_logger_set_trigger_value(data[4]);
+            break;
+        case LOG_PARAM_PRE_TRIG_KB:
+            if (dlc >= 6) {
+                uint16_t kb = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+                flash_logger_set_pre_trigger_kb(kb);
+            }
+            break;
+        case LOG_PARAM_POST_TRIG_KB:
+            if (dlc >= 6) {
+                uint16_t kb = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+                flash_logger_set_post_trigger_kb(kb);
+            }
+            break;
+        default:
+            send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
+            return;
+        }
+        send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_OK, NULL, 0);
+        return;
 
     default:
         send_response(CFG_CMD_WRITE_PARAM, CFG_STATUS_INVALID_PARAM, NULL, 0);
@@ -498,6 +748,12 @@ static void handle_bulk_start(const uint8_t *data, uint8_t dlc)
     }
 
     if (s_bulk_expected_size > sizeof(s_bulk_buffer)) {
+        send_response(CFG_CMD_BULK_START, CFG_STATUS_INVALID_PARAM, NULL, 0);
+        return;
+    }
+
+    if (s_bulk_section == CFG_SECTION_MONITOR &&
+        s_bulk_expected_size > MONITOR_MAX_FILTER_IDS * sizeof(uint32_t)) {
         send_response(CFG_CMD_BULK_START, CFG_STATUS_INVALID_PARAM, NULL, 0);
         return;
     }
@@ -554,9 +810,11 @@ static void handle_bulk_end(const uint8_t *data, uint8_t dlc)
     case CFG_SECTION_ROUTING: {
         uint8_t count = (uint8_t)(s_bulk_received / sizeof(routing_rule_t));
         if (count > MAX_ROUTING_RULES) count = MAX_ROUTING_RULES;
+        config_handler_lock();
         s_working_config.routing_rule_count = count;
         memcpy(s_working_config.routing_rules, s_bulk_buffer,
                count * sizeof(routing_rule_t));
+        config_handler_unlock();
         break;
     }
     case CFG_SECTION_LIN: {
@@ -569,10 +827,21 @@ static void handle_bulk_end(const uint8_t *data, uint8_t dlc)
             return;
         }
         /* Zero first to clear stale entries from previous config */
+        config_handler_lock();
         memset(&s_working_config.lin[s_bulk_sub].schedule, 0,
                sizeof(lin_schedule_table_t));
         memcpy(&s_working_config.lin[s_bulk_sub].schedule, s_bulk_buffer,
                s_bulk_received);
+        config_handler_unlock();
+        break;
+    }
+    case CFG_SECTION_MONITOR:
+    {
+        /* Bulk data is an array of uint32_t IDs */
+        uint8_t count = s_bulk_received / 4;
+        if (count > MONITOR_MAX_FILTER_IDS)
+            count = MONITOR_MAX_FILTER_IDS;
+        bus_monitor_set_filter_ids((const uint32_t *)s_bulk_buffer, count);
         break;
     }
     default:
@@ -683,6 +952,76 @@ static void handle_bulk_read_data(void)
     s_bulk_read_size = 0;
 }
 
+/* ---- Chunked Log Read (0x24) ---- */
+
+static uint8_t s_log_chunk_buffer[NVM_SECTOR_SIZE];
+
+static void handle_log_read_chunk(const uint8_t *data, uint8_t dlc)
+{
+    if (dlc < 6) {
+        send_response(CFG_CMD_LOG_READ_CHUNK, CFG_STATUS_INVALID_PARAM, NULL, 0);
+        return;
+    }
+
+    uint32_t offset = (uint32_t)data[1]
+                    | ((uint32_t)data[2] << 8)
+                    | ((uint32_t)data[3] << 16);
+    uint16_t length = (uint16_t)data[4] | ((uint16_t)data[5] << 8);
+
+    if (length > NVM_SECTOR_SIZE) length = NVM_SECTOR_SIZE;
+
+    uint16_t actual = flash_logger_read_chunk(offset, s_log_chunk_buffer, length);
+    if (actual == 0) {
+        send_response(CFG_CMD_LOG_READ_CHUNK, CFG_STATUS_INVALID_PARAM, NULL, 0);
+        return;
+    }
+
+    uint32_t crc = crc32_compute(s_log_chunk_buffer, actual);
+
+    can_frame_t tx_frame;
+    tx_frame.id = CONFIG_CAN_BULK_RESP_ID;
+    tx_frame.flags = 0;
+
+    /* Reuse bulk transfer retry settings */
+    uint32_t max_retries = s_working_config.diag.bulk_tx_retries;
+    if (max_retries == 0) max_retries = CFG_BULK_TX_RETRIES;
+    uint32_t retry_delay = s_working_config.diag.bulk_tx_retry_delay_ms;
+    if (retry_delay == 0) retry_delay = CFG_BULK_TX_RETRY_DELAY_MS;
+
+    uint16_t sent = 0;
+    uint8_t seq = 0;
+    while (sent < actual) {
+        uint8_t chunk = (actual - sent > 7) ? 7 : (uint8_t)(actual - sent);
+        tx_frame.dlc = 1 + chunk;
+        tx_frame.data[0] = seq++;
+        memcpy(&tx_frame.data[1], &s_log_chunk_buffer[sent], chunk);
+
+        /* Retry with yield if TX queue is full (same as handle_bulk_read_data) */
+        uint32_t retries = 0;
+        while (!can_manager_transmit(CAN_BUS_1, &tx_frame)) {
+            if (++retries >= max_retries) {
+                send_response(CFG_CMD_LOG_READ_CHUNK, CFG_STATUS_BUSY, NULL, 0);
+                return;
+            }
+            vTaskDelay(pdMS_TO_TICKS(retry_delay));
+        }
+        sent += chunk;
+
+        /* Yield every 4 frames to avoid flooding CAN TX queue */
+        if ((seq & 0x03) == 0)
+            vTaskDelay(1);
+    }
+
+    uint8_t ack_payload[6];
+    ack_payload[0] = (uint8_t)(actual);
+    ack_payload[1] = (uint8_t)(actual >> 8);
+    ack_payload[2] = (uint8_t)(crc);
+    ack_payload[3] = (uint8_t)(crc >> 8);
+    ack_payload[4] = (uint8_t)(crc >> 16);
+    ack_payload[5] = (uint8_t)(crc >> 24);
+    send_response(CFG_CMD_LOG_READ_CHUNK, CFG_STATUS_OK, ack_payload, 6);
+}
+
 /* ---- Command Dispatch ---- */
 
 static void dispatch_command(const gateway_frame_t *gf)
@@ -713,6 +1052,7 @@ static void dispatch_command(const gateway_frame_t *gf)
     case CFG_CMD_BULK_END:          handle_bulk_end(data, dlc); break;
     case CFG_CMD_BULK_READ:         handle_bulk_read(data, dlc); break;
     case CFG_CMD_BULK_READ_DATA:    handle_bulk_read_data(); break;
+    case CFG_CMD_LOG_READ_CHUNK:    handle_log_read_chunk(data, dlc); break;
     default:
         send_response(cmd, CFG_STATUS_UNKNOWN_CMD, NULL, 0);
         break;
@@ -723,6 +1063,8 @@ static void dispatch_command(const gateway_frame_t *gf)
 
 void config_handler_init(QueueHandle_t config_rx_queue, QueueHandle_t can_tx_queue)
 {
+    s_config_mutex = xSemaphoreCreateMutex();
+    configASSERT(s_config_mutex);
     s_config_rx_queue = config_rx_queue;
     s_can_tx_queue    = can_tx_queue;
     s_bulk_active     = false;
@@ -746,4 +1088,14 @@ void config_handler_task(void *params)
 const nvm_config_t *config_handler_get_config(void)
 {
     return &s_working_config;
+}
+
+void config_handler_lock(void)
+{
+    xSemaphoreTake(s_config_mutex, portMAX_DELAY);
+}
+
+void config_handler_unlock(void)
+{
+    xSemaphoreGive(s_config_mutex);
 }

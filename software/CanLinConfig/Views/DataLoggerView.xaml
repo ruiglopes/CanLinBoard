@@ -1,0 +1,16 @@
+<UserControl x:Class="CanLinConfig.Views.DataLoggerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:CanLinConfig.Views">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <local:LogControlPanel Grid.Row="0" DataContext="{Binding LogControl}"/>
+        <local:LogDownloadPanel Grid.Row="1" DataContext="{Binding LogDownload}"/>
+        <local:LogReplayPanel Grid.Row="2" DataContext="{Binding LogReplay}"/>
+    </Grid>
+</UserControl>

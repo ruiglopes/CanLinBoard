@@ -9,7 +9,7 @@ public partial class BitMapping : ObservableObject
     [ObservableProperty] private int _bitLength = 8;
     [ObservableProperty] private int _dstStartBit;
 
-    public List<ByteMapping> ToByteMapppings()
+    public List<ByteMapping> ToByteMappings()
     {
         var maps = new List<ByteMapping>();
         int srcBit = SrcStartBit;

@@ -18,6 +18,10 @@ public static class ProtocolConstants
     public const uint DiagCrashId = 0x7F3;
     public const uint DiagSysHealthId = 0x7F4;
 
+    // Bus Monitor CAN IDs
+    public const uint MonitorHeaderId = 0x604;
+    public const uint MonitorDataId = 0x605;
+
     // Bootloader
     public const uint BlCmdId = 0x700;
 
@@ -42,6 +46,70 @@ public static class ProtocolConstants
     public const byte SectionDiag = 0x03;
     public const byte SectionProfiles = 0x04;
     public const byte SectionDevice = 0x05;
+    public const byte SectionMonitor = 0x06;
+
+    // Monitor param indices (SectionMonitor READ_PARAM/WRITE_PARAM)
+    public const byte MonitorParamEnable = 0;
+    public const byte MonitorParamBusMask = 1;
+    public const byte MonitorParamFilterMode = 2;
+    public const byte MonitorParamDropCount = 3;
+
+    // Monitor filter modes
+    public const byte MonitorFilterNone = 0;
+    public const byte MonitorFilterWhitelist = 1;
+    public const byte MonitorFilterBlacklist = 2;
+
+    // Monitor limits
+    public const int MonitorMaxFilterIds = 32;
+
+    // ---- Logger (SectionLog = 0x07) ----
+    public const byte SectionLog = 0x07;
+
+    // Logger param indices (single-byte params)
+    public const byte LogParamMode = 0;
+    public const byte LogParamBusMask = 1;
+    public const byte LogParamStateCmd = 2;
+    public const byte LogParamStatus = 3;
+
+    // Logger param indices (32-bit params, read via sub=0/sub=1 for low/high 16 bits)
+    public const byte LogParamEntryCount = 4;
+    public const byte LogParamWrapCount = 5;
+    public const byte LogParamWriteOffset = 6;
+    public const byte LogParamFlashErrors = 7;
+    public const byte LogParamDropCount = 8;
+
+    // Logger states
+    public const byte LogStateIdle = 0;
+    public const byte LogStateRecording = 1;
+    public const byte LogStateError = 4;
+
+    // Logger modes
+    public const byte LogModeManual = 0;
+    public const byte LogModeContinuous = 1;
+    public const byte LogModeTriggered = 2;
+
+    // Logger states
+    public const byte LogStateArmed = 2;
+    public const byte LogStateCapturing = 3;
+
+    // Logger state commands
+    public const byte LogCmdStop = 0;
+    public const byte LogCmdStart = 1;
+    public const byte LogCmdArm = 2;
+    public const byte LogCmdEraseAll = 0xFF;
+
+    // Trigger params
+    public const byte LogParamTriggerBus = 9;
+    public const byte LogParamTriggerId = 10;
+    public const byte LogParamTriggerByte = 11;
+    public const byte LogParamTriggerOp = 12;
+    public const byte LogParamTriggerValue = 13;
+    public const byte LogParamPreTrigKb = 14;
+    public const byte LogParamPostTrigKb = 15;
+
+    // Chunked log read
+    public const byte CmdLogReadChunk = 0x24;
+    public const ushort LogChunkSize = 4096;
 
     // Response status codes
     public const byte StatusOk = 0x00;

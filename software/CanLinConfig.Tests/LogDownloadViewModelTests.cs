@@ -1,0 +1,171 @@
+// software/CanLinConfig.Tests/LogDownloadViewModelTests.cs
+using CanLinConfig.ViewModels;
+
+namespace CanLinConfig.Tests;
+
+public class LogDownloadViewModelTests
+{
+    [Fact]
+    public void ParseLogEntries_parses_single_entry()
+    {
+        var data = new byte[20];
+        // timestamp_ms = 1000 (0x000003E8)
+        data[0] = 0xE8; data[1] = 0x03; data[2] = 0x00; data[3] = 0x00;
+        // frame_id = 0x123
+        data[4] = 0x23; data[5] = 0x01; data[6] = 0x00; data[7] = 0x00;
+        // bus = 1 (CAN2)
+        data[8] = 0x01;
+        // dlc = 4
+        data[9] = 0x04;
+        // data = AA BB CC DD 00 00 00 00
+        data[10] = 0xAA; data[11] = 0xBB; data[12] = 0xCC; data[13] = 0xDD;
+        // reserved
+        data[18] = 0x00; data[19] = 0x00;
+
+        var entries = LogDownloadViewModel.ParseLogEntries(data);
+
+        Assert.Single(entries);
+        Assert.Equal(1000u, entries[0].TimestampMs);
+        Assert.Equal(0x123u, entries[0].FrameId);
+        Assert.Equal(1, entries[0].Bus);
+        Assert.Equal(4, entries[0].Dlc);
+        Assert.Equal(0xAA, entries[0].Data[0]);
+        Assert.Equal(0xDD, entries[0].Data[3]);
+    }
+
+    [Fact]
+    public void ParseLogEntries_skips_gap_markers()
+    {
+        var data = new byte[40]; // 2 entries
+        // Entry 1: normal frame
+        data[8] = 0x00; // bus = CAN1
+        data[9] = 0x02; // dlc = 2
+
+        // Entry 2: gap marker (bus = 0xFF)
+        data[28] = 0xFF; // bus = gap marker
+
+        var entries = LogDownloadViewModel.ParseLogEntries(data);
+
+        Assert.Single(entries); // gap marker skipped
+    }
+
+    [Fact]
+    public void ParseLogEntries_handles_empty_data()
+    {
+        var entries = LogDownloadViewModel.ParseLogEntries(Array.Empty<byte>());
+        Assert.Empty(entries);
+    }
+
+    [Fact]
+    public void ParseLogEntries_handles_partial_entry()
+    {
+        // 15 bytes — not enough for one full entry (20 bytes)
+        var data = new byte[15];
+        var entries = LogDownloadViewModel.ParseLogEntries(data);
+        Assert.Empty(entries);
+    }
+
+    [Fact]
+    public void ParseLogEntries_multiple_entries()
+    {
+        var data = new byte[60]; // 3 entries
+        // Entry 0: CAN1, ID=0x100
+        data[4] = 0x00; data[5] = 0x01; data[8] = 0x00; data[9] = 0x03;
+        // Entry 1: CAN2, ID=0x200
+        data[24] = 0x00; data[25] = 0x02; data[28] = 0x01; data[29] = 0x05;
+        // Entry 2: LIN1, ID=0x3C
+        data[44] = 0x3C; data[48] = 0x02; data[49] = 0x08;
+
+        var entries = LogDownloadViewModel.ParseLogEntries(data);
+
+        Assert.Equal(3, entries.Count);
+        Assert.Equal(0x100u, entries[0].FrameId);
+        Assert.Equal(0x200u, entries[1].FrameId);
+        Assert.Equal(0x3Cu, entries[2].FrameId);
+    }
+
+    [Fact]
+    public void ParseLogEntries_reports_gap_marker_drop_count()
+    {
+        var data = new byte[40]; // 2 entries
+        // Entry 0: normal frame, CAN1, ID=0x100
+        data[4] = 0x00; data[5] = 0x01; data[8] = 0x00; data[9] = 0x03;
+
+        // Entry 1: gap marker (bus = 0xFF, frame_id = drop count = 5)
+        data[24] = 0x05; data[25] = 0x00; data[26] = 0x00; data[27] = 0x00; // frame_id = 5
+        data[28] = 0xFF; // bus = gap marker
+
+        var (entries, gapCount) = LogDownloadViewModel.ParseLogEntriesWithGaps(data);
+
+        Assert.Single(entries); // gap marker not included as entry
+        Assert.Equal(5u, gapCount); // 5 frames were dropped
+    }
+
+    [Fact]
+    public void ParseLogEntriesWithGaps_skips_write_chunk_padding()
+    {
+        // Firmware writes 64-byte chunks: 3 entries (60 bytes) + 4 bytes 0xFF padding
+        // Simulate 2 chunks (128 bytes) + 1 entry from 3rd chunk
+        var data = new byte[128 + 20]; // 148 bytes
+
+        // Chunk 0 (bytes 0-63): 3 entries, CAN1, ID=0x100
+        for (int e = 0; e < 3; e++)
+        {
+            int off = e * 20;
+            data[off] = 0x01; // timestamp_ms = 1
+            data[off + 4] = 0x00; data[off + 5] = 0x01; // ID = 0x100
+            data[off + 8] = 0x00; // bus = CAN1
+            data[off + 9] = 0x02; // dlc = 2
+            data[off + 10] = 0xAA; data[off + 11] = 0xBB;
+        }
+        // Bytes 60-63: 0xFF padding
+        for (int p = 60; p < 64; p++) data[p] = 0xFF;
+
+        // Chunk 1 (bytes 64-127): 3 entries, CAN1, ID=0x100
+        for (int e = 0; e < 3; e++)
+        {
+            int off = 64 + e * 20;
+            data[off] = 0x02; // timestamp_ms = 2
+            data[off + 4] = 0x00; data[off + 5] = 0x01; // ID = 0x100
+            data[off + 8] = 0x00; // bus = CAN1
+            data[off + 9] = 0x02; // dlc = 2
+        }
+        // Bytes 124-127: 0xFF padding
+        for (int p = 124; p < 128; p++) data[p] = 0xFF;
+
+        // Chunk 2 first entry (bytes 128-147): CAN2, ID=0x200
+        data[128] = 0x03; // timestamp_ms = 3
+        data[128 + 4] = 0x00; data[128 + 5] = 0x02; // ID = 0x200
+        data[128 + 8] = 0x01; // bus = CAN2
+        data[128 + 9] = 0x03; // dlc = 3
+
+        var (entries, _) = LogDownloadViewModel.ParseLogEntriesWithGaps(data);
+
+        Assert.Equal(7, entries.Count); // 3 + 3 + 1
+        Assert.All(entries.Take(6), e => Assert.Equal(0x100u, e.FrameId));
+        Assert.Equal(0x200u, entries[6].FrameId);
+        Assert.Equal(1, entries[6].Bus); // CAN2
+    }
+
+    [Fact]
+    public void ParseLogEntriesWithGaps_skips_zero_filled_entries()
+    {
+        // All zeros should be skipped (unwritten flash)
+        var data = new byte[20];
+        var (entries, _) = LogDownloadViewModel.ParseLogEntriesWithGaps(data);
+        Assert.Empty(entries);
+    }
+
+    [Fact]
+    public void ParseLogEntriesWithGaps_validates_bus_and_dlc()
+    {
+        var data = new byte[20];
+        data[0] = 0x01; // non-zero timestamp
+        data[4] = 0x00; data[5] = 0x01; // ID = 0x100
+        data[8] = 0x07; // bus = 7 (invalid, max is 5)
+        data[9] = 0x02;
+
+        var (entries, _) = LogDownloadViewModel.ParseLogEntriesWithGaps(data);
+        Assert.Empty(entries); // invalid bus rejected
+    }
+}

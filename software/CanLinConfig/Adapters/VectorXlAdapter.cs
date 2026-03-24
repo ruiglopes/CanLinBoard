@@ -192,22 +192,28 @@ public class VectorXlAdapter : ICanAdapter
     {
         _rxRunning = false;
 
+        // Set connected=false under lock so RX thread sees it and exits the loop
         lock (_lock)
         {
             if (!_connected) return;
             _connected = false;
+        }
 
+        // Wait for RX thread to finish BEFORE closing the port — no thread may be inside xlReceive
+        _rxThread?.Join(2000);
+        _rxThread = null;
+
+        // Now safe to close — no thread is using the handle
+        lock (_lock)
+        {
             if (_portHandle >= 0)
             {
                 try { VectorNative.xlDeactivateChannel(_portHandle, _accessMask); } catch { }
                 try { VectorNative.xlClosePort(_portHandle); } catch { }
                 _portHandle = -1;
+                _notifyEvent = nint.Zero;
             }
-            _notifyEvent = nint.Zero;
         }
-
-        _rxThread?.Join(2000);
-        _rxThread = null;
     }
 
     public bool Send(CanFrame frame)

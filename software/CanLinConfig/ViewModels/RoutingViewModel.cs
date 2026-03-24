@@ -103,7 +103,7 @@ public partial class RoutingViewModel : ObservableObject
             {
                 rule.Mappings.Clear();
                 foreach (var bm in rule.BitMappings)
-                    foreach (var byteMap in bm.ToByteMapppings())
+                    foreach (var byteMap in bm.ToByteMappings())
                         if (rule.Mappings.Count < ProtocolConstants.MaxByteMappings)
                             rule.Mappings.Add(byteMap);
             }

@@ -1,0 +1,52 @@
+LIN_description_file;
+LIN_protocol_version = "2.1";
+LIN_language_version = "2.1";
+LIN_speed = 19.2 kbps;
+
+Nodes {
+    Master: ECU_Master, 5 ms, 0.1 ms;
+    Slaves: Motor1;
+}
+
+Signals {
+    MotorSpeed: 8, 0, Motor1, ECU_Master;
+    MotorTemp: 8, 0, Motor1, ECU_Master;
+    MotorCommand: 8, 0, ECU_Master, Motor1;
+}
+
+Frames {
+    MotorStatus: 33, Motor1, 4 {
+        MotorSpeed, 0;
+        MotorTemp, 8;
+    }
+    MotorControl: 34, ECU_Master, 2 {
+        MotorCommand, 0;
+    }
+}
+
+Schedule_tables {
+    MainSchedule {
+        MotorControl delay 10 ms;
+        MotorStatus delay 10 ms;
+    }
+}
+
+Signal_encoding_types {
+    SpeedEncoding {
+        physical_value, 0, 255, 100, 0, "rpm";
+    }
+    TempEncoding {
+        physical_value, 0, 255, 1, -40, "C";
+    }
+    CmdEncoding {
+        logical_value, 0, "Off";
+        logical_value, 1, "On";
+        logical_value, 2, "Fast";
+    }
+}
+
+Signal_representation {
+    SpeedEncoding: MotorSpeed;
+    TempEncoding: MotorTemp;
+    CmdEncoding: MotorCommand;
+}

@@ -4,6 +4,8 @@
 #include "hal/hal_clock.h"
 #include "hal/hal_gpio.h"
 #include "diag/bus_watchdog.h"
+#include "monitor/bus_monitor.h"
+#include "logger/flash_logger.h"
 #include "config/config_handler.h"
 #include "board_config.h"
 
@@ -121,6 +123,8 @@ static void process_channel_interrupt(uint8_t ch)
             memcpy(gf.frame.data, frame.data, frame.dlc);
 
             xQueueSend(s_gateway_queue, &gf, 0);
+            bus_monitor_enqueue_frame(&gf);
+            flash_logger_enqueue_frame(&gf);
         }
     }
 
@@ -298,11 +302,15 @@ void lin_task_entry(void *params)
         for (int ch = 0; ch < LIN_CHANNEL_COUNT; ch++) {
             if (cfg->lin[ch].enabled) {
                 lin_channel_config_t lc;
+
+                config_handler_lock();
                 lc.enabled  = true;
                 lc.mode     = (lin_mode_t)cfg->lin[ch].mode;
                 lc.baudrate = cfg->lin[ch].baudrate;
                 memcpy(&lc.schedule, &cfg->lin[ch].schedule,
                        sizeof(lin_schedule_table_t));
+                config_handler_unlock();
+
                 lin_manager_start_channel(ch, &lc);
                 bus_watchdog_set_enabled((bus_id_t)(BUS_LIN1 + ch), true);
             }
@@ -340,11 +348,15 @@ void lin_task_entry(void *params)
             for (int ch = 0; ch < LIN_CHANNEL_COUNT; ch++) {
                 if (cfg->lin[ch].enabled) {
                     lin_channel_config_t lc;
+
+                    config_handler_lock();
                     lc.enabled  = true;
                     lc.mode     = (lin_mode_t)cfg->lin[ch].mode;
                     lc.baudrate = cfg->lin[ch].baudrate;
                     memcpy(&lc.schedule, &cfg->lin[ch].schedule,
                            sizeof(lin_schedule_table_t));
+                    config_handler_unlock();
+
                     lin_manager_start_channel(ch, &lc);
                 }
             }

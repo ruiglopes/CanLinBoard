@@ -4,6 +4,84 @@ All notable changes to the CAN/LIN Gateway Board project.
 
 ---
 
+## v0.3.0 — 2026-03-24
+
+### Added
+- **Bus Monitor** — live bus monitoring with signal decoding (DBC/LDF), trace panel, signal panel, time-series graphing (ScottPlot)
+- **Monitor Protocol** — firmware streams CAN2/LIN1-4 traffic as 0x604/0x605 frame pairs on CAN1
+- **Project System** — .clpkg ZIP bundles with embedded databases, File menu with Ctrl+N/O/S
+- **Export Formats** — CSV, ASC (Vector), BLF (Vector binary) export from Bus Monitor
+- **Instrument Panel** — 6 widget types (numeric, bar, gauge, boolean, bitpanel, enum) with right-click type selector submenu
+- **BitPanel Widget** — configurable 1-8 bit display with per-bit labels, green/gray lamp indicators, and config dialog
+- **Free-position Instrument Layout** — Canvas-based drag-and-drop widget placement with 8px snap-to-edge guidelines, z-order on drag, Escape to cancel; backward-compatible auto-layout for old projects
+- **Flash Logger** — on-board data logger with 3 recording modes:
+  - Manual: start/stop from config tool
+  - Continuous: ring buffer wraps, auto-resumes on boot, gap markers on queue overflow
+  - Triggered: arm with condition (bus + ID + byte comparison), pre/post KB capture window
+- **Data Logger Tab** — LogControlPanel (mode/bus/trigger config), LogDownloadPanel (chunked download with CRC), LogReplayPanel (CSV playback at 1x/2x/5x/10x)
+- **LDF Integration** — LIN database support for signal decoding
+- **CI Pipeline** — GitHub Actions workflow for firmware build and config tool tests
+- **Phase 7 test script** — `firmware/tests/phase7/test_monitor_host.py` (16 automated on-target tests for monitor protocol)
+- **Phase 8 test script** — `firmware/tests/phase8/test_logger_host.py` (15 automated on-target tests for flash logger)
+- **BindingProxy helper** — `Helpers/BindingProxy.cs` for WPF ContextMenu DataContext binding in ItemsControl
+
+### Fixed
+- **Flash logger CAN bus errors** — lightweight flash acquire (`sec_flash_acquire_light`) skips XIP exit/enter, reducing interrupt-off time from ~500µs to ~50µs per SPI operation
+- **Flash write size** — reduced from 256 to 64 bytes per write to limit SPI transfer duration within can2040 PIO IRQ tolerance
+- **Log parser page alignment** — parser now tracks 64-byte write chunk boundaries, skipping 4-byte padding per chunk; validates bus (0-5) and DLC (0-8)
+- **Non-blocking metadata save** — `save_metadata()` uses non-blocking erase+program with vTaskDelay polling when scheduler is running
+- **Download TX retry** — chunked log read now retries CAN transmits with yield, matching existing bulk read pattern
+- **Download buttons greyed out** — `NotifyCanExecuteChanged` on protocol connect/disconnect
+- **Bus Monitor filter** — ComboBox items changed from ComboBoxItem objects to plain strings
+- **Monitor CAN1 echo** — default bus mask excludes CAN1 (tool sees it natively); CAN1 checkbox disabled in UI
+- **Project title bar not updating** — explicit FilePath set after save + display filename in window title
+- **Save project fails on existing file** — delete existing file before `ZipFile.CreateFromDirectory`
+- **Close project doesn't clear DBC assignments** — clear DatabaseManager state on project close
+- **DBC filename lost in project ZIP** — preserve original filename with bus subdirectory structure
+- **Widget context menu commands not wired** — added BindingProxy (Freezable) for ContextMenu DataContext in ItemsControl
+- **Widget "Change Type" not re-rendering** — remove and re-insert widget in collection to force DataTemplateSelector update
+- **Trace panel newest-on-top** — `Insert(0, ...)` instead of `Add()` so newest frames appear at top
+- **Graph time window not applied** — set ScottPlot X-axis limits in `RefreshPlot` based on selected window
+- **Log download parser erased-flash misinterpretation** — reorder erased-flash check before gap-marker check to prevent 0xFF pages from being parsed as gap markers
+
+---
+
+## v0.2.3 — 2026-03-22
+
+Input validation (P2.5, P2.6).
+
+### Fixed
+- **Firmware: diag CAN ID validation** — WRITE_PARAM rejects values > 0x7FF
+- **Firmware: CAN1 disable protection** — WRITE_PARAM rejects disabling CAN1 (would brick config access)
+- **Firmware: can_manager_get_stats bounds check** — returns zeroed stats for invalid bus index
+- **Config tool: CAN bitrate validation** — UI rejects values outside 10K–1M
+- **Config tool: diag CAN ID validation** — UI rejects values > 0x7FF
+- **Config tool: DLC clamping** — routing rule DLC clamped to 0–8
+- **Config tool: byte index clamping** — byte mapping src/dst indices clamped to 0–7
+
+---
+
+## v0.2.2 — 2026-03-22
+
+All P1 bugs resolved.
+
+### Fixed
+- **Config tool file I/O error handling** — `SaveToFile`/`LoadFromFile` wrapped in try/catch with MessageBox error dialogs for malformed JSON, permission errors, and other exceptions
+- **Profile storage path** — moved from `AppDomain.BaseDirectory` to `%AppData%/CanLinConfig/Profiles/`. Bundled profiles auto-copied on first run. Fixes `UnauthorizedAccessException` when installed under Program Files
+- **BulkWriteAsync retry** — retry `Send()` return value now checked; returns failure status instead of silently losing data (which caused confusing CRC mismatch at BULK_END)
+- **Heartbeat timing drift** — `vTaskDelay` replaced with `vTaskDelayUntil` in diagnostics task (fixed 15ms drift from 1015ms to exact 1000ms)
+
+---
+
+## v0.2.1 — 2026-03-22
+
+Config thread safety fix.
+
+### Fixed
+- **Config read across tasks without synchronization** — added FreeRTOS mutex with priority inheritance to protect `s_working_config`. All multi-byte writes (bitrate, CAN ID, interval, routing rules, LIN schedules) locked in CONFIG task. Reader tasks (DIAG, LIN, GATEWAY) lock and copy to locals before use. Refactored `send_heartbeat()` to take extracted values instead of raw config pointer. Verified on-target: Phase 5 (15/15), Phase 6 (14/14), 30s heartbeat sanity, concurrent write stress test.
+
+---
+
 ## v0.2.0 — 2026-03-22
 
 Firmware update via config tool — flash firmware over CAN using the bootloader protocol.

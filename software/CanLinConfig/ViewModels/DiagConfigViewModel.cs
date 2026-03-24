@@ -22,7 +22,7 @@ public partial class DiagConfigViewModel : ObservableObject
         set
         {
             var s = value.Replace("0x", "").Replace("0X", "");
-            if (uint.TryParse(s, System.Globalization.NumberStyles.HexNumber, null, out uint id))
+            if (uint.TryParse(s, System.Globalization.NumberStyles.HexNumber, null, out uint id) && id <= 0x7FF)
                 CanId = id;
         }
     }

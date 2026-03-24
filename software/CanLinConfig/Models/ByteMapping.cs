@@ -4,8 +4,20 @@ namespace CanLinConfig.Models;
 
 public partial class ByteMapping : ObservableObject
 {
-    [ObservableProperty] private byte _srcByte;
-    [ObservableProperty] private byte _dstByte;
+    private byte _srcByte;
+    private byte _dstByte;
+
+    public byte SrcByte
+    {
+        get => _srcByte;
+        set => SetProperty(ref _srcByte, value <= 7 ? value : (byte)7);
+    }
+
+    public byte DstByte
+    {
+        get => _dstByte;
+        set => SetProperty(ref _dstByte, value <= 7 ? value : (byte)7);
+    }
     [ObservableProperty] private byte _mask = 0xFF;
     [ObservableProperty] private sbyte _shift;
     [ObservableProperty] private sbyte _offset;

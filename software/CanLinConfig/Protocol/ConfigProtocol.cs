@@ -7,6 +7,7 @@ public record ConnectResult(bool Success, byte Major, byte Minor, byte Patch, us
 public record StatusResult(bool Success, byte Status);
 public record GetStatusResult(bool Success, uint WriteCount);
 public record ReadParamResult(bool Success, byte Section, byte Param, byte Sub, byte[] Value);
+public record LogChunkResult(bool Success, byte[] Data, ushort ActualSize);
 
 public class ConfigProtocol : IDisposable
 {
@@ -25,7 +26,15 @@ public class ConfigProtocol : IDisposable
     private int _bulkReadReceived;
     private int _bulkReadSeq;
 
+    // Log chunk read state (separate from bulk read)
+    private byte[]? _logChunkBuffer;
+    private int _logChunkExpectedSize;
+    private int _logChunkReceived;
+    private int _logChunkSeq;
+    private TaskCompletionSource<bool>? _logChunkDataTcs;
+
     public event EventHandler<CanFrameEventArgs>? RawFrameReceived;
+    public event EventHandler<CanFrameEventArgs>? MonitorFrameReceived;
 
     public ConfigProtocol(ICanAdapter adapter)
     {
@@ -35,6 +44,14 @@ public class ConfigProtocol : IDisposable
 
     private void OnFrameReceived(object? sender, CanFrameEventArgs e)
     {
+        // Monitor frames are high-frequency — route directly, don't raise RawFrameReceived
+        if (e.Frame.Id == ProtocolConstants.MonitorHeaderId ||
+            e.Frame.Id == ProtocolConstants.MonitorDataId)
+        {
+            MonitorFrameReceived?.Invoke(this, e);
+            return;
+        }
+
         RawFrameReceived?.Invoke(this, e);
 
         if (e.Frame.Id == ProtocolConstants.ConfigRespId)
@@ -46,7 +63,10 @@ public class ConfigProtocol : IDisposable
         }
         else if (e.Frame.Id == ProtocolConstants.ConfigBulkRespId)
         {
-            HandleBulkReadData(e.Frame);
+            if (_logChunkDataTcs != null)
+                HandleLogChunkData(e.Frame);
+            else
+                HandleBulkReadData(e.Frame);
         }
     }
 
@@ -82,6 +102,96 @@ public class ConfigProtocol : IDisposable
                 Array.Copy(_bulkReadBuffer, result, _bulkReadExpectedSize);
                 _bulkReadTcs.TrySetResult(result);
             }
+        }
+    }
+
+    private void HandleLogChunkData(CanFrame frame)
+    {
+        if (_logChunkBuffer == null || _logChunkDataTcs == null) return;
+
+        int payloadLen = frame.Dlc - 1;
+        if (payloadLen <= 0) return;
+
+        int remaining = _logChunkExpectedSize - _logChunkReceived;
+        int copyLen = Math.Min(payloadLen, remaining);
+        Array.Copy(frame.Data, 1, _logChunkBuffer, _logChunkReceived, copyLen);
+        _logChunkReceived += copyLen;
+        _logChunkSeq++;
+
+        if (_logChunkReceived >= _logChunkExpectedSize)
+            _logChunkDataTcs.TrySetResult(true);
+    }
+
+    public async Task<LogChunkResult> LogReadChunkAsync(uint offset, ushort length)
+    {
+        if (_adapter == null)
+            return new LogChunkResult(false, Array.Empty<byte>(), 0);
+
+        await _cmdLock.WaitAsync();
+        try
+        {
+            _logChunkBuffer = new byte[length];
+            _logChunkExpectedSize = length;
+            _logChunkReceived = 0;
+            _logChunkSeq = 0;
+            _logChunkDataTcs = new TaskCompletionSource<bool>();
+
+            _expectedCmd = ProtocolConstants.CmdLogReadChunk;
+            _pendingResponse = new TaskCompletionSource<CanFrame>();
+
+            var frame = new CanFrame
+            {
+                Id = ProtocolConstants.ConfigCmdId,
+                Dlc = 6
+            };
+            frame.Data[0] = ProtocolConstants.CmdLogReadChunk;
+            frame.Data[1] = (byte)(offset);
+            frame.Data[2] = (byte)(offset >> 8);
+            frame.Data[3] = (byte)(offset >> 16);
+            frame.Data[4] = (byte)(length);
+            frame.Data[5] = (byte)(length >> 8);
+
+            _adapter.Send(frame);
+
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            try
+            {
+                await _pendingResponse.Task.WaitAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                _logChunkDataTcs = null;
+                _logChunkBuffer = null;
+                _pendingResponse = null;
+                return new LogChunkResult(false, Array.Empty<byte>(), 0);
+            }
+
+            var resp = _pendingResponse.Task.Result;
+            _pendingResponse = null;
+            _logChunkDataTcs = null;
+
+            if (resp.Data[1] != ProtocolConstants.StatusOk)
+            {
+                _logChunkBuffer = null;
+                return new LogChunkResult(false, Array.Empty<byte>(), 0);
+            }
+
+            ushort actualSize = (ushort)(resp.Data[2] | (resp.Data[3] << 8));
+            uint expectedCrc = (uint)(resp.Data[4] | (resp.Data[5] << 8)
+                             | (resp.Data[6] << 16) | (resp.Data[7] << 24));
+
+            var data = new byte[actualSize];
+            Array.Copy(_logChunkBuffer, data, Math.Min(actualSize, _logChunkReceived));
+            _logChunkBuffer = null;
+
+            uint actualCrc = Helpers.Crc32.Compute(data);
+            bool crcOk = actualCrc == expectedCrc;
+
+            return new LogChunkResult(crcOk, data, actualSize);
+        }
+        finally
+        {
+            _cmdLock.Release();
         }
     }
 
@@ -247,7 +357,8 @@ public class ConfigProtocol : IDisposable
             if (!_adapter.Send(frame))
             {
                 await Task.Delay(5);
-                _adapter.Send(frame); // retry once
+                if (!_adapter.Send(frame))
+                    return new StatusResult(false, 0xFE); // TX failed after retry
             }
             await Task.Delay(2); // pace to avoid TX overflow
         }

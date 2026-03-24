@@ -12,13 +12,15 @@
  * Sets up both can2040 instances, ring buffers, and IRQ handlers.
  * Must be called after FreeRTOS scheduler is running (needs queue handles).
  *
- * @param gateway_queue  Queue for gateway-bound frames
- * @param config_queue   Queue for config-protocol frames (CAN1 only)
- * @param can_tx_queue   Queue for outbound CAN frames (from gateway/config)
+ * @param gateway_queue    Queue for gateway-bound frames
+ * @param config_queue     Queue for config-protocol frames (CAN1 only)
+ * @param can_tx_queue     Queue for outbound CAN frames (from gateway/config)
+ * @param monitor_tx_queue Queue for bus monitor TX frames (drained after app traffic)
  */
 void can_manager_init(QueueHandle_t gateway_queue,
                       QueueHandle_t config_queue,
-                      QueueHandle_t can_tx_queue);
+                      QueueHandle_t can_tx_queue,
+                      QueueHandle_t monitor_tx_queue);
 
 /**
  * Start CAN1 at the given bitrate. Enables the transceiver.

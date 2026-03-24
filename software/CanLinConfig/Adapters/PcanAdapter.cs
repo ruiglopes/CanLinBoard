@@ -6,7 +6,7 @@ namespace CanLinConfig.Adapters;
 public class PcanAdapter : ICanAdapter
 {
     private PcanChannel _channel;
-    private bool _connected;
+    private volatile bool _connected;
     private Thread? _rxThread;
     private volatile bool _rxRunning;
 

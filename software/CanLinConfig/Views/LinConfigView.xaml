@@ -4,7 +4,6 @@
              xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
              xmlns:views="clr-namespace:CanLinConfig.Views">
     <UserControl.Resources>
-        <views:HexUInt32Converter x:Key="Hex2Converter" Digits="2" />
         <ObjectDataProvider x:Key="DirectionItems" ObjectType="{x:Type views:LinDirectionItem}" MethodName="get_All" />
     </UserControl.Resources>
     <Grid Margin="10">

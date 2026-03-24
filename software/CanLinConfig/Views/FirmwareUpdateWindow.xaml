@@ -2,16 +2,9 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
-        xmlns:views="clr-namespace:CanLinConfig.Views"
         Title="Firmware Update" Height="680" Width="720"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip">
-    <mah:MetroWindow.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVis" />
-        <views:InverseBoolConverter x:Key="InverseBoolConverter" />
-        <views:InverseBoolToVisConverter x:Key="InverseBoolToVis" />
-        <views:BoolToGreenRedBrushConverter x:Key="BoolToGreenRedBrush" />
-    </mah:MetroWindow.Resources>
 
     <Grid Margin="10">
         <Grid.RowDefinitions>

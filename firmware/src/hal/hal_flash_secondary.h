@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "board_config.h"
 
 /*
  * Secondary flash driver: W25Q128 on CS1 (GPIO0).
@@ -40,5 +41,40 @@ bool sec_flash_sector_erase(uint32_t addr);
 
 /* Read status register */
 uint8_t sec_flash_read_status(void);
+
+/* --- Lightweight bus acquire for logger (skips XIP exit/enter) --- */
+
+/* Lightweight acquire: just disables interrupts. Does NOT exit XIP.
+ * QMI direct mode will stall XIP reads during the SPI transaction —
+ * the SPI operation functions already set/clear DIRECT_CSR.EN internally.
+ * Use this when the SPI transaction is brief (<100us) and the cost of
+ * full XIP exit/enter (~500us+) is unacceptable for CAN bus timing.
+ * All code between acquire_light/release_light MUST be in RAM. */
+uint32_t sec_flash_acquire_light(void);
+void sec_flash_release_light(uint32_t irq_state);
+
+/* --- Non-blocking flash operations for logger (minimizes interrupt-off time) --- */
+
+/* Start sector erase — sends command only, returns immediately.
+ * Bus must be acquired. Caller must release bus, then poll is_busy. */
+void sec_flash_sector_erase_start(uint32_t addr);
+
+/* Start page program — sends command + data, returns immediately.
+ * Bus must be acquired. Caller must release bus, then poll is_busy. */
+void sec_flash_page_program_start(uint32_t addr, const uint8_t *data, size_t len);
+
+/* Check if flash is busy (WIP bit). Bus must be acquired. */
+bool sec_flash_is_busy(void);
+
+/**
+ * Check if an address range falls within the NVM-reserved region.
+ * @param addr  Start address
+ * @param len   Length in bytes
+ * @return true if the range is within [0, LOG_NVM_BOUNDARY)
+ */
+static inline bool sec_flash_is_nvm_region(uint32_t addr, size_t len)
+{
+    return (addr + len) <= LOG_NVM_BOUNDARY;
+}
 
 #endif /* HAL_FLASH_SECONDARY_H */
