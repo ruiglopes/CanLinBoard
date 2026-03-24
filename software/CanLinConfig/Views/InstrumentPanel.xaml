@@ -2,17 +2,21 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:CanLinConfig.Views"
+             xmlns:helpers="clr-namespace:CanLinConfig.Helpers"
              xmlns:widgets="clr-namespace:CanLinConfig.Views.Widgets">
     <UserControl.Resources>
+        <helpers:BindingProxy x:Key="PanelProxy" Data="{Binding}"/>
+        <helpers:EnumMatchConverter x:Key="EnumMatch"/>
         <DataTemplate x:Key="NumericTpl"><widgets:NumericWidget/></DataTemplate>
         <DataTemplate x:Key="BarTpl"><widgets:BarWidget/></DataTemplate>
         <DataTemplate x:Key="GaugeTpl"><widgets:GaugeWidget/></DataTemplate>
         <DataTemplate x:Key="BooleanTpl"><widgets:BooleanWidget/></DataTemplate>
         <DataTemplate x:Key="EnumTpl"><widgets:EnumWidget/></DataTemplate>
+        <DataTemplate x:Key="BitPanelTpl"><widgets:NumericWidget/></DataTemplate>
         <local:WidgetTemplateSelector x:Key="WidgetSelector"
             NumericTemplate="{StaticResource NumericTpl}" BarTemplate="{StaticResource BarTpl}"
             GaugeTemplate="{StaticResource GaugeTpl}" BooleanTemplate="{StaticResource BooleanTpl}"
-            EnumTemplate="{StaticResource EnumTpl}"/>
+            EnumTemplate="{StaticResource EnumTpl}" BitPanelTemplate="{StaticResource BitPanelTpl}"/>
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -31,6 +35,32 @@
             <ItemsControl.ItemContainerStyle>
                 <Style TargetType="ContentPresenter">
                     <Setter Property="Margin" Value="4"/>
+                    <Setter Property="ContextMenu">
+                        <Setter.Value>
+                            <ContextMenu>
+                                <MenuItem Header="Change Type">
+                                    <MenuItem Header="Numeric" Tag="Numeric" Click="OnChangeType"
+                                              IsCheckable="True" IsChecked="{Binding Type, Converter={StaticResource EnumMatch}, ConverterParameter=Numeric, Mode=OneWay}"/>
+                                    <MenuItem Header="Bar" Tag="Bar" Click="OnChangeType"
+                                              IsCheckable="True" IsChecked="{Binding Type, Converter={StaticResource EnumMatch}, ConverterParameter=Bar, Mode=OneWay}"/>
+                                    <MenuItem Header="Gauge" Tag="Gauge" Click="OnChangeType"
+                                              IsCheckable="True" IsChecked="{Binding Type, Converter={StaticResource EnumMatch}, ConverterParameter=Gauge, Mode=OneWay}"/>
+                                    <MenuItem Header="Boolean" Tag="Boolean" Click="OnChangeType"
+                                              IsCheckable="True" IsChecked="{Binding Type, Converter={StaticResource EnumMatch}, ConverterParameter=Boolean, Mode=OneWay}"/>
+                                    <MenuItem Header="BitPanel" Tag="BitPanel" Click="OnChangeType"
+                                              IsCheckable="True" IsChecked="{Binding Type, Converter={StaticResource EnumMatch}, ConverterParameter=BitPanel, Mode=OneWay}"/>
+                                    <MenuItem Header="Enum" Tag="Enum" Click="OnChangeType"
+                                              IsCheckable="True" IsChecked="{Binding Type, Converter={StaticResource EnumMatch}, ConverterParameter=Enum, Mode=OneWay}"/>
+                                </MenuItem>
+                                <MenuItem Header="Edit BitPanel..." Click="OnEditBitPanel"
+                                          Visibility="{Binding Type, Converter={StaticResource EnumMatch}, ConverterParameter=BitPanel}"/>
+                                <Separator/>
+                                <MenuItem Header="Remove"
+                                          Command="{Binding Data.RemoveWidgetCommand, Source={StaticResource PanelProxy}}"
+                                          CommandParameter="{Binding}"/>
+                            </ContextMenu>
+                        </Setter.Value>
+                    </Setter>
                 </Style>
             </ItemsControl.ItemContainerStyle>
         </ItemsControl>

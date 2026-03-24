@@ -11,6 +11,30 @@ public partial class InstrumentPanel : UserControl
     {
         InitializeComponent();
     }
+
+    private void OnChangeType(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem mi || mi.DataContext is not InstrumentWidget widget) return;
+        if (!Enum.TryParse<WidgetType>(mi.Tag?.ToString(), out var newType)) return;
+
+        if (DataContext is InstrumentPanelViewModel vm)
+        {
+            vm.SetWidgetType(widget, newType);
+            if (newType == WidgetType.BitPanel && widget.BitLabels.Count == 0)
+                ShowBitPanelConfig(widget);
+        }
+    }
+
+    private void OnEditBitPanel(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem mi || mi.DataContext is not InstrumentWidget widget) return;
+        ShowBitPanelConfig(widget);
+    }
+
+    private void ShowBitPanelConfig(InstrumentWidget widget)
+    {
+        // Placeholder — implemented in Task 3
+    }
 }
 
 public class WidgetTemplateSelector : DataTemplateSelector
@@ -20,6 +44,7 @@ public class WidgetTemplateSelector : DataTemplateSelector
     public DataTemplate? GaugeTemplate { get; set; }
     public DataTemplate? BooleanTemplate { get; set; }
     public DataTemplate? EnumTemplate { get; set; }
+    public DataTemplate? BitPanelTemplate { get; set; }
 
     public override DataTemplate? SelectTemplate(object item, DependencyObject container)
     {
@@ -31,6 +56,7 @@ public class WidgetTemplateSelector : DataTemplateSelector
             WidgetType.Gauge => GaugeTemplate,
             WidgetType.Boolean => BooleanTemplate,
             WidgetType.Enum => EnumTemplate,
+            WidgetType.BitPanel => BitPanelTemplate,
             _ => NumericTemplate
         };
     }

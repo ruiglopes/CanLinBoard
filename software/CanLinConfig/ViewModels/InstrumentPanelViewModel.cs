@@ -31,22 +31,17 @@ public partial class InstrumentPanelViewModel : ObservableObject
         Widgets.Remove(widget);
     }
 
-    [RelayCommand]
-    private void CycleWidgetType(InstrumentWidget? widget)
-    {
-        if (widget == null) return;
-        widget.Type = widget.Type switch
-        {
-            WidgetType.Numeric => WidgetType.Bar,
-            WidgetType.Bar => WidgetType.Gauge,
-            WidgetType.Gauge => WidgetType.Boolean,
-            WidgetType.Boolean => WidgetType.Enum,
-            WidgetType.Enum => WidgetType.BitPanel,
-            WidgetType.BitPanel => WidgetType.Numeric,
-            _ => WidgetType.Numeric
-        };
+    public event Action<InstrumentWidget>? RequestBitPanelConfig;
 
-        // Force ItemTemplateSelector re-evaluation by removing and re-inserting
+    public void SetWidgetType(InstrumentWidget widget, WidgetType newType)
+    {
+        if (widget.Type == newType) return;
+        widget.Type = newType;
+        ForceTemplateRefresh(widget);
+    }
+
+    public void ForceTemplateRefresh(InstrumentWidget widget)
+    {
         var index = Widgets.IndexOf(widget);
         if (index >= 0)
         {
