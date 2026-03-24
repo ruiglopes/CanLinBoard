@@ -276,6 +276,14 @@ public partial class LogDownloadViewModel : ObservableObject
                 continue;
             }
 
+            // Skip erased flash (all 0xFF) — must check before gap marker
+            if (data[i] == 0xFF && data[i + 1] == 0xFF &&
+                data[i + 2] == 0xFF && data[i + 3] == 0xFF)
+            {
+                i += entrySize;
+                continue;
+            }
+
             byte bus = data[i + 8];
 
             // Gap marker: bus = 0xFF, frame_id contains drop count
@@ -284,14 +292,6 @@ public partial class LogDownloadViewModel : ObservableObject
                 uint dropCount = (uint)(data[i + 4] | (data[i + 5] << 8)
                                 | (data[i + 6] << 16) | (data[i + 7] << 24));
                 gapDrops += dropCount;
-                i += entrySize;
-                continue;
-            }
-
-            // Skip erased flash (all 0xFF)
-            if (data[i] == 0xFF && data[i + 1] == 0xFF &&
-                data[i + 2] == 0xFF && data[i + 3] == 0xFF)
-            {
                 i += entrySize;
                 continue;
             }

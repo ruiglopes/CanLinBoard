@@ -88,6 +88,10 @@ public class ProjectService
     {
         project.Manifest.Modified = DateTime.UtcNow;
 
+        // Delete existing file first — ZipArchiveMode.Create fails if file exists
+        if (File.Exists(filePath))
+            File.Delete(filePath);
+
         using var archive = ZipFile.Open(filePath, ZipArchiveMode.Create);
 
         // Write manifest
@@ -209,8 +213,8 @@ public class ProjectService
         if (string.IsNullOrEmpty(sourcePath))
             return null;
 
-        var ext = Path.GetExtension(sourcePath).ToLowerInvariant();
-        var entryName = $"{DbPrefix}{busKey}{ext}";
+        var fileName = Path.GetFileName(sourcePath);
+        var entryName = $"{DbPrefix}{busKey}/{fileName}";
         _sourcePaths[entryName] = sourcePath;
         return entryName;
     }

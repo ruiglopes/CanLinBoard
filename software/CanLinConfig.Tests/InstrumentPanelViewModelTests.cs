@@ -137,4 +137,70 @@ public class InstrumentPanelViewModelTests
         vm.FromLayouts([layout]);
         Assert.Equal(["Bit 0", "Bit 1", "Bit 2", "Bit 3"], vm.Widgets[0].BitLabels);
     }
+
+    [Fact]
+    public void BitPanel_value_decomposes_to_bits()
+    {
+        var widget = new InstrumentWidget
+        {
+            Type = WidgetType.BitPanel, BitCount = 4,
+            BitLabels = ["A", "B", "C", "D"]
+        };
+        widget.UpdateValue(0b1010); // bits 1 and 3 set
+        uint raw = unchecked((uint)(long)widget.Value);
+        Assert.Equal(0u, (raw >> 0) & 1); // A = off
+        Assert.Equal(1u, (raw >> 1) & 1); // B = on
+        Assert.Equal(0u, (raw >> 2) & 1); // C = off
+        Assert.Equal(1u, (raw >> 3) & 1); // D = on
+    }
+
+    [Fact]
+    public void AutoLayoutIfStacked_spreads_widgets_vertically()
+    {
+        var vm = new InstrumentPanelViewModel();
+        var layouts = new List<WidgetLayout>
+        {
+            new() { SignalKey = "0:256:A", SignalName = "A", Unit = "", Type = "Numeric", X = 0, Y = 0 },
+            new() { SignalKey = "0:256:B", SignalName = "B", Unit = "", Type = "Bar",     X = 0, Y = 0 },
+            new() { SignalKey = "0:256:C", SignalName = "C", Unit = "", Type = "Gauge",   X = 0, Y = 0 },
+        };
+        vm.FromLayouts(layouts);
+
+        Assert.Equal(8,   vm.Widgets[0].X);
+        Assert.Equal(0,   vm.Widgets[0].Y);
+        Assert.Equal(8,   vm.Widgets[1].X);
+        Assert.Equal(120, vm.Widgets[1].Y);
+        Assert.Equal(8,   vm.Widgets[2].X);
+        Assert.Equal(240, vm.Widgets[2].Y);
+    }
+
+    [Fact]
+    public void AutoLayoutIfStacked_does_not_move_positioned_widgets()
+    {
+        var vm = new InstrumentPanelViewModel();
+        var layouts = new List<WidgetLayout>
+        {
+            new() { SignalKey = "0:256:A", SignalName = "A", Unit = "", Type = "Numeric", X = 50,  Y = 30 },
+            new() { SignalKey = "0:256:B", SignalName = "B", Unit = "", Type = "Bar",     X = 200, Y = 30 },
+        };
+        vm.FromLayouts(layouts);
+
+        Assert.Equal(50,  vm.Widgets[0].X);
+        Assert.Equal(30,  vm.Widgets[0].Y);
+        Assert.Equal(200, vm.Widgets[1].X);
+        Assert.Equal(30,  vm.Widgets[1].Y);
+    }
+
+    [Fact]
+    public void AddWidget_auto_places_below_existing()
+    {
+        var vm = new InstrumentPanelViewModel();
+        vm.AddWidget("0:256:A", "A", "rpm");
+        vm.AddWidget("0:256:B", "B", "C");
+
+        Assert.Equal(8, vm.Widgets[0].X);
+        Assert.Equal(8, vm.Widgets[0].Y);
+        Assert.Equal(8, vm.Widgets[1].X);
+        Assert.True(vm.Widgets[1].Y > vm.Widgets[0].Y);
+    }
 }

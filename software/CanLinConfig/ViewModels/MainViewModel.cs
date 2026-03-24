@@ -375,7 +375,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         CloseProjectInternal();
 
         var state = CaptureCurrentState();
-        state.ProjectName = "Untitled";
+        state.ProjectName = "New Project";
         _currentProject = _projectService.CreateFromState(state);
         UpdateWindowTitle();
         StatusBarText = "New project created";
@@ -471,6 +471,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _currentProject = _projectService.CreateFromState(state);
             _currentProject.Manifest.Instruments = BusMonitor.Instruments.ToLayouts().ToList();
             _projectService.Save(_currentProject, filePath);
+            _currentProject.FilePath = filePath;
 
             _appSettings.LastProjectPath = filePath;
             _appSettings.AddRecentProject(filePath);
@@ -500,6 +501,18 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _projectService.CloseProject();
         _currentProject = null;
         BusMonitor.Instruments.ClearAllCommand.Execute(null);
+
+        // Clear database assignments
+        var dbManager = BusDataService.DatabaseManager;
+        foreach (BusFrame.Bus bus in Enum.GetValues<BusFrame.Bus>())
+            dbManager.RemoveDatabase(bus);
+        BusMonitor.Can1DbPath = "(none)";
+        BusMonitor.Can2DbPath = "(none)";
+        BusMonitor.Lin1DbPath = "(none)";
+        BusMonitor.Lin2DbPath = "(none)";
+        BusMonitor.Lin3DbPath = "(none)";
+        BusMonitor.Lin4DbPath = "(none)";
+
         UpdateWindowTitle();
     }
 
@@ -573,7 +586,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var name = _currentProject.Manifest.Name;
+        // Show filename when saved, manifest name when unsaved
+        var name = _currentProject.FilePath != null
+            ? System.IO.Path.GetFileNameWithoutExtension(_currentProject.FilePath)
+            : _currentProject.Manifest.Name;
         var dirty = _currentProject.FilePath == null ? " *" : "";
         WindowTitle = $"CanLinConfig \u2014 {name}{dirty}";
     }

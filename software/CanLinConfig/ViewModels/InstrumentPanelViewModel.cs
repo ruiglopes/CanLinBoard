@@ -19,6 +19,11 @@ public partial class InstrumentPanelViewModel : ObservableObject
             SignalKey = signalKey, SignalName = signalName, Unit = unit,
             Type = type, RangeMin = rangeMin, RangeMax = rangeMax,
         };
+
+        // Auto-place below the lowest existing widget
+        widget.X = 8;
+        widget.Y = Widgets.Count == 0 ? 8 : Widgets.Max(w => w.Y) + 120 + 8;
+
         _widgetMap[signalKey] = widget;
         Widgets.Add(widget);
     }
@@ -32,6 +37,26 @@ public partial class InstrumentPanelViewModel : ObservableObject
     }
 
     public event Action<InstrumentWidget>? RequestBitPanelConfig;
+
+    [RelayCommand]
+    private void ChangeToNumeric(InstrumentWidget? w) { if (w != null) SetWidgetType(w, WidgetType.Numeric); }
+    [RelayCommand]
+    private void ChangeToBar(InstrumentWidget? w) { if (w != null) SetWidgetType(w, WidgetType.Bar); }
+    [RelayCommand]
+    private void ChangeToGauge(InstrumentWidget? w) { if (w != null) SetWidgetType(w, WidgetType.Gauge); }
+    [RelayCommand]
+    private void ChangeToBoolean(InstrumentWidget? w) { if (w != null) SetWidgetType(w, WidgetType.Boolean); }
+    [RelayCommand]
+    private void ChangeToBitPanel(InstrumentWidget? w)
+    {
+        if (w == null) return;
+        SetWidgetType(w, WidgetType.BitPanel);
+        if (w.BitLabels.Count == 0) RequestBitPanelConfig?.Invoke(w);
+    }
+    [RelayCommand]
+    private void ChangeToEnum(InstrumentWidget? w) { if (w != null) SetWidgetType(w, WidgetType.Enum); }
+    [RelayCommand]
+    private void EditBitPanel(InstrumentWidget? w) { if (w != null) RequestBitPanelConfig?.Invoke(w); }
 
     public void SetWidgetType(InstrumentWidget widget, WidgetType newType)
     {
@@ -84,6 +109,20 @@ public partial class InstrumentPanelViewModel : ObservableObject
             widget.BitLabels = l.BitLabels.Count > 0 ? new List<string>(l.BitLabels) : DefaultBitLabels(l.BitCount);
             widget.X = l.X;
             widget.Y = l.Y;
+        }
+        AutoLayoutIfStacked();
+    }
+
+    public void AutoLayoutIfStacked()
+    {
+        if (Widgets.Count <= 1) return;
+        bool allZero = Widgets.All(w => w.X == 0 && w.Y == 0);
+        if (!allZero) return;
+
+        for (int i = 0; i < Widgets.Count; i++)
+        {
+            Widgets[i].X = 8;
+            Widgets[i].Y = i * 120;
         }
     }
 

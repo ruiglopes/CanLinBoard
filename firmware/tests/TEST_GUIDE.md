@@ -31,6 +31,10 @@ python tests/phase1/test_hal_host.py --channel PCAN_USBBUS1
 python tests/phase2/test_can_host.py --channel PCAN_USBBUS1
 python tests/phase3/test_lin_host.py --channel PCAN_USBBUS1
 python tests/phase4/test_gateway_host.py --channel PCAN_USBBUS1
+
+# Phase 7-8 use main firmware (no dedicated test firmware needed)
+python tests/phase7/test_monitor_host.py --channel PCAN_USBBUS1
+python tests/phase8/test_logger_host.py --channel PCAN_USBBUS1
 ```
 
 ---
@@ -558,3 +562,5 @@ tool's Data Logger tab and/or Python host scripts.
 | Phase 4.5 tests | `cmake --build build --target test_phase4_5` | `TEST_PHASE4_5` |
 | Phase 5 tests | `cmake --build build --target test_phase5` | `TEST_PHASE5` |
 | Phase 6 tests | `cmake --build build --target test_phase6` | `TEST_PHASE6` |
+| Phase 7 tests | Main firmware + `python tests/phase7/test_monitor_host.py` | (none — uses main FW) |
+| Phase 8 tests | Main firmware + `python tests/phase8/test_logger_host.py` | (none — uses main FW) |

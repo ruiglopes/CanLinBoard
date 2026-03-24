@@ -254,7 +254,7 @@ cd software
 dotnet test CanLinConfig.Tests -v normal
 ```
 
-**Expected: 28 tests passing**
+**Expected: 128 tests passing**
 
 | Test Class | Count | What it covers |
 |------------|-------|----------------|
@@ -391,18 +391,18 @@ private void InjectTestFrame()
 
 | # | Test | Hardware | Status |
 |---|------|----------|--------|
-| — | Unit tests (39 total) | None | |
-| BM-1 | Tab exists, layout correct | None | |
-| BM-2 | DBC file assignment | None | |
-| BM-3 | Trace panel controls | None | |
-| BM-4 | Signal panel context menu | None | |
-| BM-5 | Graph panel controls | None | |
-| BM-6 | Live frame capture | CAN adapter | |
-| BM-7 | DBC signal decoding | CAN adapter | |
-| BM-8 | Signal graphing | CAN adapter | |
-| BM-9 | ID/bus filtering | CAN adapter | |
-| BM-10 | Pause/resume trace | CAN adapter | |
-| SIM | Simulated traffic (inject button) | None | |
+| — | Unit tests (128 total) | None | PASS |
+| BM-1 | Tab exists, layout correct | None | PASS |
+| BM-2 | DBC file assignment | None | PASS |
+| BM-3 | Trace panel controls | None | PASS |
+| BM-4 | Signal panel context menu | None | PASS |
+| BM-5 | Graph panel controls | None | PASS |
+| BM-6 | Live frame capture | CAN adapter | PASS |
+| BM-7 | DBC signal decoding | CAN adapter | PASS |
+| BM-8 | Signal graphing | CAN adapter | PASS |
+| BM-9 | ID/bus filtering | CAN adapter | PASS |
+| BM-10 | Pause/resume trace | CAN adapter | PASS |
+| SIM | Simulated traffic (inject button) | None | PASS |
 
 ---
 
@@ -410,7 +410,7 @@ private void InjectTestFrame()
 
 ### Automated Unit Tests
 
-Included in the 39-test suite above. Specific project system tests:
+Included in the 128-test suite above. Specific project system tests:
 
 | Test Class | Count | What it covers |
 |------------|-------|----------------|
@@ -510,17 +510,17 @@ Relaunch the app — the project should auto-load on startup.
 
 | # | Test | Hardware | Status |
 |---|------|----------|--------|
-| — | Unit tests (11 project-specific) | None | |
-| PJ-1 | File menu exists | None | |
-| PJ-2 | New Project | None | |
-| PJ-3 | Save Project As | None | |
-| PJ-4 | DBC embedding in project | None | |
-| PJ-5 | Open Project | None | |
-| PJ-6 | Close Project | None | |
-| PJ-7 | Unsaved changes prompt | None | |
-| PJ-8 | Keyboard shortcuts | None | |
-| PJ-9 | Auto-load last project | None | |
-| PJ-10 | .clpkg is a valid ZIP | None | |
+| — | Unit tests (11 project-specific) | None | PASS |
+| PJ-1 | File menu exists | None | PASS |
+| PJ-2 | New Project | None | PASS |
+| PJ-3 | Save Project As | None | PASS |
+| PJ-4 | DBC embedding in project | None | PASS |
+| PJ-5 | Open Project | None | PASS |
+| PJ-6 | Close Project | None | PASS |
+| PJ-7 | Unsaved changes prompt | None | PASS |
+| PJ-8 | Keyboard shortcuts | None | PASS |
+| PJ-9 | Auto-load last project | None | PASS |
+| PJ-10 | .clpkg is a valid ZIP | None | PASS |
 
 ---
 
@@ -556,9 +556,9 @@ Included in the test suite. LDF-specific tests:
 
 | # | Test | Hardware | Status |
 |---|------|----------|--------|
-| — | Unit tests (6 LDF-specific) | None | |
-| LDF-1 | Assign LDF to LIN bus | None | |
-| LDF-2 | LDF in project save/load | None | |
+| — | Unit tests (6 LDF-specific) | None | PASS |
+| LDF-1 | Assign LDF to LIN bus | None | PASS |
+| LDF-2 | LDF in project save/load | None | PASS |
 
 ---
 
@@ -604,11 +604,11 @@ Included in the test suite. LDF-specific tests:
 
 | # | Test | Hardware | Status |
 |---|------|----------|--------|
-| — | Unit tests (16 export-specific) | None | |
-| EXP-1 | CSV export | None | |
-| EXP-2 | ASC export | None | |
-| EXP-3 | BLF export validation | PCAN-View/CANalyzer | |
-| EXP-4 | Export with no frames | None | |
+| — | Unit tests (16 export-specific) | None | PASS |
+| EXP-1 | CSV export | None | PASS |
+| EXP-2 | ASC export | None | PASS |
+| EXP-3 | BLF export validation | PCAN-View/CANalyzer | PASS |
+| EXP-4 | Export with no frames | None | PASS |
 
 ---
 
@@ -618,7 +618,7 @@ Included in the test suite. LDF-specific tests:
 
 | Test Class | Count | What it covers |
 |------------|-------|----------------|
-| InstrumentPanelViewModelTests | 7 | Add/remove widget, duplicate prevention, signal routing, normalized value, layout round-trip |
+| InstrumentPanelViewModelTests | 14 | Add/remove widget, duplicate prevention, signal routing, normalized value, layout round-trip, BitPanel model round-trip, bit decomposition, auto-layout |
 
 ### Instrument Panel Manual Tests
 
@@ -629,41 +629,63 @@ Included in the test suite. LDF-specific tests:
 3. Right-click a signal → "Add to Instrument Panel"
 4. Switch to Instruments tab (bottom section) → widget appears
 
-#### INS-2: Widget types
+#### INS-2: Widget type selector submenu
 
 1. Add a signal to instrument panel
-2. Right-click the widget → "Change Type"
-3. Cycles through: Numeric → Bar → Gauge → Boolean → Enum
-4. Each type renders correctly with live updating values
+2. Right-click the widget → "Change Type" submenu appears
+3. Submenu lists 6 types with checkmarks: Numeric, Bar, Gauge, Boolean, BitPanel, Enum
+4. Select a type → widget changes immediately
+5. Current type shows a checkmark in the submenu
+6. Each type renders correctly with live updating values
 
 #### INS-3: Remove widget
 
 1. Right-click a widget → "Remove"
 2. Widget disappears from panel
 
-#### INS-4: Multiple widgets
+#### INS-4: Free-position drag and snap
 
 1. Add 3-4 different signals to instrument panel
-2. Widgets arrange in a WrapPanel (flow layout)
-3. All update independently with live values
+2. Widgets appear on a Canvas (free-position layout)
+3. Drag a widget — it moves freely with the mouse
+4. Move near the edge of another widget or the panel edge — snap guidelines (blue lines) appear at 8px proximity
+5. Release — widget snaps to the guideline position
+6. Press Escape while dragging — widget returns to its original position
+7. Dragged widget appears on top (z-order promotion)
 
-#### INS-5: Instrument layout in project
+#### INS-5: BitPanel widget
 
-1. Set up several instrument widgets
+1. Add a signal to the instrument panel
+2. Right-click → Change Type → BitPanel
+3. BitPanel config dialog appears (or right-click → Configure BitPanel)
+4. Set bit count (1-8) and enter labels for each bit
+5. Click OK — widget shows labeled bit indicators (green = 1, gray = 0)
+6. Values update live as signal data changes
+
+#### INS-6: Instrument layout in project
+
+1. Set up several instrument widgets at different positions and types
 2. File > Save Project
 3. Close and reopen project
-4. Instrument panel restored with same widgets and types
+4. Instrument panel restored with same widgets, types, and positions (X/Y coordinates)
+
+#### INS-7: Backward compatibility auto-layout
+
+1. Open an old project that has instrument widgets without X/Y coordinates
+2. Widgets auto-arrange in a grid layout instead of stacking at (0,0)
 
 ### Instrument Panel Test Checklist
 
 | # | Test | Hardware | Status |
 |---|------|----------|--------|
-| — | Unit tests (7 instrument-specific) | None | |
-| INS-1 | Add signal to instrument panel | None | |
-| INS-2 | Widget types cycle | None | |
-| INS-3 | Remove widget | None | |
-| INS-4 | Multiple widgets | None | |
-| INS-5 | Layout in project save/load | None | |
+| — | Unit tests (14 instrument-specific) | None | PASS |
+| INS-1 | Add signal to instrument panel | None | PASS |
+| INS-2 | Widget type selector submenu | None | PASS |
+| INS-3 | Remove widget | None | PASS |
+| INS-4 | Free-position drag and snap | None | PASS |
+| INS-5 | BitPanel widget | None | PASS |
+| INS-6 | Layout in project save/load | None | PASS |
+| INS-7 | Backward compat auto-layout | None | PASS |
 
 ---
 
@@ -740,14 +762,14 @@ dotnet test CanLinConfig.Tests --filter "MonitorFrameDecoder" -v n
 
 | # | Test | Hardware | Status |
 |---|------|----------|--------|
-| — | Unit tests (10 MonitorFrameDecoder) | None | |
-| MON-1 | Control panel visible | None | |
-| MON-2 | Enable disabled without connection | None | |
-| MON-3 | Enable monitor | Board + CAN2 traffic | |
-| MON-4 | Bus filter | Board + CAN2 traffic | |
-| MON-5 | Gap and drop counters | Board + high traffic | |
-| MON-6 | Signal decode from monitored frames | Board + CAN2 + DBC | |
-| MON-7 | Export includes monitored frames | Board + CAN2 traffic | |
+| — | Unit tests (10 MonitorFrameDecoder) | None | PASS |
+| MON-1 | Control panel visible | None | PASS |
+| MON-2 | Enable disabled without connection | None | PASS |
+| MON-3 | Enable monitor | Board + CAN2 traffic | PASS |
+| MON-4 | Bus filter | Board + CAN2 traffic | N/A (needs 2nd adapter) |
+| MON-5 | Gap and drop counters | Board + high traffic | PASS |
+| MON-6 | Signal decode from monitored frames | Board + CAN2 + DBC | PASS |
+| MON-7 | Export includes monitored frames | Board + CAN2 traffic | N/A (needs 2nd adapter) |
 
 ---
 
@@ -901,20 +923,20 @@ dotnet test CanLinConfig.Tests --filter "MonitorFrameDecoder" -v n
 
 | # | Test | Hardware | Status |
 |---|------|----------|--------|
-| DL-1 | LogControlPanel — mode selector and button enable states | Board | |
-| DL-2 | Manual recording — start, capture, stop, entry count | Board + CAN traffic | |
-| DL-3 | Continuous mode — auto-resume after reboot | Board + CAN traffic | |
-| DL-4 | Triggered mode — arm, trigger on matching frame | Board + CAN traffic | |
-| DL-5 | Bus mask filter — CAN2 excluded from log | Board + CAN1 + CAN2 | |
-| DL-6 | Download — progress bar and "Complete — N entries" | Board | |
-| DL-7 | Download CRC verification — no errors or retries | Board | |
-| DL-8 | Export CSV — header row + data rows | Board | |
-| DL-9 | Export ASC/BLF — valid in PCAN-View/CANalyzer | Board + PCAN-View | |
-| DL-10 | Feed to Bus Monitor — frames appear in trace | Board | |
-| DL-11 | Log Replay — load CSV, frames in Bus Monitor | None | |
-| DL-12 | Replay speed — 1x timing, 10x faster | None | |
-| DL-13 | Erase all — entry count and wrap count reset to 0 | Board | |
-| DL-14 | Drop count — increments under load, gap markers in log | Board + high traffic | |
+| DL-1 | LogControlPanel — mode selector and button enable states | Board | PASS |
+| DL-2 | Manual recording — start, capture, stop, entry count | Board + CAN traffic | PASS |
+| DL-3 | Continuous mode — auto-resume after reboot | Board + CAN traffic | PASS |
+| DL-4 | Triggered mode — arm, trigger on matching frame | Board + CAN traffic | PASS |
+| DL-5 | Bus mask filter — CAN2 excluded from log | Board + CAN1 + CAN2 | N/A (needs 2nd adapter) |
+| DL-6 | Download — progress bar and "Complete — N entries" | Board | PASS |
+| DL-7 | Download CRC verification — no errors or retries | Board | PASS |
+| DL-8 | Export CSV — header row + data rows | Board | PASS |
+| DL-9 | Export ASC/BLF — valid in PCAN-View/CANalyzer | Board + PCAN-View | PASS |
+| DL-10 | Feed to Bus Monitor — frames appear in trace | Board | PASS |
+| DL-11 | Log Replay — load CSV, frames in Bus Monitor | None | PASS |
+| DL-12 | Replay speed — 1x timing, 10x faster | None | PASS |
+| DL-13 | Erase all — entry count and wrap count reset to 0 | Board | PASS |
+| DL-14 | Drop count — increments under load, gap markers in log | Board + high traffic | PASS |
 
 ---
 

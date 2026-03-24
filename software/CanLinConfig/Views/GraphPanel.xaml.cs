@@ -57,6 +57,12 @@ public partial class GraphPanel : UserControl
             scatter.LegendText = $"{trace.DisplayName} [{trace.Unit}]";
         }
         WpfPlot.Plot.Axes.DateTimeTicksBottom();
+
+        // Apply time window — show only the last N seconds
+        var now = DateTime.Now.ToOADate();
+        var windowStart = DateTime.Now.AddSeconds(-vm.TimeWindowSeconds).ToOADate();
+        WpfPlot.Plot.Axes.SetLimitsX(windowStart, now);
+
         WpfPlot.Plot.ShowLegend();
         WpfPlot.Refresh();
     }

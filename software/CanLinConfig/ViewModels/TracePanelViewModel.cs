@@ -27,9 +27,9 @@ public partial class TracePanelViewModel : ObservableObject
         var entry = new TraceEntry(frame, messageName);
         if (!PassesFilter(entry)) return;
 
-        Entries.Add(entry);
+        Entries.Insert(0, entry);
         while (Entries.Count > _maxEntries)
-            Entries.RemoveAt(0);
+            Entries.RemoveAt(Entries.Count - 1);
     }
 
     private bool PassesFilter(TraceEntry entry)
