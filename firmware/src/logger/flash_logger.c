@@ -79,16 +79,17 @@ static void save_metadata(void)
                                sizeof(s_meta) - sizeof(uint32_t));
 
     if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
-        /* Non-blocking path — keep CAN PIO IRQ alive */
-        uint32_t irq = sec_flash_acquire_bus();
+        /* Lightweight path — no XIP exit/enter, just brief interrupt disable
+         * for the SPI command. QMI direct mode stalls XIP during transfer. */
+        uint32_t irq = sec_flash_acquire_light();
         sec_flash_sector_erase_start(LOG_META_OFFSET);
-        sec_flash_release_bus(irq);
+        sec_flash_release_light(irq);
 
         wait_flash_done(500); /* ~45ms erase, poll with vTaskDelay */
 
-        irq = sec_flash_acquire_bus();
+        irq = sec_flash_acquire_light();
         sec_flash_page_program_start(LOG_META_OFFSET, (const uint8_t *)&s_meta, sizeof(s_meta));
-        sec_flash_release_bus(irq);
+        sec_flash_release_light(irq);
 
         wait_flash_done(20); /* ~0.7ms program */
     } else {
@@ -113,9 +114,9 @@ static bool wait_flash_done(uint32_t max_polls)
 {
     for (uint32_t i = 0; i < max_polls; i++) {
         vTaskDelay(1);  /* ~1ms with interrupts enabled — CAN IRQ runs */
-        uint32_t irq = sec_flash_acquire_bus();
+        uint32_t irq = sec_flash_acquire_light();
         bool busy = sec_flash_is_busy();
-        sec_flash_release_bus(irq);
+        sec_flash_release_light(irq);
         if (!busy) return true;
     }
     return false;
@@ -127,10 +128,10 @@ static bool erase_sector_if_needed(uint32_t addr)
     if ((addr & (NVM_SECTOR_SIZE - 1)) != 0)
         return true;  /* Not at sector boundary, no erase needed */
 
-    /* Start erase — brief interrupt disable for SPI command only */
-    uint32_t irq = sec_flash_acquire_bus();
+    /* Start erase — lightweight acquire, ~15us interrupt disable */
+    uint32_t irq = sec_flash_acquire_light();
     sec_flash_sector_erase_start(addr);
-    sec_flash_release_bus(irq);
+    sec_flash_release_light(irq);
 
     /* Poll with interrupts enabled (~45ms typical, 400ms max) */
     if (!wait_flash_done(500)) {
@@ -166,10 +167,10 @@ static void flush_page_buffer(void)
         return;
     }
 
-    /* Start page program — brief interrupt disable for 64-byte SPI transfer (~100us) */
-    uint32_t irq = sec_flash_acquire_bus();
+    /* Start page program — lightweight acquire, ~50us for 64-byte SPI transfer */
+    uint32_t irq = sec_flash_acquire_light();
     sec_flash_page_program_start(s_meta.write_offset, s_page_buf, LOG_WRITE_SIZE);
-    sec_flash_release_bus(irq);
+    sec_flash_release_light(irq);
 
     /* Poll with interrupts enabled (~0.7ms typical, 10ms max) */
     if (!wait_flash_done(20)) {
@@ -459,10 +460,10 @@ uint16_t flash_logger_read_chunk(uint32_t offset, uint8_t *buf, uint16_t len)
     uint16_t remaining = len;
     uint16_t pos = 0;
     while (remaining > 0) {
-        uint16_t chunk = (remaining > NVM_PAGE_SIZE) ? NVM_PAGE_SIZE : remaining;
-        uint32_t irq = sec_flash_acquire_bus();
+        uint16_t chunk = (remaining > LOG_WRITE_SIZE) ? LOG_WRITE_SIZE : remaining;
+        uint32_t irq = sec_flash_acquire_light();
         sec_flash_read(abs_addr + pos, &buf[pos], chunk);
-        sec_flash_release_bus(irq);
+        sec_flash_release_light(irq);
         pos += chunk;
         remaining -= chunk;
     }

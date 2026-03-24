@@ -42,6 +42,17 @@ bool sec_flash_sector_erase(uint32_t addr);
 /* Read status register */
 uint8_t sec_flash_read_status(void);
 
+/* --- Lightweight bus acquire for logger (skips XIP exit/enter) --- */
+
+/* Lightweight acquire: just disables interrupts. Does NOT exit XIP.
+ * QMI direct mode will stall XIP reads during the SPI transaction —
+ * the SPI operation functions already set/clear DIRECT_CSR.EN internally.
+ * Use this when the SPI transaction is brief (<100us) and the cost of
+ * full XIP exit/enter (~500us+) is unacceptable for CAN bus timing.
+ * All code between acquire_light/release_light MUST be in RAM. */
+uint32_t sec_flash_acquire_light(void);
+void sec_flash_release_light(uint32_t irq_state);
+
 /* --- Non-blocking flash operations for logger (minimizes interrupt-off time) --- */
 
 /* Start sector erase — sends command only, returns immediately.

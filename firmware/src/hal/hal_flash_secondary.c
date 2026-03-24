@@ -277,6 +277,32 @@ bool __no_inline_not_in_flash_func(sec_flash_sector_erase)(uint32_t addr) {
 }
 
 /* ====================================================================
+ * Lightweight acquire/release for logger (skip XIP exit/enter)
+ *
+ * The heavy acquire_bus/release_bus path takes ~500us+ because it:
+ *   1. Flushes XIP cache
+ *   2. Calls ROM connect_internal_flash + flash_exit_xip
+ *   3. On release: runs boot2 to re-enter XIP, restores QMI regs
+ *
+ * This is unacceptable for CAN timing (can2040 PIO IRQ must fire
+ * within ~50us or bus sync is lost).
+ *
+ * The lightweight path just disables interrupts. The SPI operation
+ * functions (do_cmd, read, page_program_start, etc.) internally
+ * enable QMI direct mode (DIRECT_CSR.EN=1) which stalls XIP reads
+ * until the SPI transaction completes. XIP is NOT exited — it
+ * resumes automatically when EN is cleared.
+ * ==================================================================== */
+
+uint32_t __no_inline_not_in_flash_func(sec_flash_acquire_light)(void) {
+    return save_and_disable_interrupts();
+}
+
+void __no_inline_not_in_flash_func(sec_flash_release_light)(uint32_t irq_state) {
+    restore_interrupts(irq_state);
+}
+
+/* ====================================================================
  * Non-blocking variants for logger (minimize interrupt-off time)
  * ==================================================================== */
 
