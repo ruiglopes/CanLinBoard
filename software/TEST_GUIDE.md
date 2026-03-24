@@ -751,6 +751,173 @@ dotnet test CanLinConfig.Tests --filter "MonitorFrameDecoder" -v n
 
 ---
 
+## Data Logger Tests (Plan 5 — Firmware Required for On-Target)
+
+### DL-1: LogControlPanel layout
+
+1. Connect to board
+2. Go to the **Data Logger** tab
+3. Verify mode selector shows options: **Manual**, **Continuous**, **Triggered**
+4. Verify buttons:
+
+| Button | Expected when disconnected | Expected when connected, not recording | Expected when recording |
+|--------|---------------------------|----------------------------------------|-------------------------|
+| Start | Disabled | Enabled | Disabled |
+| Stop | Disabled | Disabled | Enabled |
+| Erase | Disabled | Enabled | Disabled |
+| Refresh | Disabled | Enabled | Enabled |
+
+---
+
+### DL-2: Manual recording
+
+1. Select **Manual** mode
+2. Click **Start** — verify status shows "Recording"
+3. Send several CAN frames on the bus
+4. Click **Stop** — status returns to idle
+5. Click **Refresh** — verify entry count > 0
+
+---
+
+### DL-3: Continuous mode
+
+1. Select **Continuous** mode
+2. Click **Start** — verify status shows "Recording"
+3. While recording, reboot the board (power-cycle or reset)
+4. Reconnect in the config tool
+5. Verify status still shows "Recording" (auto-resume after reconnect)
+
+---
+
+### DL-4: Triggered mode
+
+1. Select **Triggered** mode
+2. Configure trigger: Bus = CAN1, ID = 0x100, Op = Any Match
+3. Click **Arm** — verify status shows "Armed"
+4. Send a CAN frame with ID 0x100 on CAN1
+5. Verify status changes to "Triggered — capturing"
+
+---
+
+### DL-5: Bus mask filter
+
+1. Start a recording session (Manual mode)
+2. Uncheck CAN2 in the bus mask controls
+3. Send frames on both CAN1 and CAN2
+4. Click **Stop**, then **Download**
+5. Verify downloaded log contains only CAN1 frames (no CAN2 entries)
+
+---
+
+### DL-6: Download
+
+1. Record some frames, then click **Stop**
+2. Click **Download**
+3. Verify progress bar advances from 0% to 100%
+4. Verify status shows "Complete — N entries" when download finishes
+
+---
+
+### DL-7: Download CRC verification
+
+1. Download a log from the device
+2. Verify no CRC error messages are reported during the transfer
+3. Download completes without any retry messages in the status area
+
+---
+
+### DL-8: Export CSV
+
+1. After a successful download, click **Export**
+2. Choose CSV format, save the file
+3. Open the file in a text editor
+4. Verify:
+
+| Check | Expected |
+|-------|----------|
+| First row | Header row with column names (e.g., Timestamp, Bus, ID, DLC, Data) |
+| Data rows | One row per frame with correct values |
+| Format | Consistent delimiter, timestamps in ascending order |
+
+---
+
+### DL-9: Export ASC/BLF
+
+1. Using the same downloaded data, export as **ASC**
+2. Open the resulting file in PCAN-View or a text editor — verify readable ASC format
+3. Export the same data as **BLF**
+4. Open in PCAN-View or CANalyzer — verify frames are readable and timestamps are correct
+
+---
+
+### DL-10: Feed to Bus Monitor
+
+1. After downloading a log, click **Feed to Bus Monitor**
+2. Switch to the **Bus Monitor** tab
+3. Verify downloaded frames appear in the trace panel with correct timestamps, bus tags, IDs, and data
+
+---
+
+### DL-11: Log Replay
+
+1. Export a log as CSV
+2. Switch to the **Log Replay** panel within the Data Logger tab
+3. Click **Load CSV**, select the exported file
+4. Verify the frame count is shown after loading
+5. Click **Play** — verify frames begin appearing in the Bus Monitor trace panel
+
+---
+
+### DL-12: Replay speed
+
+1. Load a CSV in the Log Replay panel
+2. Set speed to **1x**, click **Play**
+3. Observe frame timing — verify it matches the original capture timestamps
+4. Stop, reset, change speed to **10x**, click **Play**
+5. Verify frames play back noticeably faster than at 1x
+
+---
+
+### DL-13: Erase all
+
+1. Ensure there are entries on the device (record a short session if needed)
+2. Click **Erase All** and confirm the dialog
+3. Click **Refresh**
+4. Verify entry count = 0 and wrap count = 0
+
+---
+
+### DL-14: Drop count
+
+1. Generate high bus load (many frames per second on CAN1)
+2. Start a Manual recording session
+3. Observe the **Drops** counter in LogControlPanel — verify it increments under load
+4. Click **Stop**, then **Download**
+5. Verify the status area reports the number of gap markers in the downloaded log (one gap marker per firmware-side drop event)
+
+---
+
+### Data Logger Test Checklist
+
+| # | Test | Hardware | Status |
+|---|------|----------|--------|
+| DL-1 | LogControlPanel — mode selector and button enable states | Board | |
+| DL-2 | Manual recording — start, capture, stop, entry count | Board + CAN traffic | |
+| DL-3 | Continuous mode — auto-resume after reboot | Board + CAN traffic | |
+| DL-4 | Triggered mode — arm, trigger on matching frame | Board + CAN traffic | |
+| DL-5 | Bus mask filter — CAN2 excluded from log | Board + CAN1 + CAN2 | |
+| DL-6 | Download — progress bar and "Complete — N entries" | Board | |
+| DL-7 | Download CRC verification — no errors or retries | Board | |
+| DL-8 | Export CSV — header row + data rows | Board | |
+| DL-9 | Export ASC/BLF — valid in PCAN-View/CANalyzer | Board + PCAN-View | |
+| DL-10 | Feed to Bus Monitor — frames appear in trace | Board | |
+| DL-11 | Log Replay — load CSV, frames in Bus Monitor | None | |
+| DL-12 | Replay speed — 1x timing, 10x faster | None | |
+| DL-13 | Erase all — entry count and wrap count reset to 0 | Board | |
+| DL-14 | Drop count — increments under load, gap markers in log | Board + high traffic | |
+
+---
+
 ## Known Limitations
 
 | Item | Detail |

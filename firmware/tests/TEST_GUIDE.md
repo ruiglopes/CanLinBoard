@@ -474,6 +474,78 @@ firmware binary with the config tool or Python host scripts.
 
 ---
 
+## Phase 8: Flash Logger (On-Target + Config Tool)
+
+**Hardware:** Board + PCAN on CAN1 at 500 kbps. Config tool connected.
+
+Phase 8 validates the flash data logger: manual start/stop, metadata persistence
+across reboot, chunked log download, CSV export, bus mask filtering, flash error
+recovery, and both continuous and triggered recording modes.
+
+**No dedicated test firmware** — all tests use the main firmware with the config
+tool's Data Logger tab and/or Python host scripts.
+
+### Prerequisites
+
+- Main firmware (v0.3.0+) flashed on board
+- CAN1 connected to host adapter at 500 kbps
+- Config tool open and connected
+- Data Logger tab visible in the config tool
+
+---
+
+### A — Logger Foundation
+
+| Test | What it checks | Pass criteria |
+|------|---------------|---------------|
+| T8.1 | Manual start/stop | Start recording, send 100 frames on 0x200, stop; verify entry count in UI matches 100 |
+| T8.2 | Metadata persistence | Start/stop recording, reboot board, reconnect; verify entry count preserved (non-zero, matches pre-reboot value) |
+| T8.3 | Chunked download | Record 500 frames, download via Data Logger tab; verify CRC passes and downloaded entry count matches recorded count |
+| T8.4 | CSV export | Download log, export as CSV; verify only logged frame IDs present in file (no garbage rows or IDs not transmitted) |
+| T8.5 | Bus mask filter | Set bus mask to CAN1 only; send frames on CAN1 and CAN2; verify only CAN1 frame IDs appear in downloaded log |
+| T8.6 | Flash error recovery | Verify flash error counter is readable (initial value 0); logger stops recording after `LOG_MAX_FLASH_ERRORS` consecutive write failures |
+| T8.7 | Erase all | Issue erase command from Data Logger tab; verify entry count resets to 0 and subsequent download returns empty log |
+| T8.8 | CAN bus health | Start recording; verify PCAN tool shows no BUSLIGHT/BUSHEAVY events and CAN1 error count stays at 0 throughout |
+
+---
+
+### B — Continuous Mode
+
+| Test | What it checks | Pass criteria |
+|------|---------------|---------------|
+| T8.9 | Continuous recording | Set mode to continuous, start, send frames until flash wraps; verify `wrap_count > 0` reported in logger status |
+| T8.10 | Auto-resume on boot | Set continuous mode, start recording, reboot board; verify recording resumes automatically without host intervention |
+| T8.11 | Gap markers | Flood logger queue beyond queue depth; verify drop counter increments in UI; download log and verify gap marker count > 0 in report |
+
+---
+
+### C — Triggered Mode
+
+| Test | What it checks | Pass criteria |
+|------|---------------|---------------|
+| T8.12 | Arm and trigger | Set triggered mode; configure trigger (bus=CAN1, ID=0x200, op=any); arm logger; send a frame on 0x200; verify state transitions armed → capturing → idle |
+| T8.13 | Pre/post trigger window | Configure `pre_trigger_kb=16` and `post_trigger_kb=16`; arm, send background traffic, send trigger frame; verify captured window size ≥ 32 KB |
+| T8.14 | Trigger operators | Step through equals, greater-than, less-than, and mask operators on trigger byte; for each, verify trigger fires only on a matching byte value and does not fire on a non-matching value |
+| T8.15 | Stop while armed | Arm logger; issue stop command before any trigger frame is sent; verify logger returns to idle state without capturing any data |
+
+---
+
+### Troubleshooting
+
+| Symptom | Likely cause |
+|---------|-------------|
+| Entry count stays 0 after recording | Logger not started, or bus mask excludes all buses — check mode and mask params |
+| CRC fails on download | Chunked download interrupted or reassembly out of order — retry; check for sequence gaps in download log |
+| CSV contains garbage rows | Log not erased before test; entries from a prior session in flash — erase first (T8.7) |
+| Auto-resume does not trigger (T8.10) | Continuous mode or auto-resume flag not persisted to NVM — issue save command before rebooting |
+| Wrap count stays 0 (T8.9) | Flash not full yet — send more frames or use a smaller pre-allocated log region |
+| State does not reach capturing (T8.12) | Trigger condition mismatch — verify bus, ID, and operator fields match exactly what was sent |
+| Pre/post window smaller than expected (T8.13) | Log region smaller than 32 KB or pre-trigger buffer not yet full — allow more background traffic before triggering |
+
+**Gate:** T8.1–T8.8 pass before testing continuous and triggered modes. T8.9–T8.15 can run once foundation tests pass.
+
+---
+
 ## Test Firmware Build Targets
 
 | Target | CMake Command | Define |

@@ -4,6 +4,34 @@ All notable changes to the CAN/LIN Gateway Board project.
 
 ---
 
+## v0.3.0 — 2026-03-24
+
+### Added
+- **Bus Monitor** — live bus monitoring with signal decoding (DBC/LDF), trace panel, signal panel, time-series graphing (ScottPlot)
+- **Monitor Protocol** — firmware streams CAN2/LIN1-4 traffic as 0x604/0x605 frame pairs on CAN1
+- **Project System** — .clpkg ZIP bundles with embedded databases, File menu with Ctrl+N/O/S
+- **Export Formats** — CSV, ASC (Vector), BLF (Vector binary) export from Bus Monitor
+- **Instrument Panel** — 5 widget types (numeric, bar, gauge, boolean, enum) with right-click cycle
+- **Flash Logger** — on-board data logger with 3 recording modes:
+  - Manual: start/stop from config tool
+  - Continuous: ring buffer wraps, auto-resumes on boot, gap markers on queue overflow
+  - Triggered: arm with condition (bus + ID + byte comparison), pre/post KB capture window
+- **Data Logger Tab** — LogControlPanel (mode/bus/trigger config), LogDownloadPanel (chunked download with CRC), LogReplayPanel (CSV playback at 1x/2x/5x/10x)
+- **LDF Integration** — LIN database support for signal decoding
+- **CI Pipeline** — GitHub Actions workflow for firmware build and config tool tests
+
+### Fixed
+- **Flash logger CAN bus errors** — lightweight flash acquire (`sec_flash_acquire_light`) skips XIP exit/enter, reducing interrupt-off time from ~500µs to ~50µs per SPI operation
+- **Flash write size** — reduced from 256 to 64 bytes per write to limit SPI transfer duration within can2040 PIO IRQ tolerance
+- **Log parser page alignment** — parser now tracks 64-byte write chunk boundaries, skipping 4-byte padding per chunk; validates bus (0-5) and DLC (0-8)
+- **Non-blocking metadata save** — `save_metadata()` uses non-blocking erase+program with vTaskDelay polling when scheduler is running
+- **Download TX retry** — chunked log read now retries CAN transmits with yield, matching existing bulk read pattern
+- **Download buttons greyed out** — `NotifyCanExecuteChanged` on protocol connect/disconnect
+- **Bus Monitor filter** — ComboBox items changed from ComboBoxItem objects to plain strings
+- **Monitor CAN1 echo** — default bus mask excludes CAN1 (tool sees it natively); CAN1 checkbox disabled in UI
+
+---
+
 ## v0.2.3 — 2026-03-22
 
 Input validation (P2.5, P2.6).

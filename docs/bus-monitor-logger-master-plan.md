@@ -138,7 +138,9 @@ Assign LDF files to LIN buses in the Bus Monitor tab. When the firmware monitor 
 
 ### Key decisions
 - Logger task at priority tskIDLE_PRIORITY+1 — doesn't compete with CAN/LIN real-time tasks
-- 12 entries per 256-byte flash page (20 bytes each, 16 bytes wasted per page)
+- 3 entries per 64-byte flash write (4 writes fill one 256-byte page, zero wasted space)
+- Lightweight flash acquire (`sec_flash_acquire_light`) for logger — skips XIP exit/enter, ~50µs interrupt-off vs ~500µs heavy path. Critical for CAN PIO IRQ timing.
+- Parser tracks 64-byte write chunk alignment, skips 4-byte padding, validates bus/DLC fields
 - Metadata CRC preserves write_offset across power cycles
 - 32-bit params (entry_count, wrap_count, write_offset) read via sub=0/sub=1 split
 
